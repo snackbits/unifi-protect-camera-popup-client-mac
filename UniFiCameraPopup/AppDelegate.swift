@@ -9,7 +9,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let settings = SettingsStore.shared
     private let webSocketClient = WebSocketClient()
     private var statusMenuItem: NSMenuItem?
-    private var launchAtLoginMenuItem: NSMenuItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupStatusItem()
@@ -54,13 +53,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let reconnectItem = NSMenuItem(title: "Neu verbinden", action: #selector(reconnect), keyEquivalent: "r")
         reconnectItem.target = self
         menu.addItem(reconnectItem)
-
-        menu.addItem(NSMenuItem.separator())
-
-        launchAtLoginMenuItem = NSMenuItem(title: "Beim Login starten", action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
-        launchAtLoginMenuItem?.target = self
-        launchAtLoginMenuItem?.state = settings.launchAtLogin ? .on : .off
-        menu.addItem(launchAtLoginMenuItem!)
 
         menu.addItem(NSMenuItem.separator())
 
@@ -123,11 +115,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func reconnect() {
         webSocketClient.reconnect()
-    }
-
-    @objc private func toggleLaunchAtLogin() {
-        settings.launchAtLogin.toggle()
-        launchAtLoginMenuItem?.state = settings.launchAtLogin ? .on : .off
     }
 
     @objc private func quit() {

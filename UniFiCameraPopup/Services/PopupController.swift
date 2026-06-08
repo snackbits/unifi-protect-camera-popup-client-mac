@@ -29,8 +29,8 @@ final class PopupController {
         dismiss()
 
         let position = mapping.positionOverride ?? settings.defaultPosition
-        let width = CGFloat(mapping.widthOverride ?? settings.defaultWidth)
-        let height = CGFloat(mapping.heightOverride ?? settings.defaultHeight)
+        let width = CGFloat(mapping.width)
+        let height = CGFloat(mapping.height)
         let screen = WindowPositioner.targetScreen(for: settings.screenTarget)
         let frame = WindowPositioner.frame(
             width: width,
@@ -53,6 +53,7 @@ final class PopupController {
         currentWindow = window
         currentWebhookId = event.webhookId
         window.makeKeyAndOrderFront(nil)
+        window.startPlayback()
         NSApp.activate(ignoringOtherApps: true)
     }
 

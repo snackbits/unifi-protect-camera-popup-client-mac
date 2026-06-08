@@ -36,22 +36,6 @@ struct SettingsView: View {
                 }
 
                 HStack {
-                    Text("Breite")
-                    Slider(value: $settings.defaultWidth, in: 240...1280, step: 10)
-                    Text("\(Int(settings.defaultWidth)) px")
-                        .monospacedDigit()
-                        .frame(width: 60, alignment: .trailing)
-                }
-
-                HStack {
-                    Text("Höhe")
-                    Slider(value: $settings.defaultHeight, in: 135...720, step: 10)
-                    Text("\(Int(settings.defaultHeight)) px")
-                        .monospacedDigit()
-                        .frame(width: 60, alignment: .trailing)
-                }
-
-                HStack {
                     Text("Randabstand")
                     Slider(value: $settings.edgeMargin, in: 0...120, step: 1)
                     Text("\(Int(settings.edgeMargin)) px")
@@ -77,9 +61,25 @@ struct SettingsView: View {
             Section("Kameras") {
                 ForEach($settings.mappings) { $mapping in
                     VStack(alignment: .leading, spacing: 8) {
-                        TextField("Bezeichnung", text: $mapping.label)
-                        TextField("Webhook ID", text: $mapping.webhookId)
-                        TextField("RTSPS URL", text: $mapping.rtspsURL)
+                        HStack {
+                            Spacer()
+                            Button("Entfernen", role: .destructive) {
+                                settings.removeMapping(id: mapping.id)
+                            }
+                        }
+
+                        TextField("z. B. Eingang", text: $mapping.label)
+                            .textFieldStyle(.roundedBorder)
+                        TextField("z. B. front-door", text: $mapping.webhookId)
+                            .textFieldStyle(.roundedBorder)
+                        TextField("RTSP URL", text: $mapping.rtspsURL, prompt: Text("rtsp://user:pass@host:7447/…"))
+                            .textFieldStyle(.roundedBorder)
+
+                        if let warning = streamURLWarning(for: mapping.rtspsURL) {
+                            Label(warning, systemImage: "exclamationmark.triangle.fill")
+                                .font(.caption)
+                                .foregroundStyle(.orange)
+                        }
 
                         Picker("Position (optional)", selection: Binding<PopupPosition?>(
                             get: { mapping.positionOverride },
@@ -90,11 +90,13 @@ struct SettingsView: View {
                                 Text(position.label).tag(Optional(position))
                             }
                         }
+
+                        TextField("Breite (px)", text: dimensionBinding($mapping.width), prompt: Text("480"))
+                            .textFieldStyle(.roundedBorder)
+                        TextField("Höhe (px)", text: dimensionBinding($mapping.height), prompt: Text("270"))
+                            .textFieldStyle(.roundedBorder)
                     }
                     .padding(.vertical, 4)
-                }
-                .onDelete { offsets in
-                    settings.removeMappings(at: offsets)
                 }
 
                 HStack {
@@ -111,5 +113,29 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .padding()
+    }
+
+    private func streamURLWarning(for url: String) -> String? {
+        let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+
+        if trimmed.lowercased().contains("rtsps://") {
+            return "RTSPS wird nicht unterstützt. Bitte rtsp:// verwenden."
+        }
+        if trimmed.contains(":7441") {
+            return "Port 7441 wird nicht unterstützt. Bitte Port 7447 verwenden."
+        }
+        return nil
+    }
+
+    private func dimensionBinding(_ value: Binding<Double>) -> Binding<String> {
+        Binding(
+            get: { String(Int(value.wrappedValue)) },
+            set: { newValue in
+                let digits = newValue.filter(\.isNumber)
+                guard !digits.isEmpty, let parsed = Double(digits) else { return }
+                value.wrappedValue = parsed
+            }
+        )
     }
 }

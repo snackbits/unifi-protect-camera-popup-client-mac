@@ -22,14 +22,6 @@ final class SettingsStore: ObservableObject {
         didSet { persist() }
     }
 
-    @Published var defaultWidth: Double {
-        didSet { persist() }
-    }
-
-    @Published var defaultHeight: Double {
-        didSet { persist() }
-    }
-
     @Published var edgeMargin: Double {
         didSet { persist() }
     }
@@ -61,8 +53,8 @@ final class SettingsStore: ObservableObject {
         var appToken: String
         var mappings: [WebhookMapping]
         var defaultPosition: PopupPosition
-        var defaultWidth: Double
-        var defaultHeight: Double
+        var defaultWidth: Double?
+        var defaultHeight: Double?
         var edgeMargin: Double
         var autoCloseTimeout: Double
         var screenTarget: ScreenTarget
@@ -75,10 +67,13 @@ final class SettingsStore: ObservableObject {
            let saved = try? JSONDecoder().decode(PersistedSettings.self, from: data) {
             serverURL = saved.serverURL
             appToken = saved.appToken
-            mappings = saved.mappings
+            mappings = Self.migrateMappingDimensions(
+                mappings: saved.mappings,
+                from: data,
+                defaultWidth: saved.defaultWidth ?? 480,
+                defaultHeight: saved.defaultHeight ?? 270
+            )
             defaultPosition = saved.defaultPosition
-            defaultWidth = saved.defaultWidth
-            defaultHeight = saved.defaultHeight
             edgeMargin = saved.edgeMargin
             autoCloseTimeout = saved.autoCloseTimeout
             screenTarget = saved.screenTarget
@@ -89,8 +84,6 @@ final class SettingsStore: ObservableObject {
             appToken = ""
             mappings = []
             defaultPosition = .topRight
-            defaultWidth = 480
-            defaultHeight = 270
             edgeMargin = 16
             autoCloseTimeout = 30
             screenTarget = .main
@@ -104,11 +97,40 @@ final class SettingsStore: ObservableObject {
     }
 
     func addMapping() {
-        mappings.append(WebhookMapping(label: "Neue Kamera"))
+        mappings.append(WebhookMapping())
     }
 
-    func removeMappings(at offsets: IndexSet) {
-        mappings.remove(atOffsets: offsets)
+    func removeMapping(id: UUID) {
+        mappings.removeAll { $0.entryId == id }
+    }
+
+    private static func migrateMappingDimensions(
+        mappings: [WebhookMapping],
+        from data: Data,
+        defaultWidth: Double,
+        defaultHeight: Double
+    ) -> [WebhookMapping] {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let mappingJSON = json["mappings"] as? [[String: Any]],
+              mappingJSON.count == mappings.count else {
+            return mappings
+        }
+
+        return zip(mappings, mappingJSON).map { mapping, dict in
+            var migrated = mapping
+            let hadWidth = dict["width"] != nil
+                || (dict["widthOverride"] != nil && !(dict["widthOverride"] is NSNull))
+            let hadHeight = dict["height"] != nil
+                || (dict["heightOverride"] != nil && !(dict["heightOverride"] is NSNull))
+
+            if !hadWidth {
+                migrated.width = defaultWidth
+            }
+            if !hadHeight {
+                migrated.height = defaultHeight
+            }
+            return migrated
+        }
     }
 
     private func persist() {
@@ -117,8 +139,8 @@ final class SettingsStore: ObservableObject {
             appToken: appToken,
             mappings: mappings,
             defaultPosition: defaultPosition,
-            defaultWidth: defaultWidth,
-            defaultHeight: defaultHeight,
+            defaultWidth: nil,
+            defaultHeight: nil,
             edgeMargin: edgeMargin,
             autoCloseTimeout: autoCloseTimeout,
             screenTarget: screenTarget,
