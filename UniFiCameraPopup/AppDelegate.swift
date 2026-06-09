@@ -31,7 +31,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
         if let button = statusItem?.button {
-            button.image = NSImage(systemSymbolName: "video.fill", accessibilityDescription: "UniFi Camera Popup")
+            button.image = makeStatusBarIcon(tintedWith: statusColor(for: .disconnected))
+            button.image?.accessibilityDescription = "UniFi Camera Popup"
         }
 
         let menu = NSMenu()
@@ -76,15 +77,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func updateStatusMenu(_ status: ConnectionStatus) {
         statusMenuItem?.title = "Status: \(status.menuLabel)"
         if let button = statusItem?.button {
-            let color: NSColor = switch status {
-            case .connected: .systemGreen
-            case .connecting: .systemYellow
-            case .disconnected: .systemRed
-            }
-            let config = NSImage.SymbolConfiguration(paletteColors: [color])
-            button.image = NSImage(systemSymbolName: "video.fill", accessibilityDescription: nil)?
-                .withSymbolConfiguration(config)
+            button.image = makeStatusBarIcon(tintedWith: statusColor(for: status))
         }
+    }
+
+    private func statusColor(for status: ConnectionStatus) -> NSColor {
+        switch status {
+        case .connected: .systemGreen
+        case .connecting: .systemYellow
+        case .disconnected: .systemRed
+        }
+    }
+
+    private func makeStatusBarIcon(tintedWith color: NSColor) -> NSImage? {
+        guard let base = NSImage(named: "MenuBarIcon") else { return nil }
+        let pointSize: CGFloat = 18
+        let size = NSSize(width: pointSize, height: pointSize)
+        let image = NSImage(size: size, flipped: false) { bounds in
+            color.setFill()
+            bounds.fill()
+            base.draw(in: bounds, from: NSRect(origin: .zero, size: base.size), operation: .destinationIn, fraction: 1.0)
+            return true
+        }
+        image.isTemplate = false
+        return image
     }
 
     @objc private func openSettings() {
