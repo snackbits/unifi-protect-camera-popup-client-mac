@@ -75,11 +75,10 @@ The server connection (URL and app token) is compiled into the app via
 
 Under **Einstellungen → Verbindung**:
 
-1. **App-Key**: the key received after purchase.
-2. **Eindeutige ID**: a unique per-install ID, auto-generated. Used in the
+1. **Eindeutige ID**: a unique per-install ID, auto-generated. Used in the
    webhook URL so different users never share webhook paths. A new ID can be
    generated (requires reconfiguring UniFi webhooks).
-3. **Webhook URL**: copyable `http://159.69.76.60:3847/webhook/<uid>/<slug>` —
+2. **Webhook URL**: copyable `http://159.69.76.60:3847/webhook/<uid>/<slug>` —
    replace `<WEBHOOK-SLUG>` with each camera's slug.
 
 Add camera mappings:
@@ -100,7 +99,7 @@ supported. Pasted URLs are automatically corrected.
 ## Usage
 
 - Click the camera icon in the menu bar
-- **Einstellungen** – configure App-Key and cameras
+- **Einstellungen** – configure cameras and view connection status
 - **Test-Popup** – test with first configured mapping
 
 The app reconnects automatically every 60 seconds while disconnected.

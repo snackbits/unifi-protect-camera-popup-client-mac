@@ -6,11 +6,6 @@ import ServiceManagement
 final class SettingsStore: ObservableObject {
     static let shared = SettingsStore()
 
-    /// License key the user receives after purchase. Entered by the user.
-    @Published var appKey: String {
-        didSet { persist() }
-    }
-
     /// Unique per-installation identifier used in webhook URLs so that
     /// different users never share the same webhook paths.
     @Published private(set) var installationId: String {
@@ -52,7 +47,6 @@ final class SettingsStore: ObservableObject {
     private let storageKey = "unifi.camera.popup.settings"
 
     private struct PersistedSettings: Codable {
-        var appKey: String?
         var installationId: String?
         var mappings: [WebhookMapping]
         var defaultPosition: PopupPosition
@@ -68,7 +62,6 @@ final class SettingsStore: ObservableObject {
     private init() {
         if let data = defaults.data(forKey: storageKey),
            let saved = try? JSONDecoder().decode(PersistedSettings.self, from: data) {
-            appKey = saved.appKey ?? ""
             installationId = saved.installationId?.isEmpty == false
                 ? saved.installationId!
                 : Self.makeInstallationId()
@@ -85,7 +78,6 @@ final class SettingsStore: ObservableObject {
             multiAlarmBehavior = saved.multiAlarmBehavior
             launchAtLogin = saved.launchAtLogin
         } else {
-            appKey = ""
             installationId = Self.makeInstallationId()
             mappings = []
             defaultPosition = .topRight
@@ -152,7 +144,6 @@ final class SettingsStore: ObservableObject {
 
     private func persist() {
         let payload = PersistedSettings(
-            appKey: appKey,
             installationId: installationId,
             mappings: mappings,
             defaultPosition: defaultPosition,

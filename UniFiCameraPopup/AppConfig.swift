@@ -14,7 +14,7 @@ enum AppConfig {
     /// Build identifier, rewritten by `scripts/build-release.sh` on every release.
     /// Must match the server's `versionId`; otherwise the server rejects the
     /// connection and the app shows an "outdated version" warning.
-    static let buildVersionId = "909c1400-e7e7-4d8c-8561-dff1058245e5"
+    static let buildVersionId = "c6f54545-255c-4c04-a3ae-d0cf59661f4d"
 
     /// Base URL UniFi Protect posts webhooks to. The full path is
     /// `<webhookBaseURL>/<installationId>/<webhook-slug>`.

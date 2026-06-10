@@ -28,9 +28,6 @@ struct SettingsView: View {
                     .foregroundStyle(.red)
                 }
 
-                SecureField("App-Key", text: $settings.appKey, prompt: Text("Nach dem Kauf erhaltener Key"))
-                    .textFieldStyle(.roundedBorder)
-
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Eindeutige ID")
                         .font(.caption)

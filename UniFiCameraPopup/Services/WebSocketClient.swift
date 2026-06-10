@@ -48,9 +48,8 @@ final class WebSocketClient: NSObject, ObservableObject {
 
         let token = AppConfig.appToken.trimmingCharacters(in: .whitespacesAndNewlines)
         let installationId = settings.installationId
-        let appKey = settings.appKey.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        guard let url = makeURL(installationId: installationId, appKey: appKey), !token.isEmpty else {
+        guard let url = makeURL(installationId: installationId), !token.isEmpty else {
             status = .disconnected
             scheduleReconnect()
             return
@@ -73,16 +72,13 @@ final class WebSocketClient: NSObject, ObservableObject {
         }
     }
 
-    private func makeURL(installationId: String, appKey: String) -> URL? {
+    private func makeURL(installationId: String) -> URL? {
         let base = AppConfig.serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
         guard var components = URLComponents(string: base) else { return nil }
 
         var queryItems = components.queryItems ?? []
         queryItems.append(URLQueryItem(name: "uid", value: installationId))
         queryItems.append(URLQueryItem(name: "v", value: AppConfig.buildVersionId))
-        if !appKey.isEmpty {
-            queryItems.append(URLQueryItem(name: "key", value: appKey))
-        }
         components.queryItems = queryItems
         return components.url
     }
