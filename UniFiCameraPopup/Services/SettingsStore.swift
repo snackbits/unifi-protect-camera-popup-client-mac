@@ -6,11 +6,14 @@ import ServiceManagement
 final class SettingsStore: ObservableObject {
     static let shared = SettingsStore()
 
-    @Published var serverURL: String {
+    /// License key the user receives after purchase. Entered by the user.
+    @Published var appKey: String {
         didSet { persist() }
     }
 
-    @Published var appToken: String {
+    /// Unique per-installation identifier used in webhook URLs so that
+    /// different users never share the same webhook paths.
+    @Published private(set) var installationId: String {
         didSet { persist() }
     }
 
@@ -49,8 +52,8 @@ final class SettingsStore: ObservableObject {
     private let storageKey = "unifi.camera.popup.settings"
 
     private struct PersistedSettings: Codable {
-        var serverURL: String
-        var appToken: String
+        var appKey: String?
+        var installationId: String?
         var mappings: [WebhookMapping]
         var defaultPosition: PopupPosition
         var defaultWidth: Double?
@@ -65,8 +68,10 @@ final class SettingsStore: ObservableObject {
     private init() {
         if let data = defaults.data(forKey: storageKey),
            let saved = try? JSONDecoder().decode(PersistedSettings.self, from: data) {
-            serverURL = saved.serverURL
-            appToken = saved.appToken
+            appKey = saved.appKey ?? ""
+            installationId = saved.installationId?.isEmpty == false
+                ? saved.installationId!
+                : Self.makeInstallationId()
             mappings = Self.migrateMappingDimensions(
                 mappings: saved.mappings,
                 from: data,
@@ -80,8 +85,8 @@ final class SettingsStore: ObservableObject {
             multiAlarmBehavior = saved.multiAlarmBehavior
             launchAtLogin = saved.launchAtLogin
         } else {
-            serverURL = "wss://your-domain.example/ws"
-            appToken = ""
+            appKey = ""
+            installationId = Self.makeInstallationId()
             mappings = []
             defaultPosition = .topRight
             edgeMargin = 16
@@ -90,6 +95,8 @@ final class SettingsStore: ObservableObject {
             multiAlarmBehavior = .replace
             launchAtLogin = LaunchAtLoginHelper.isEnabled
         }
+
+        persist()
     }
 
     func mapping(for webhookId: String) -> WebhookMapping? {
@@ -102,6 +109,16 @@ final class SettingsStore: ObservableObject {
 
     func removeMapping(id: UUID) {
         mappings.removeAll { $0.entryId == id }
+    }
+
+    /// Generates a fresh installation ID. This changes all webhook URLs, so
+    /// the user must reconfigure UniFi Protect afterwards.
+    func regenerateInstallationId() {
+        installationId = Self.makeInstallationId()
+    }
+
+    private static func makeInstallationId() -> String {
+        UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
     }
 
     private static func migrateMappingDimensions(
@@ -135,8 +152,8 @@ final class SettingsStore: ObservableObject {
 
     private func persist() {
         let payload = PersistedSettings(
-            serverURL: serverURL,
-            appToken: appToken,
+            appKey: appKey,
+            installationId: installationId,
             mappings: mappings,
             defaultPosition: defaultPosition,
             defaultWidth: nil,

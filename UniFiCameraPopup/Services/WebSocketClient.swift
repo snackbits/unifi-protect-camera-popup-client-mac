@@ -2,7 +2,7 @@ import Combine
 import Foundation
 
 @MainActor
-final class WebSocketClient: ObservableObject {
+final class WebSocketClient: NSObject, ObservableObject {
     @Published private(set) var status: ConnectionStatus = .disconnected
 
     var onTrigger: ((TriggerEvent) -> Void)?
@@ -10,16 +10,24 @@ final class WebSocketClient: ObservableObject {
     private let settings: SettingsStore
     private var webSocketTask: URLSessionWebSocketTask?
     private var session: URLSession?
-    private var reconnectAttempt = 0
     private var reconnectTask: Task<Void, Never>?
     private var receiveTask: Task<Void, Never>?
     private var isRunning = false
 
+    /// Set once the server reports a version mismatch. While set, the app no
+    /// longer attempts to reconnect. Only an app restart clears this (new process).
+    private var versionMismatch = false
+
+    /// Fixed retry interval while disconnected (seconds).
+    private let reconnectInterval: TimeInterval = 60
+
     init(settings: SettingsStore = .shared) {
         self.settings = settings
+        super.init()
     }
 
     func start() {
+        guard !versionMismatch else { return }
         isRunning = true
         connect()
     }
@@ -35,19 +43,14 @@ final class WebSocketClient: ObservableObject {
         status = .disconnected
     }
 
-    func reconnect() {
-        stop()
-        isRunning = true
-        connect()
-    }
-
     private func connect() {
         guard isRunning else { return }
 
-        let urlString = settings.serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        let token = settings.appToken.trimmingCharacters(in: .whitespacesAndNewlines)
+        let token = AppConfig.appToken.trimmingCharacters(in: .whitespacesAndNewlines)
+        let installationId = settings.installationId
+        let appKey = settings.appKey.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        guard let url = URL(string: urlString), !token.isEmpty else {
+        guard let url = makeURL(installationId: installationId, appKey: appKey), !token.isEmpty else {
             status = .disconnected
             scheduleReconnect()
             return
@@ -58,7 +61,7 @@ final class WebSocketClient: ObservableObject {
         var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
-        let session = URLSession(configuration: .default)
+        let session = URLSession(configuration: .default, delegate: self, delegateQueue: nil)
         self.session = session
         let task = session.webSocketTask(with: request)
         self.webSocketTask = task
@@ -68,9 +71,20 @@ final class WebSocketClient: ObservableObject {
         receiveTask = Task { [weak self] in
             await self?.listen()
         }
+    }
 
-        reconnectAttempt = 0
-        status = .connected
+    private func makeURL(installationId: String, appKey: String) -> URL? {
+        let base = AppConfig.serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard var components = URLComponents(string: base) else { return nil }
+
+        var queryItems = components.queryItems ?? []
+        queryItems.append(URLQueryItem(name: "uid", value: installationId))
+        queryItems.append(URLQueryItem(name: "v", value: AppConfig.buildVersionId))
+        if !appKey.isEmpty {
+            queryItems.append(URLQueryItem(name: "key", value: appKey))
+        }
+        components.queryItems = queryItems
+        return components.url
     }
 
     private func listen() async {
@@ -91,9 +105,7 @@ final class WebSocketClient: ObservableObject {
                 }
             }
         } catch {
-            await MainActor.run {
-                self.handleDisconnect()
-            }
+            handleDisconnect()
         }
     }
 
@@ -106,6 +118,12 @@ final class WebSocketClient: ObservableObject {
 
         switch type {
         case "trigger":
+            // Only process events addressed to this installation, so traffic
+            // from other users never reaches this app.
+            if let uid = json["uid"] as? String, uid != settings.installationId {
+                return
+            }
+
             let webhookId = json["webhookId"] as? String ?? ""
             let thumbnail = json["thumbnail"] as? String
             let alarmName = json["alarmName"] as? String
@@ -119,12 +137,27 @@ final class WebSocketClient: ObservableObject {
             )
             onTrigger?(event)
 
+        case "version_mismatch":
+            handleVersionMismatch()
+
         case "ping":
             sendPong()
 
         default:
             break
         }
+    }
+
+    private func handleVersionMismatch() {
+        versionMismatch = true
+        isRunning = false
+        reconnectTask?.cancel()
+        receiveTask?.cancel()
+        webSocketTask?.cancel(with: .normalClosure, reason: nil)
+        webSocketTask = nil
+        session?.invalidateAndCancel()
+        session = nil
+        status = .outdated
     }
 
     private func sendPong() {
@@ -137,25 +170,51 @@ final class WebSocketClient: ObservableObject {
     }
 
     private func handleDisconnect() {
+        // Keep the "outdated" state and never reconnect after a version mismatch.
+        guard !versionMismatch else { return }
+
         webSocketTask = nil
         session?.invalidateAndCancel()
         session = nil
-        status = .disconnected
+        if status != .disconnected {
+            status = .disconnected
+        }
         scheduleReconnect()
     }
 
     private func scheduleReconnect() {
-        guard isRunning else { return }
+        guard isRunning, !versionMismatch else { return }
 
         reconnectTask?.cancel()
-        let delay = min(pow(2.0, Double(reconnectAttempt)), 30.0)
-        reconnectAttempt += 1
-
+        let interval = reconnectInterval
         reconnectTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            try? await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
             await MainActor.run {
                 self?.connect()
             }
+        }
+    }
+}
+
+extension WebSocketClient: URLSessionWebSocketDelegate {
+    nonisolated func urlSession(
+        _ session: URLSession,
+        webSocketTask: URLSessionWebSocketTask,
+        didOpenWithProtocol protocol: String?
+    ) {
+        Task { @MainActor in
+            self.status = .connected
+        }
+    }
+
+    nonisolated func urlSession(
+        _ session: URLSession,
+        webSocketTask: URLSessionWebSocketTask,
+        didCloseWith closeCode: URLSessionWebSocketTask.CloseCode,
+        reason: Data?
+    ) {
+        Task { @MainActor in
+            self.handleDisconnect()
         }
     }
 }

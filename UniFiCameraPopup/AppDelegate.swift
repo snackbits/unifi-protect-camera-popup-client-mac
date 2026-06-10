@@ -51,10 +51,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         testItem.target = self
         menu.addItem(testItem)
 
-        let reconnectItem = NSMenuItem(title: "Neu verbinden", action: #selector(reconnect), keyEquivalent: "r")
-        reconnectItem.target = self
-        menu.addItem(reconnectItem)
-
         menu.addItem(NSMenuItem.separator())
 
         let quitItem = NSMenuItem(title: "Beenden", action: #selector(quit), keyEquivalent: "q")
@@ -86,6 +82,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .connected: .systemGreen
         case .connecting: .systemYellow
         case .disconnected: .systemRed
+        case .outdated: .systemRed
         }
     }
 
@@ -127,10 +124,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func showTestPopup() {
         PopupController.shared.showTestPopup()
-    }
-
-    @objc private func reconnect() {
-        webSocketClient.reconnect()
     }
 
     @objc private func quit() {

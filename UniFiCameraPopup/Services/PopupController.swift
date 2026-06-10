@@ -52,9 +52,9 @@ final class PopupController {
 
         currentWindow = window
         currentWebhookId = event.webhookId
-        window.makeKeyAndOrderFront(nil)
+        // Show without stealing focus so the user can keep typing in other apps.
+        window.orderFrontRegardless()
         window.startPlayback()
-        NSApp.activate(ignoringOtherApps: true)
     }
 
     func showTestPopup() {

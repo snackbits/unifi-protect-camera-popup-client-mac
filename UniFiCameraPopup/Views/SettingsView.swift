@@ -1,24 +1,71 @@
+import AppKit
 import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject private var settings: SettingsStore
     @EnvironmentObject private var webSocketClient: WebSocketClient
 
+    @State private var showRegenerateConfirm = false
+    @State private var copiedWebhookURL = false
+
     var body: some View {
         Form {
-            Section("Server") {
-                TextField("WebSocket URL", text: $settings.serverURL)
-                    .textFieldStyle(.roundedBorder)
-
-                SecureField("App Token", text: $settings.appToken)
-                    .textFieldStyle(.roundedBorder)
-
+            Section("Verbindung") {
                 HStack {
-                    Label(webSocketClient.status.menuLabel, systemImage: webSocketClient.status.symbolName)
+                    Circle()
+                        .fill(statusColor)
+                        .frame(width: 10, height: 10)
+                    Text(webSocketClient.status.menuLabel)
                     Spacer()
-                    Button("Neu verbinden") {
-                        webSocketClient.reconnect()
+                }
+
+                if webSocketClient.status == .outdated {
+                    Label(
+                        "Veraltete App-Version. Bitte aktualisiere die App.",
+                        systemImage: "exclamationmark.triangle.fill"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                }
+
+                SecureField("App-Key", text: $settings.appKey, prompt: Text("Nach dem Kauf erhaltener Key"))
+                    .textFieldStyle(.roundedBorder)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Eindeutige ID")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    HStack {
+                        Text(settings.installationId)
+                            .font(.system(.body, design: .monospaced))
+                            .textSelection(.enabled)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Spacer()
+                        Button("Neue ID") {
+                            showRegenerateConfirm = true
+                        }
                     }
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Webhook URL")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    HStack {
+                        Text(webhookURL)
+                            .font(.system(.caption, design: .monospaced))
+                            .textSelection(.enabled)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Spacer()
+                        Button(copiedWebhookURL ? "Kopiert" : "Kopieren") {
+                            copyWebhookURL()
+                        }
+                    }
+                    Text("\(AppConfig.webhookSlugPlaceholder) durch den jeweiligen Webhook-Slug der Kamera ersetzen.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
             }
 
@@ -61,19 +108,18 @@ struct SettingsView: View {
             Section("Kameras") {
                 ForEach($settings.mappings) { $mapping in
                     VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Spacer()
-                            Button("Entfernen", role: .destructive) {
-                                settings.removeMapping(id: mapping.id)
-                            }
-                        }
-
-                        TextField("z. B. Eingang", text: $mapping.label)
+                        TextField("Beschreibung (z. B. Eingang)", text: $mapping.label)
                             .textFieldStyle(.roundedBorder)
-                        TextField("z. B. front-door", text: $mapping.webhookId)
+                        TextField("Webhook-Slug (z. B. front-door)", text: $mapping.webhookId)
                             .textFieldStyle(.roundedBorder)
                         TextField("RTSP URL", text: $mapping.rtspsURL, prompt: Text("rtsp://user:pass@host:7447/…"))
                             .textFieldStyle(.roundedBorder)
+                            .onChange(of: mapping.rtspsURL) { newValue in
+                                let normalized = normalizeRTSP(newValue)
+                                if normalized != newValue {
+                                    mapping.rtspsURL = normalized
+                                }
+                            }
 
                         if let warning = streamURLWarning(for: mapping.rtspsURL) {
                             Label(warning, systemImage: "exclamationmark.triangle.fill")
@@ -95,6 +141,13 @@ struct SettingsView: View {
                             .textFieldStyle(.roundedBorder)
                         TextField("Höhe (px)", text: dimensionBinding($mapping.height), prompt: Text("270"))
                             .textFieldStyle(.roundedBorder)
+
+                        HStack {
+                            Spacer()
+                            Button("Entfernen", role: .destructive) {
+                                settings.removeMapping(id: mapping.id)
+                            }
+                        }
                     }
                     .padding(.vertical, 4)
                 }
@@ -113,6 +166,37 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .padding()
+        .alert("Neue ID generieren?", isPresented: $showRegenerateConfirm) {
+            Button("Abbrechen", role: .cancel) {}
+            Button("Neue ID", role: .destructive) {
+                settings.regenerateInstallationId()
+            }
+        } message: {
+            Text("Die Webhook URLs ändern sich. Du musst die Webhooks in UniFi Protect anschließend neu eintragen.")
+        }
+    }
+
+    private var statusColor: Color {
+        switch webSocketClient.status {
+        case .connected: return .green
+        case .connecting: return .orange
+        case .disconnected, .outdated: return .red
+        }
+    }
+
+    private var webhookURL: String {
+        AppConfig.webhookURL(installationId: settings.installationId)
+    }
+
+    private func copyWebhookURL() {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(webhookURL, forType: .string)
+        copiedWebhookURL = true
+        Task {
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            copiedWebhookURL = false
+        }
     }
 
     private func streamURLWarning(for url: String) -> String? {
@@ -125,7 +209,35 @@ struct SettingsView: View {
         if trimmed.contains(":7441") {
             return "Port 7441 wird nicht unterstützt. Bitte Port 7447 verwenden."
         }
+        if trimmed.lowercased().contains("enablesrtp") {
+            return "?enableSrtp wird nicht unterstützt. Bitte entfernen."
+        }
         return nil
+    }
+
+    /// Normalizes a UniFi RTSP URL: rtsps:// → rtsp://, :7441 → :7447,
+    /// and removes the enableSrtp query parameter. Idempotent.
+    private func normalizeRTSP(_ url: String) -> String {
+        var result = url
+
+        if let range = result.range(of: "rtsps://", options: .caseInsensitive) {
+            result.replaceSubrange(range, with: "rtsp://")
+        }
+
+        result = result.replacingOccurrences(of: ":7441", with: ":7447")
+
+        result = result.replacingOccurrences(
+            of: "[?&]enableSrtp(=[^&]*)?",
+            with: "",
+            options: [.regularExpression, .caseInsensitive]
+        )
+
+        // If removing the first query parameter left a dangling "&", promote it to "?".
+        if !result.contains("?"), let amp = result.firstIndex(of: "&") {
+            result.replaceSubrange(amp...amp, with: "?")
+        }
+
+        return result
     }
 
     private func dimensionBinding(_ value: Binding<Double>) -> Binding<String> {

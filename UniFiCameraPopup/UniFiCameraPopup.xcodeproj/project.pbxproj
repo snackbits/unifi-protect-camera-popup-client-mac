@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		A10000000000000000000001 /* UniFiCameraPopupApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000001 /* UniFiCameraPopupApp.swift */; };
 		A10000000000000000000002 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000002 /* AppDelegate.swift */; };
+		A10000000000000000000016 /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000016 /* AppConfig.swift */; };
 		A10000000000000000000003 /* PopupPosition.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000003 /* PopupPosition.swift */; };
 		A10000000000000000000004 /* WebhookMapping.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000004 /* WebhookMapping.swift */; };
 		A10000000000000000000005 /* ConnectionStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000005 /* ConnectionStatus.swift */; };
@@ -26,6 +27,7 @@
 /* Begin PBXFileReference section */
 		A20000000000000000000001 /* UniFiCameraPopupApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UniFiCameraPopupApp.swift; sourceTree = "<group>"; };
 		A20000000000000000000002 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		A20000000000000000000016 /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
 		A20000000000000000000003 /* PopupPosition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopupPosition.swift; sourceTree = "<group>"; };
 		A20000000000000000000004 /* WebhookMapping.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebhookMapping.swift; sourceTree = "<group>"; };
 		A20000000000000000000005 /* ConnectionStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionStatus.swift; sourceTree = "<group>"; };
@@ -66,6 +68,7 @@
 			children = (
 				A20000000000000000000001 /* UniFiCameraPopupApp.swift */,
 				A20000000000000000000002 /* AppDelegate.swift */,
+				A20000000000000000000016 /* AppConfig.swift */,
 				A40000000000000000000004 /* Models */,
 				A40000000000000000000005 /* Services */,
 				A40000000000000000000006 /* Views */,
@@ -190,6 +193,7 @@
 			files = (
 				A10000000000000000000001 /* UniFiCameraPopupApp.swift in Sources */,
 				A10000000000000000000002 /* AppDelegate.swift in Sources */,
+				A10000000000000000000016 /* AppConfig.swift in Sources */,
 				A10000000000000000000003 /* PopupPosition.swift in Sources */,
 				A10000000000000000000004 /* WebhookMapping.swift in Sources */,
 				A10000000000000000000005 /* ConnectionStatus.swift in Sources */,

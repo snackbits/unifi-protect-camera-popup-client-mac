@@ -44,6 +44,11 @@ final class PopupWindow: NSPanel {
         setupCloseHandlers(autoCloseSeconds: autoCloseSeconds)
     }
 
+    // Never become the key/main window so keyboard focus stays in the app the
+    // user is currently working in. Mouse clicks and hover tracking still work.
+    override var canBecomeKey: Bool { false }
+    override var canBecomeMain: Bool { false }
+
     func startPlayback() {
         playerView.play(urlString: streamURL) { [weak self] in
             guard let self else { return }

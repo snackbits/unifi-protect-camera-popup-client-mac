@@ -70,11 +70,23 @@ open .build/Build/Products/Debug/UniFiCameraPopup.app
 
 ## Configuration
 
-1. **Server URL**: `wss://your-domain.example/ws`
-2. **App Token**: same as `APP_TOKEN` on the server
-3. Add camera mappings:
-   - **Webhook ID**: path segment from UniFi delivery URL (`/webhook/front-door` → `front-door`)
-   - **RTSP URL**: local stream URL with credentials (never sent to server)
+The server connection (URL and app token) is compiled into the app via
+`AppConfig.swift` and is not user-editable.
+
+Under **Einstellungen → Verbindung**:
+
+1. **App-Key**: the key received after purchase.
+2. **Eindeutige ID**: a unique per-install ID, auto-generated. Used in the
+   webhook URL so different users never share webhook paths. A new ID can be
+   generated (requires reconfiguring UniFi webhooks).
+3. **Webhook URL**: copyable `http://159.69.76.60:3847/webhook/<uid>/<slug>` —
+   replace `<WEBHOOK-SLUG>` with each camera's slug.
+
+Add camera mappings:
+
+- **Beschreibung**: friendly label (e.g. Eingang)
+- **Webhook-Slug**: path segment used in the webhook URL (e.g. `front-door`)
+- **RTSP URL**: local stream URL with credentials (never sent to server)
 
 Example RTSP URL:
 
@@ -82,14 +94,16 @@ Example RTSP URL:
 rtsp://user:password@192.168.1.10:7447/s0WhqXXX
 ```
 
-Use `rtsp://` on port **7447** — `rtsps://` and port 7441 are not supported by the app.
+Use `rtsp://` on port **7447** — `rtsps://`, port 7441 and `?enableSrtp` are not
+supported. Pasted URLs are automatically corrected.
 
 ## Usage
 
 - Click the camera icon in the menu bar
-- **Einstellungen** – configure server and cameras
+- **Einstellungen** – configure App-Key and cameras
 - **Test-Popup** – test with first configured mapping
-- **Neu verbinden** – force WebSocket reconnect
+
+The app reconnects automatically every 60 seconds while disconnected.
 
 Popup closes when you click anywhere on it or press ESC. Auto-close pauses while the mouse is over the popup.
 
