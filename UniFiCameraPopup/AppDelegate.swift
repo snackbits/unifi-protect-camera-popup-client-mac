@@ -15,6 +15,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var updateMenuItem: NSMenuItem?
     private var unmuteMenuItem: NSMenuItem?
     private var updateCheckTimer: Timer?
+    private var muteExpiryTimer: Timer?
+    private var dndCheckTimer: Timer?
+    private var connectionStatus: ConnectionStatus = .disconnected
     /// Prevents retry loops when an automatic install fails.
     private var autoInstallAttemptedVersionId: String?
 
@@ -31,6 +34,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         webSocketClient.stop()
         updateCheckTimer?.invalidate()
+        muteExpiryTimer?.invalidate()
+        dndCheckTimer?.invalidate()
         PopupController.shared.dismiss()
     }
 
@@ -44,7 +49,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
         if let button = statusItem?.button {
-            button.image = makeStatusBarIcon(tintedWith: statusColor(for: .disconnected))
+            button.image = makeStatusBarIcon(
+                tintedWith: statusColor(for: .disconnected),
+                showSuppressedBadge: showPopupSuppressedBadge
+            )
             button.image?.accessibilityDescription = "UniFi Camera Popup"
         }
 
@@ -83,6 +91,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         unmuteMenuItem.target = self
         unmuteMenuItem.isHidden = true
+        if let unmuteImage = NSImage(systemSymbolName: "bell.slash.fill", accessibilityDescription: "Stummschaltung aufheben") {
+            unmuteImage.isTemplate = true
+            unmuteMenuItem.image = unmuteImage
+        }
         menu.addItem(unmuteMenuItem)
         self.unmuteMenuItem = unmuteMenuItem
 
@@ -112,6 +124,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task {
             await observeUpdateState()
         }
+        Task {
+            await observePopupSuppressionState()
+        }
+        startDNDPolling()
+        scheduleMuteExpiryRefresh()
     }
 
     private func observeConnectionStatus() async {
@@ -131,10 +148,71 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func updateStatusMenu(_ status: ConnectionStatus) {
+        connectionStatus = status
         statusMenuItem?.title = "Status: \(status.menuLabel)"
-        if let button = statusItem?.button {
-            button.image = makeStatusBarIcon(tintedWith: statusColor(for: status))
+        updateStatusBarIcon()
+    }
+
+    private var showPopupSuppressedBadge: Bool {
+        if settings.isMuted { return true }
+        if settings.disableDuringDND, DoNotDisturbChecker.isActive { return true }
+        return false
+    }
+
+    private func updateStatusBarIcon() {
+        statusItem?.button?.image = makeStatusBarIcon(
+            tintedWith: statusColor(for: connectionStatus),
+            showSuppressedBadge: showPopupSuppressedBadge
+        )
+    }
+
+    private func observePopupSuppressionState() async {
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask { @MainActor in
+                for await _ in self.settings.$muteUntil.values {
+                    self.updateStatusBarIcon()
+                    self.scheduleMuteExpiryRefresh()
+                }
+            }
+            group.addTask { @MainActor in
+                for await _ in self.settings.$disableDuringDND.values {
+                    self.updateStatusBarIcon()
+                }
+            }
         }
+    }
+
+    private func scheduleMuteExpiryRefresh() {
+        muteExpiryTimer?.invalidate()
+        muteExpiryTimer = nil
+
+        guard settings.isMuted, let muteUntil = settings.muteUntil else {
+            updateStatusBarIcon()
+            return
+        }
+
+        let interval = muteUntil.timeIntervalSinceNow
+        guard interval > 0 else {
+            updateStatusBarIcon()
+            return
+        }
+
+        let timer = Timer(timeInterval: interval, repeats: false) { [weak self] _ in
+            Task { @MainActor in
+                self?.updateStatusBarIcon()
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        muteExpiryTimer = timer
+    }
+
+    private func startDNDPolling() {
+        dndCheckTimer = Timer(timeInterval: 30, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.updateStatusBarIcon()
+            }
+        }
+        RunLoop.main.add(dndCheckTimer!, forMode: .common)
     }
 
     private func updateUpdateMenu(_ state: UpdateState) {
@@ -203,7 +281,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func makeStatusBarIcon(tintedWith color: NSColor) -> NSImage? {
+    private func makeStatusBarIcon(tintedWith color: NSColor, showSuppressedBadge: Bool) -> NSImage? {
         guard let base = NSImage(named: "MenuBarIcon") else { return nil }
         let pointSize: CGFloat = 18
         let size = NSSize(width: pointSize, height: pointSize)
@@ -211,6 +289,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             color.setFill()
             bounds.fill()
             base.draw(in: bounds, from: NSRect(origin: .zero, size: base.size), operation: .destinationIn, fraction: 1.0)
+
+            if showSuppressedBadge, let zzz = NSImage(named: "ZzzBadge") {
+                let badgeSize = pointSize * 0.58
+                let badgeRect = NSRect(
+                    x: bounds.maxX - badgeSize + 2,
+                    y: bounds.minY - 1,
+                    width: badgeSize,
+                    height: badgeSize
+                )
+                NSColor.systemOrange.setFill()
+                badgeRect.fill()
+                zzz.draw(
+                    in: badgeRect,
+                    from: NSRect(origin: .zero, size: zzz.size),
+                    operation: .destinationIn,
+                    fraction: 1.0
+                )
+            }
+
             return true
         }
         image.isTemplate = false
@@ -292,6 +389,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func clearMute() {
         settings.clearMute()
+        updateStatusBarIcon()
+        scheduleMuteExpiryRefresh()
     }
 
     @objc private func quit() {

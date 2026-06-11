@@ -390,7 +390,7 @@ private final class MuteBarView: NSView {
         button.action = #selector(muteTapped(_:))
         button.tag = Int(duration)
         button.translatesAutoresizingMaskIntoConstraints = false
-        button.widthAnchor.constraint(greaterThanOrEqualToConstant: 46).isActive = true
+        button.widthAnchor.constraint(greaterThanOrEqualToConstant: 52).isActive = true
         button.heightAnchor.constraint(equalToConstant: 24).isActive = true
         return button
     }
