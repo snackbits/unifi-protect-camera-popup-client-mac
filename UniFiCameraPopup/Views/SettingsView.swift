@@ -7,6 +7,7 @@ struct SettingsView: View {
 
     @State private var showRegenerateConfirm = false
     @State private var copiedWebhookURL = false
+    @State private var copiedBearerToken = false
 
     var body: some View {
         Form {
@@ -61,6 +62,26 @@ struct SettingsView: View {
                         }
                     }
                     Text("\(AppConfig.webhookSlugPlaceholder) durch den jeweiligen Webhook-Slug der Kamera ersetzen.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Bearer Token")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    HStack {
+                        Text(AppConfig.webhookToken)
+                            .font(.system(.caption, design: .monospaced))
+                            .textSelection(.enabled)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Spacer()
+                        Button(copiedBearerToken ? "Kopiert" : "Kopieren") {
+                            copyBearerToken()
+                        }
+                    }
+                    Text("Für „Authentifizierung“ → „Bearer“ → „Token“ im UniFi Alarm Manager.")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
@@ -123,6 +144,8 @@ struct SettingsView: View {
                                 .font(.caption)
                                 .foregroundStyle(.orange)
                         }
+
+                        Toggle("Ton", isOn: $mapping.soundEnabled)
 
                         Picker("Position (optional)", selection: Binding<PopupPosition?>(
                             get: { mapping.positionOverride },
@@ -197,14 +220,30 @@ struct SettingsView: View {
     }
 
     private func copyWebhookURL() {
+        copyToPasteboard(webhookURL) {
+            copiedWebhookURL = true
+            Task {
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
+                copiedWebhookURL = false
+            }
+        }
+    }
+
+    private func copyBearerToken() {
+        copyToPasteboard(AppConfig.webhookToken) {
+            copiedBearerToken = true
+            Task {
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
+                copiedBearerToken = false
+            }
+        }
+    }
+
+    private func copyToPasteboard(_ string: String, onCopied: () -> Void) {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
-        pasteboard.setString(webhookURL, forType: .string)
-        copiedWebhookURL = true
-        Task {
-            try? await Task.sleep(nanoseconds: 1_500_000_000)
-            copiedWebhookURL = false
-        }
+        pasteboard.setString(string, forType: .string)
+        onCopied()
     }
 
     private func canTestPopup(_ mapping: WebhookMapping) -> Bool {

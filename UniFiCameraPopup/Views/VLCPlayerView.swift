@@ -113,16 +113,19 @@ final class VLCPlayerContainerView: NSView, VLCMediaPlayerDelegate {
         beginPlayback(urlString: pendingURL)
     }
 
-    func play(urlString: String, onFirstFrame: @escaping () -> Void) {
+    func play(urlString: String, soundEnabled: Bool = true, onFirstFrame: @escaping () -> Void) {
         self.onFirstFrame = onFirstFrame
         hasNotifiedFirstFrame = false
         pendingURL = urlString
+        self.soundEnabled = soundEnabled
 
         if window != nil {
             pendingURL = nil
             beginPlayback(urlString: urlString)
         }
     }
+
+    private var soundEnabled = true
 
     private func beginPlayback(urlString: String) {
         guard let url = URL(string: urlString) else {
@@ -139,7 +142,7 @@ final class VLCPlayerContainerView: NSView, VLCMediaPlayerDelegate {
 
         player.stop()
         player.media = media
-        player.audio?.isMuted = false
+        player.audio?.isMuted = !soundEnabled
         player.play()
 
         NSLog("VLC: starting playback for \(url.host ?? "unknown")")

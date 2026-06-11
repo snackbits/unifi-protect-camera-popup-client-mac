@@ -57,6 +57,7 @@ final class PopupController {
         let window = PopupWindow(
             frame: frame,
             streamURL: streamURL,
+            soundEnabled: mapping.soundEnabled,
             thumbnailDataURI: event.thumbnail,
             autoCloseSeconds: settings.autoCloseTimeout
         ) { [weak self] in

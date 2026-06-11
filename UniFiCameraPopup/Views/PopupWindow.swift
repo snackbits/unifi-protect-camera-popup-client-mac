@@ -13,17 +13,20 @@ final class PopupWindow: NSPanel {
     private var autoCloseDeadline: Date?
     private var mouseInside = false
     private let streamURL: String
+    private let soundEnabled: Bool
     private let onClose: () -> Void
 
     init(
         frame: NSRect,
         streamURL: String,
+        soundEnabled: Bool = true,
         thumbnailDataURI: String?,
         autoCloseSeconds: Double,
         onClose: @escaping () -> Void
     ) {
         self.onClose = onClose
         self.streamURL = streamURL
+        self.soundEnabled = soundEnabled
 
         super.init(
             contentRect: frame,
@@ -51,7 +54,7 @@ final class PopupWindow: NSPanel {
     override var canBecomeMain: Bool { false }
 
     func startPlayback() {
-        playerView.play(urlString: streamURL) { [weak self] in
+        playerView.play(urlString: streamURL, soundEnabled: soundEnabled) { [weak self] in
             guard let self else { return }
             NSAnimationContext.runAnimationGroup { context in
                 context.duration = 0.25

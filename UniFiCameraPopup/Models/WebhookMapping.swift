@@ -9,6 +9,7 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
     var positionOverride: PopupPosition?
     var width: Double
     var height: Double
+    var soundEnabled: Bool
 
     enum CodingKeys: String, CodingKey {
         case entryId
@@ -18,6 +19,7 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
         case positionOverride
         case width
         case height
+        case soundEnabled
         case widthOverride
         case heightOverride
     }
@@ -29,7 +31,8 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
         label: String = "",
         positionOverride: PopupPosition? = nil,
         width: Double = 480,
-        height: Double = 270
+        height: Double = 270,
+        soundEnabled: Bool = true
     ) {
         self.entryId = entryId
         self.webhookId = webhookId
@@ -38,6 +41,7 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
         self.positionOverride = positionOverride
         self.width = width
         self.height = height
+        self.soundEnabled = soundEnabled
     }
 
     init(from decoder: Decoder) throws {
@@ -53,6 +57,7 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
         height = try container.decodeIfPresent(Double.self, forKey: .height)
             ?? container.decodeIfPresent(Double.self, forKey: .heightOverride)
             ?? 270
+        soundEnabled = try container.decodeIfPresent(Bool.self, forKey: .soundEnabled) ?? true
     }
 
     func encode(to encoder: Encoder) throws {
@@ -64,6 +69,7 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
         try container.encodeIfPresent(positionOverride, forKey: .positionOverride)
         try container.encode(width, forKey: .width)
         try container.encode(height, forKey: .height)
+        try container.encode(soundEnabled, forKey: .soundEnabled)
     }
 }
 

@@ -92,6 +92,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let helpItem = NSMenuItem(title: "Hilfe", action: #selector(openHelp), keyEquivalent: "")
         helpItem.target = self
+        if let helpImage = NSImage(systemSymbolName: "questionmark.circle", accessibilityDescription: "Hilfe") {
+            helpImage.isTemplate = true
+            helpItem.image = helpImage
+        }
         menu.addItem(helpItem)
 
         menu.addItem(NSMenuItem.separator())

@@ -27,34 +27,55 @@ struct HelpView: View {
             }
             .navigationSplitViewColumnWidth(min: 160, ideal: 180, max: 220)
         } detail: {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    switch selection {
-                    case .setup: setupContent
-                    case .tips: tipsContent
-                    case .troubleshooting: troubleshootingContent
+            VStack(spacing: 0) {
+                detailHeader
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 24)
+                    .padding(.top, 20)
+                    .padding(.bottom, 12)
+                    .background(.background)
+
+                Divider()
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        switch selection {
+                        case .setup: setupBody
+                        case .tips: tipsBody
+                        case .troubleshooting: troubleshootingBody
+                        }
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(24)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(24)
             }
         }
         .frame(minWidth: 640, minHeight: 480)
     }
 
+    @ViewBuilder
+    private var detailHeader: some View {
+        switch selection {
+        case .setup:
+            header("Setup", subtitle: "So richtest du die App Schritt für Schritt ein.")
+        case .tips:
+            header("Tipps", subtitle: "Kleine Kniffe für den Alltag.")
+        case .troubleshooting:
+            header("Problemlösung", subtitle: "Wenn das App-Symbol rot ist.")
+        }
+    }
+
     // MARK: - Setup
 
-    private var setupContent: some View {
+    private var setupBody: some View {
         VStack(alignment: .leading, spacing: 16) {
-            header("Setup", subtitle: "So richtest du die App Schritt für Schritt ein.")
-
             step(1, "Menüleisten-Symbol",
                  "Nach dem Start erscheint oben in der Menüleiste das Kamera-Symbol. "
                  + "Ist es grün, besteht eine Verbindung zum Server. Über das Symbol öffnest du die Einstellungen.")
 
             step(2, "Webhook-URL kopieren",
                  "In den Einstellungen findest du oben deine persönliche Webhook-URL. "
-                 + "Du brauchst sie später in UniFi Protect. Ein eigener Server ist nicht nötig.")
+                 + "Du brauchst sie später in UniFi Protect.")
 
             step(3, "Kamera anlegen",
                  "Lege in den Einstellungen für jede Kamera einen Eintrag an und vergib einen Slug "
@@ -67,7 +88,12 @@ struct HelpView: View {
 
             step(5, "Alarm in UniFi Protect erstellen",
                  "Öffne den UniFi Alarm Manager und erstelle einen Alarm, der einen Webhook auslöst. "
-                 + "Trag dort deine Webhook-URL mit dem passenden Slug der Kamera ein.")
+                 + "Trag dort deine Webhook-URL mit dem passenden Slug der Kamera ein. "
+                 + "Aktiviere anschließend „Erweiterte Einstellungen“ und setze: "
+                 + "Methode auf „POST“, Authentifizierung auf „Bearer“, "
+                 + "trage den Webhook-Token unter „Token“ ein und aktiviere „Vorschaubilder verwenden“. "
+                 + "Manche Unifi Versionen machen Probleme mit Vorschaubildern. "
+                 + "In diesem Fall solltest du das Vorschaubild deaktivieren, wenn sich bei dir kein Popup öffnet.")
 
             step(6, "Zugriff von unterwegs (optional)",
                  "Standardmäßig funktioniert alles nur im lokalen Netzwerk. Für den Zugriff von unterwegs "
@@ -76,18 +102,16 @@ struct HelpView: View {
                  + "nutzt du ein VPN ins Heimnetz.")
 
             step(7, "Encoding beachten",
-                 "Siehst du nur Ton, aber kein Bild, ist die Kamera vermutlich auf „Advanced“-Encoding eingestellt. "
-                 + "Dieses nutzt einen Codec, den nur UniFi selbst abspielen kann. Stelle die Kamera auf „Standard“ "
+                 "Hörst du nur Ton deiner Kamera, aber siehst kein Bild, ist die Kamera vermutlich auf „Advanced“-Encoding eingestellt. "
+                 + "Dieses nutzt einen Codec, den das Popup nicht abspielen kann. Stelle die Kamera auf „Standard“ "
                  + "oder „Enhanced“ – damit funktioniert die Wiedergabe.")
         }
     }
 
     // MARK: - Tips
 
-    private var tipsContent: some View {
+    private var tipsBody: some View {
         VStack(alignment: .leading, spacing: 16) {
-            header("Tipps", subtitle: "Kleine Kniffe für den Alltag.")
-
             tip("Popup schließen", "rectangle.slash",
                 "Mit einem Links- oder Rechtsklick auf das Popup schließt du es sofort.")
 
@@ -110,10 +134,8 @@ struct HelpView: View {
 
     // MARK: - Troubleshooting
 
-    private var troubleshootingContent: some View {
+    private var troubleshootingBody: some View {
         VStack(alignment: .leading, spacing: 16) {
-            header("Problemlösung", subtitle: "Wenn das App-Symbol rot ist.")
-
             Text("Ein rotes Symbol in der Menüleiste bedeutet, dass keine Verbindung zum Server besteht "
                  + "und keine Popups ausgelöst werden können. Mögliche Ursachen:")
                 .fixedSize(horizontal: false, vertical: true)
@@ -142,7 +164,6 @@ struct HelpView: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
-        .padding(.bottom, 4)
     }
 
     private func step(_ number: Int, _ title: String, _ body: String) -> some View {

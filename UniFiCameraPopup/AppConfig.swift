@@ -11,13 +11,16 @@ enum AppConfig {
     /// Bearer token the app uses to authenticate the WebSocket connection.
     static let appToken = "fc4hx4g267g34gr3i4gtcjgx76gr347irc3i4tgi7gtc94710z43x1tt67cgf7jrhfxznngcsfjuzegbfa"
 
+    /// Bearer token UniFi Protect sends with webhook requests (`WEBHOOK_TOKEN` on the server).
+    static let webhookToken = "71gri3ctroc73qzo8tttv58t7h784tqtzr76ctr"
+
     /// Display version shown in the menu bar; incremented by `scripts/build-release.sh`.
-    static let buildNumber = 7
+    static let buildNumber = 8
 
     /// Build identifier, rewritten by `scripts/build-release.sh` on every release.
     /// Must match the server's `versionId`; otherwise the server rejects the
     /// connection and the app shows an "outdated version" warning.
-    static let buildVersionId = "c7e137df-8a3e-4561-a491-80b3fc858f01"
+    static let buildVersionId = "e9c77616-40e5-425b-bb17-9e6f5b38b6f0"
 
     /// HTTPS endpoint serving the update manifest (the server's `version.json`).
     /// The app polls this to detect whether a newer build is available.
