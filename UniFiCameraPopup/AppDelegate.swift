@@ -8,16 +8,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var settingsWindow: NSWindow?
     private let settings = SettingsStore.shared
     private let webSocketClient = WebSocketClient()
+    private let updateService = UpdateService()
     private var statusMenuItem: NSMenuItem?
+    private var versionMenuItem: NSMenuItem?
+    private var updateMenuItem: NSMenuItem?
+    private var updateCheckTimer: Timer?
+
+    /// How often to poll the server for a newer build while the app is running.
+    private let updateCheckInterval: TimeInterval = 6 * 60 * 60
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupStatusItem()
         setupWebSocket()
         webSocketClient.start()
+        startUpdateChecks()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         webSocketClient.stop()
+        updateCheckTimer?.invalidate()
         PopupController.shared.dismiss()
     }
 
@@ -36,6 +45,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let menu = NSMenu()
+        menu.delegate = self
 
         statusMenuItem = NSMenuItem(title: "Status: …", action: nil, keyEquivalent: "")
         statusMenuItem?.isEnabled = false
@@ -48,6 +58,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         versionMenuItem.isEnabled = false
         menu.addItem(versionMenuItem)
+        self.versionMenuItem = versionMenuItem
+
+        let updateMenuItem = NSMenuItem(
+            title: "Auf neue Version aktualisieren",
+            action: #selector(installUpdate),
+            keyEquivalent: ""
+        )
+        updateMenuItem.target = self
+        updateMenuItem.isHidden = true
+        menu.addItem(updateMenuItem)
+        self.updateMenuItem = updateMenuItem
 
         menu.addItem(NSMenuItem.separator())
 
@@ -66,11 +87,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task {
             await observeConnectionStatus()
         }
+        Task {
+            await observeUpdateState()
+        }
     }
 
     private func observeConnectionStatus() async {
         for await status in webSocketClient.$status.values {
             updateStatusMenu(status)
+            // The server dropped us for being outdated → a newer build exists.
+            if status == .outdated {
+                Task { await updateService.checkForUpdates() }
+            }
+        }
+    }
+
+    private func observeUpdateState() async {
+        for await state in updateService.$state.values {
+            updateUpdateMenu(state)
         }
     }
 
@@ -79,6 +113,62 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let button = statusItem?.button {
             button.image = makeStatusBarIcon(tintedWith: statusColor(for: status))
         }
+    }
+
+    private func updateUpdateMenu(_ state: UpdateState) {
+        guard let versionMenuItem, let updateMenuItem else { return }
+
+        switch state {
+        case .idle, .checking, .upToDate:
+            versionMenuItem.title = "Version: \(AppConfig.buildNumber)"
+            updateMenuItem.isHidden = true
+            updateMenuItem.isEnabled = true
+
+        case .available(let buildNumber, _):
+            versionMenuItem.title = "Version: \(AppConfig.buildNumber) → \(buildNumber)"
+            updateMenuItem.title = "Auf neue Version aktualisieren"
+            updateMenuItem.isHidden = false
+            updateMenuItem.isEnabled = true
+
+        case .downloading:
+            updateMenuItem.title = "Lade neue Version…"
+            updateMenuItem.isHidden = false
+            updateMenuItem.isEnabled = false
+
+        case .installing:
+            updateMenuItem.title = "Installiere…"
+            updateMenuItem.isHidden = false
+            updateMenuItem.isEnabled = false
+
+        case .failed(let message):
+            updateMenuItem.title = "Auf neue Version aktualisieren"
+            updateMenuItem.isHidden = updateService.availableManifest == nil
+            updateMenuItem.isEnabled = true
+            presentUpdateError(message)
+        }
+    }
+
+    private func presentUpdateError(_ message: String) {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Update fehlgeschlagen"
+        alert.informativeText = message
+        alert.addButton(withTitle: "OK")
+        NSApp.activate(ignoringOtherApps: true)
+        alert.runModal()
+        updateService.dismissError()
+    }
+
+    private func startUpdateChecks() {
+        Task { await updateService.checkForUpdates() }
+
+        let timer = Timer(timeInterval: updateCheckInterval, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                await self?.updateService.checkForUpdates()
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        updateCheckTimer = timer
     }
 
     private func statusColor(for status: ConnectionStatus) -> NSColor {
@@ -102,6 +192,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         image.isTemplate = false
         return image
+    }
+
+    @objc private func installUpdate() {
+        guard let manifest = updateService.availableManifest else { return }
+
+        let alert = NSAlert()
+        alert.messageText = "Neue Version installieren?"
+        var info = "Version \(manifest.buildNumber) wird heruntergeladen und installiert. "
+            + "Die App startet anschließend neu."
+        if let notes = manifest.notes, !notes.isEmpty {
+            info += "\n\n\(notes)"
+        }
+        alert.informativeText = info
+        alert.addButton(withTitle: "Aktualisieren")
+        alert.addButton(withTitle: "Abbrechen")
+        NSApp.activate(ignoringOtherApps: true)
+
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        Task { await updateService.installUpdate() }
     }
 
     @objc private func openSettings() {
@@ -128,5 +237,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func quit() {
         NSApp.terminate(nil)
+    }
+}
+
+extension AppDelegate: NSMenuDelegate {
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        // Refresh the update status whenever the user opens the menu.
+        Task { await updateService.checkForUpdates() }
     }
 }

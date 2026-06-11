@@ -4,7 +4,7 @@ set -euo pipefail
 APP_PATH="${1:-}"
 
 if [[ -z "$APP_PATH" ]]; then
-  echo "Usage: $0 <path/to/UniFiCameraPopup.app>" >&2
+  echo "Usage: $0 <path/to/UniFi Camera Popup.app>" >&2
   exit 1
 fi
 

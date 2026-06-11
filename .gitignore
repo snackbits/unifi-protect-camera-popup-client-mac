@@ -4,3 +4,8 @@ build/
 DerivedData/
 *.xcuserstate
 xcuserdata/
+
+# Ed25519 private key used to sign updates – must never be committed.
+UniFiCameraPopup/scripts/update_private_key.txt
+# Release artifacts produced by build-release.sh.
+UniFiCameraPopup/dist/

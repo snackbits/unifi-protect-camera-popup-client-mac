@@ -37,23 +37,23 @@ cd app/UniFiCameraPopup
 ./scripts/build-release.sh
 
 # App starten
-open .build/Build/Products/Release/UniFiCameraPopup.app
+open ".build/Build/Products/Release/UniFi Camera Popup.app"
 ```
 
 Die fertige `.app` liegt danach unter  
-`app/UniFiCameraPopup/.build/Build/Products/Release/UniFiCameraPopup.app`  
+`app/UniFiCameraPopup/.build/Build/Products/Release/UniFi Camera Popup.app`  
 und kann in den Programme-Ordner kopiert werden.
 
 **Wichtig beim Kopieren:** Die App nutzt das eingebettete VLCKit-Framework. Ohne einheitliche Code-Signatur verweigert macOS beim Start das Laden der Bibliothek (`different Team IDs`). Das Build-Skript signiert die App deshalb nach dem Build neu. Falls du nur `xcodebuild` verwendest, danach ausführen:
 
 ```bash
-./scripts/resign-app.sh .build/Build/Products/Release/UniFiCameraPopup.app
+./scripts/resign-app.sh ".build/Build/Products/Release/UniFi Camera Popup.app"
 ```
 
 Alternativ manuell:
 
 ```bash
-codesign --force --deep --sign - /Applications/UniFiCameraPopup.app
+codesign --force --deep --sign - "/Applications/UniFi Camera Popup.app"
 ```
 
 Debug-Build und direkt starten:
@@ -65,8 +65,50 @@ xcodebuild \
   -configuration Debug \
   -derivedDataPath .build \
   build && \
-open .build/Build/Products/Debug/UniFiCameraPopup.app
+open ".build/Build/Products/Debug/UniFi Camera Popup.app"
 ```
+
+## Auto-Update
+
+The app updates itself without the App Store. It periodically fetches the
+server's `version.json` (served at `GET /version`), and when the server's
+`buildNumber`/`versionId` is newer than the running build, the menu bar shows
+**„Auf neue Version aktualisieren"** under the version entry.
+
+Clicking it downloads the signed `.zip` over HTTPS, verifies it
+(SHA-256 + Ed25519 signature), replaces the app bundle in place and relaunches.
+If the app lives in a non-writable location (e.g. `/Applications`), macOS asks
+once for an admin password.
+
+### One-time setup (per developer machine)
+
+Generate the Ed25519 signing key pair (the private key stays local and is
+git-ignored; the public key is baked into `AppConfig.swift`):
+
+```bash
+cd app/UniFiCameraPopup
+swift scripts/update-keygen.swift
+```
+
+Do this **once**. Rotating the key invalidates auto-update for already-installed
+builds (they would have to be updated manually).
+
+### Cutting a signed release
+
+`scripts/build-release.sh` builds, re-signs, writes `server/public/app.zip`,
+hashes and signs the archive, and updates `server/version.json` plus
+`AppConfig.swift`. Deploy via git:
+
+```bash
+cd app/UniFiCameraPopup
+./scripts/build-release.sh
+git add AppConfig.swift ../../server/version.json ../../server/public/app.zip
+git commit -m "Release build N" && git push
+# on server: git pull
+```
+
+`setup.sh` on the server is only needed for the initial install or when server
+dependencies change – not for each app release.
 
 ## Configuration
 
