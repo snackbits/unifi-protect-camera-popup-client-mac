@@ -9,6 +9,14 @@ cd "$(dirname "$0")/.."
 NEW_VERSION_ID="$(uuidgen | tr '[:upper:]' '[:lower:]')"
 echo "Build version id: ${NEW_VERSION_ID}"
 
+CURRENT_BUILD_NUMBER="$(sed -nE 's/.*static let buildNumber = ([0-9]+).*/\1/p' AppConfig.swift)"
+NEW_BUILD_NUMBER=$((CURRENT_BUILD_NUMBER + 1))
+echo "Build number: ${NEW_BUILD_NUMBER}"
+
+sed -i '' -E \
+  "s/(static let buildNumber = )[0-9]+/\1${NEW_BUILD_NUMBER}/" \
+  AppConfig.swift
+
 sed -i '' -E \
   "s/(static let buildVersionId = \")[^\"]*(\")/\1${NEW_VERSION_ID}\2/" \
   AppConfig.swift

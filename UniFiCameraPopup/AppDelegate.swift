@@ -41,6 +41,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusMenuItem?.isEnabled = false
         menu.addItem(statusMenuItem!)
 
+        let versionMenuItem = NSMenuItem(
+            title: "Version: \(AppConfig.buildNumber)",
+            action: nil,
+            keyEquivalent: ""
+        )
+        versionMenuItem.isEnabled = false
+        menu.addItem(versionMenuItem)
+
         menu.addItem(NSMenuItem.separator())
 
         let settingsItem = NSMenuItem(title: "Einstellungen…", action: #selector(openSettings), keyEquivalent: ",")

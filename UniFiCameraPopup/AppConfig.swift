@@ -11,6 +11,9 @@ enum AppConfig {
     /// Bearer token the app uses to authenticate the WebSocket connection.
     static let appToken = "fc4hx4g267g34gr3i4gtcjgx76gr347irc3i4tgi7gtc94710z43x1tt67cgf7jrhfxznngcsfjuzegbfa"
 
+    /// Display version shown in the menu bar; incremented by `scripts/build-release.sh`.
+    static let buildNumber = 2
+
     /// Build identifier, rewritten by `scripts/build-release.sh` on every release.
     /// Must match the server's `versionId`; otherwise the server rejects the
     /// connection and the app shows an "outdated version" warning.
