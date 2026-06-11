@@ -43,6 +43,11 @@ final class SettingsStore: ObservableObject {
         }
     }
 
+    /// When enabled, newer builds are downloaded and installed without asking.
+    @Published var autoUpdate: Bool {
+        didSet { persist() }
+    }
+
     private let defaults = UserDefaults.standard
     private let storageKey = "unifi.camera.popup.settings"
 
@@ -57,6 +62,7 @@ final class SettingsStore: ObservableObject {
         var screenTarget: ScreenTarget
         var multiAlarmBehavior: MultiAlarmBehavior
         var launchAtLogin: Bool
+        var autoUpdate: Bool?
     }
 
     private init() {
@@ -77,6 +83,7 @@ final class SettingsStore: ObservableObject {
             screenTarget = saved.screenTarget
             multiAlarmBehavior = saved.multiAlarmBehavior
             launchAtLogin = saved.launchAtLogin
+            autoUpdate = saved.autoUpdate ?? true
         } else {
             installationId = Self.makeInstallationId()
             mappings = []
@@ -86,6 +93,7 @@ final class SettingsStore: ObservableObject {
             screenTarget = .main
             multiAlarmBehavior = .replace
             launchAtLogin = LaunchAtLoginHelper.isEnabled
+            autoUpdate = true
         }
 
         persist()
@@ -153,7 +161,8 @@ final class SettingsStore: ObservableObject {
             autoCloseTimeout: autoCloseTimeout,
             screenTarget: screenTarget,
             multiAlarmBehavior: multiAlarmBehavior,
-            launchAtLogin: launchAtLogin
+            launchAtLogin: launchAtLogin,
+            autoUpdate: autoUpdate
         )
 
         if let data = try? JSONEncoder().encode(payload) {

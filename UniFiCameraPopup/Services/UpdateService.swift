@@ -44,6 +44,7 @@ final class UpdateService: NSObject, ObservableObject {
     private var isBusy = false
 
     var updateAvailable: Bool { availableManifest != nil }
+    var isInstalling: Bool { isBusy }
 
     /// Fetches the manifest and compares it to the running build.
     func checkForUpdates() async {

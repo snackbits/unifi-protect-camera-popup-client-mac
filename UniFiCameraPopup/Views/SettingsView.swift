@@ -163,6 +163,7 @@ struct SettingsView: View {
 
             Section("System") {
                 Toggle("Beim Login starten", isOn: $settings.launchAtLogin)
+                Toggle("Automatisch aktualisieren", isOn: $settings.autoUpdate)
             }
         }
         .formStyle(.grouped)

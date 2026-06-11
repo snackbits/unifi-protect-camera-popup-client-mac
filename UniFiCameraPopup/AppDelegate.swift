@@ -13,6 +13,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var versionMenuItem: NSMenuItem?
     private var updateMenuItem: NSMenuItem?
     private var updateCheckTimer: Timer?
+    /// Prevents retry loops when an automatic install fails.
+    private var autoInstallAttemptedVersionId: String?
 
     /// How often to poll the server for a newer build while the app is running.
     private let updateCheckInterval: TimeInterval = 6 * 60 * 60
@@ -129,6 +131,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             updateMenuItem.title = "Auf neue Version aktualisieren"
             updateMenuItem.isHidden = false
             updateMenuItem.isEnabled = true
+            autoInstallUpdateIfNeeded()
 
         case .downloading:
             updateMenuItem.title = "Lade neue Version…"
@@ -192,6 +195,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         image.isTemplate = false
         return image
+    }
+
+    private func autoInstallUpdateIfNeeded() {
+        guard settings.autoUpdate,
+              let manifest = updateService.availableManifest,
+              !updateService.isInstalling,
+              manifest.versionId != autoInstallAttemptedVersionId else {
+            return
+        }
+
+        autoInstallAttemptedVersionId = manifest.versionId
+        Task { await updateService.installUpdate() }
     }
 
     @objc private func installUpdate() {
