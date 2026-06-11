@@ -8,6 +8,7 @@ struct SettingsView: View {
     @State private var showRegenerateConfirm = false
     @State private var copiedWebhookURL = false
     @State private var copiedBearerToken = false
+    @State private var dndHasFullDiskAccess = true
 
     var body: some View {
         Form {
@@ -192,11 +193,32 @@ struct SettingsView: View {
                     Text("Keine Popups, während ein „Nicht stören“- oder Fokus-Modus aktiv ist.")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
+
+                    if settings.disableDuringDND && !dndHasFullDiskAccess {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Label(
+                                "Ohne „Festplattenvollzugriff“ kann der Fokus-/Nicht-stören-Status nicht erkannt werden.",
+                                systemImage: "exclamationmark.triangle.fill"
+                            )
+                            .font(.caption2)
+                            .foregroundStyle(.orange)
+                            Button("Festplattenvollzugriff öffnen") {
+                                openFullDiskAccessSettings()
+                            }
+                            .controlSize(.small)
+                            Text("Aktiviere „UniFi Camera Popup“ in der Liste und starte die App danach neu.")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.top, 4)
+                    }
                 }
             }
         }
         .formStyle(.grouped)
         .padding()
+        .onAppear { refreshDNDPermission() }
+        .onChange(of: settings.disableDuringDND) { _ in refreshDNDPermission() }
         .alert("Neue ID generieren?", isPresented: $showRegenerateConfirm) {
             Button("Abbrechen", role: .cancel) {}
             Button("Neue ID", role: .destructive) {
@@ -244,6 +266,21 @@ struct SettingsView: View {
         pasteboard.clearContents()
         pasteboard.setString(string, forType: .string)
         onCopied()
+    }
+
+    private func refreshDNDPermission() {
+        guard settings.disableDuringDND else {
+            dndHasFullDiskAccess = true
+            return
+        }
+        dndHasFullDiskAccess = DoNotDisturbChecker.hasFullDiskAccess
+    }
+
+    private func openFullDiskAccessSettings() {
+        guard let url = URL(
+            string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles"
+        ) else { return }
+        NSWorkspace.shared.open(url)
     }
 
     private func canTestPopup(_ mapping: WebhookMapping) -> Bool {

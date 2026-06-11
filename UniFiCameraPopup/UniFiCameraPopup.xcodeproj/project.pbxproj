@@ -23,6 +23,7 @@
 		A10000000000000000000012 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000012 /* SettingsView.swift */; };
 		A10000000000000000000018 /* HelpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000018 /* HelpView.swift */; };
 		A10000000000000000000019 /* DoNotDisturbChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000019 /* DoNotDisturbChecker.swift */; };
+		A10000000000000000000020 /* FocusMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000020 /* FocusMonitor.swift */; };
 		A10000000000000000000013 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000013 /* Assets.xcassets */; };
 		A10000000000000000000014 /* VLCKitSPM in Frameworks */ = {isa = PBXBuildFile; productRef = A50000000000000000000001 /* VLCKitSPM */; };
 /* End PBXBuildFile section */
@@ -44,6 +45,7 @@
 		A20000000000000000000012 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		A20000000000000000000018 /* HelpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpView.swift; sourceTree = "<group>"; };
 		A20000000000000000000019 /* DoNotDisturbChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoNotDisturbChecker.swift; sourceTree = "<group>"; };
+		A20000000000000000000020 /* FocusMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusMonitor.swift; sourceTree = "<group>"; };
 		A20000000000000000000013 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A20000000000000000000014 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A20000000000000000000015 /* UniFiCameraPopup.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "UniFi Camera Popup.app"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -110,6 +112,7 @@
 				A20000000000000000000008 /* WindowPositioner.swift */,
 				A20000000000000000000009 /* PopupController.swift */,
 				A20000000000000000000019 /* DoNotDisturbChecker.swift */,
+				A20000000000000000000020 /* FocusMonitor.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -216,6 +219,7 @@
 				A10000000000000000000012 /* SettingsView.swift in Sources */,
 				A10000000000000000000018 /* HelpView.swift in Sources */,
 				A10000000000000000000019 /* DoNotDisturbChecker.swift in Sources */,
+				A10000000000000000000020 /* FocusMonitor.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -267,7 +271,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGN_IDENTITY = "UniFi Camera Popup (Self-Signed)";
+				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
@@ -290,7 +295,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGN_IDENTITY = "UniFi Camera Popup (Self-Signed)";
+				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";

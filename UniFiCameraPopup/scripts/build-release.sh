@@ -33,7 +33,13 @@ sed -i '' -E \
   AppConfig.swift
 
 # ---------------------------------------------------------------------------
-# Build + re-sign (ad-hoc) the app.
+# Ensure the stable self-signed identity exists so privacy grants (Full Disk
+# Access for DND detection) survive this update. Idempotent.
+# ---------------------------------------------------------------------------
+"${SCRIPT_DIR}/create-signing-identity.sh"
+
+# ---------------------------------------------------------------------------
+# Build + re-sign the app with the stable identity.
 # ---------------------------------------------------------------------------
 xcodebuild \
   -project UniFiCameraPopup.xcodeproj \

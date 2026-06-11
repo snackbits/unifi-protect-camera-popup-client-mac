@@ -17,6 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var updateCheckTimer: Timer?
     private var muteExpiryTimer: Timer?
     private var dndCheckTimer: Timer?
+    private var focusMonitor: FocusMonitor?
     private var connectionStatus: ConnectionStatus = .disconnected
     /// Prevents retry loops when an automatic install fails.
     private var autoInstallAttemptedVersionId: String?
@@ -36,6 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         updateCheckTimer?.invalidate()
         muteExpiryTimer?.invalidate()
         dndCheckTimer?.invalidate()
+        focusMonitor?.stop()
         PopupController.shared.dismiss()
     }
 
@@ -207,12 +209,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func startDNDPolling() {
-        dndCheckTimer = Timer(timeInterval: 30, repeats: true) { [weak self] _ in
+        // Instant, event-driven updates when the Focus database changes.
+        focusMonitor = FocusMonitor { [weak self] in
+            self?.updateStatusBarIcon()
+        }
+        focusMonitor?.start()
+
+        // Low-frequency safety net: catches scheduled Focus windows turning on/off
+        // and works even if the file watch couldn't arm (e.g. no Full Disk Access).
+        let timer = Timer(timeInterval: 60, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.updateStatusBarIcon()
             }
         }
-        RunLoop.main.add(dndCheckTimer!, forMode: .common)
+        RunLoop.main.add(timer, forMode: .common)
+        dndCheckTimer = timer
     }
 
     private func updateUpdateMenu(_ state: UpdateState) {
