@@ -371,10 +371,7 @@ private final class MuteBarView: NSView {
         button.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.55).cgColor
         button.layer?.cornerRadius = 6
         button.contentTintColor = .white
-        button.image = NSImage(
-            systemSymbolName: "bell.slash.fill",
-            accessibilityDescription: "Stummschalten"
-        )
+        button.image = muteButtonImage(leadingPadding: 6)
         button.imagePosition = .imageLeading
         button.imageScaling = .scaleProportionallyDown
         button.title = title
@@ -393,6 +390,35 @@ private final class MuteBarView: NSView {
         button.widthAnchor.constraint(greaterThanOrEqualToConstant: 52).isActive = true
         button.heightAnchor.constraint(equalToConstant: 24).isActive = true
         return button
+    }
+
+    private func muteButtonImage(leadingPadding: CGFloat) -> NSImage? {
+        guard let symbol = NSImage(
+            systemSymbolName: "bell.slash.fill",
+            accessibilityDescription: "Stummschalten"
+        ) else { return nil }
+
+        let configured = symbol.withSymbolConfiguration(
+            NSImage.SymbolConfiguration(pointSize: 12, weight: .semibold)
+        ) ?? symbol
+        let iconSize = configured.size
+        let canvasSize = NSSize(
+            width: iconSize.width + leadingPadding,
+            height: iconSize.height
+        )
+
+        let image = NSImage(size: canvasSize, flipped: false) { rect in
+            let drawRect = NSRect(
+                x: leadingPadding,
+                y: (rect.height - iconSize.height) / 2,
+                width: iconSize.width,
+                height: iconSize.height
+            )
+            configured.draw(in: drawRect)
+            return true
+        }
+        image.isTemplate = true
+        return image
     }
 
     @objc private func muteTapped(_ sender: NSButton) {
