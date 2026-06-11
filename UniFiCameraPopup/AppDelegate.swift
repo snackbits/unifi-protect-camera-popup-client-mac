@@ -55,10 +55,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settingsItem.target = self
         menu.addItem(settingsItem)
 
-        let testItem = NSMenuItem(title: "Test-Popup", action: #selector(showTestPopup), keyEquivalent: "t")
-        testItem.target = self
-        menu.addItem(testItem)
-
         menu.addItem(NSMenuItem.separator())
 
         let quitItem = NSMenuItem(title: "Beenden", action: #selector(quit), keyEquivalent: "q")
@@ -128,10 +124,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         settingsWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
-    }
-
-    @objc private func showTestPopup() {
-        PopupController.shared.showTestPopup()
     }
 
     @objc private func quit() {

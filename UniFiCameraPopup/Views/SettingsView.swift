@@ -141,6 +141,10 @@ struct SettingsView: View {
 
                         HStack {
                             Spacer()
+                            Button("Test-Popup") {
+                                PopupController.shared.showTestPopup(for: mapping)
+                            }
+                            .disabled(!canTestPopup(mapping))
                             Button("Entfernen", role: .destructive) {
                                 settings.removeMapping(id: mapping.id)
                             }
@@ -194,6 +198,11 @@ struct SettingsView: View {
             try? await Task.sleep(nanoseconds: 1_500_000_000)
             copiedWebhookURL = false
         }
+    }
+
+    private func canTestPopup(_ mapping: WebhookMapping) -> Bool {
+        !mapping.webhookId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !mapping.rtspsURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private func streamURLWarning(for url: String) -> String? {

@@ -57,19 +57,27 @@ final class PopupController {
         window.startPlayback()
     }
 
-    func showTestPopup() {
+    func showTestPopup(for mapping: WebhookMapping) {
+        let webhookId = mapping.webhookId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !webhookId.isEmpty else {
+            NSLog("Webhook slug required to test popup.")
+            return
+        }
+
+        let streamURL = mapping.rtspsURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !streamURL.isEmpty else {
+            NSLog("RTSP URL required to test popup.")
+            return
+        }
+
+        let alarmName = mapping.label.trimmingCharacters(in: .whitespacesAndNewlines)
         let testEvent = TriggerEvent(
-            webhookId: settings.mappings.first?.webhookId ?? "test",
+            webhookId: webhookId,
             thumbnail: nil,
-            alarmName: "Test",
+            alarmName: alarmName.isEmpty ? "Test" : alarmName,
             timestamp: Date()
         )
-
-        if settings.mappings.first != nil {
-            show(event: testEvent)
-        } else {
-            NSLog("Add at least one webhook mapping to test the popup.")
-        }
+        show(event: testEvent)
     }
 
     func dismiss() {
