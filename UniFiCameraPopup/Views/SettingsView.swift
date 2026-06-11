@@ -164,6 +164,12 @@ struct SettingsView: View {
             Section("System") {
                 Toggle("Beim Login starten", isOn: $settings.launchAtLogin)
                 Toggle("Automatisch aktualisieren", isOn: $settings.autoUpdate)
+                VStack(alignment: .leading, spacing: 2) {
+                    Toggle("Bei DND deaktivieren (🧪 LAB)", isOn: $settings.disableDuringDND)
+                    Text("Keine Popups, während ein „Nicht stören“- oder Fokus-Modus aktiv ist.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
         .formStyle(.grouped)

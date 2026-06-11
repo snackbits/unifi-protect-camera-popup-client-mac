@@ -48,6 +48,31 @@ final class SettingsStore: ObservableObject {
         didSet { persist() }
     }
 
+    /// When enabled, no popups are shown while a macOS Focus / Do Not Disturb
+    /// mode is active.
+    @Published var disableDuringDND: Bool {
+        didSet { persist() }
+    }
+
+    /// When set to a future date, all popups are suppressed until then.
+    @Published var muteUntil: Date? {
+        didSet { persist() }
+    }
+
+    /// Whether popups are currently muted via the temporary mute buttons.
+    var isMuted: Bool {
+        guard let muteUntil else { return false }
+        return muteUntil > Date()
+    }
+
+    func mute(for duration: TimeInterval) {
+        muteUntil = Date().addingTimeInterval(duration)
+    }
+
+    func clearMute() {
+        muteUntil = nil
+    }
+
     private let defaults = UserDefaults.standard
     private let storageKey = "unifi.camera.popup.settings"
 
@@ -63,6 +88,8 @@ final class SettingsStore: ObservableObject {
         var multiAlarmBehavior: MultiAlarmBehavior
         var launchAtLogin: Bool
         var autoUpdate: Bool?
+        var disableDuringDND: Bool?
+        var muteUntil: Date?
     }
 
     private init() {
@@ -84,6 +111,8 @@ final class SettingsStore: ObservableObject {
             multiAlarmBehavior = saved.multiAlarmBehavior
             launchAtLogin = saved.launchAtLogin
             autoUpdate = saved.autoUpdate ?? true
+            disableDuringDND = saved.disableDuringDND ?? false
+            muteUntil = saved.muteUntil
         } else {
             installationId = Self.makeInstallationId()
             mappings = []
@@ -94,6 +123,8 @@ final class SettingsStore: ObservableObject {
             multiAlarmBehavior = .replace
             launchAtLogin = LaunchAtLoginHelper.isEnabled
             autoUpdate = true
+            disableDuringDND = false
+            muteUntil = nil
         }
 
         persist()
@@ -162,7 +193,9 @@ final class SettingsStore: ObservableObject {
             screenTarget: screenTarget,
             multiAlarmBehavior: multiAlarmBehavior,
             launchAtLogin: launchAtLogin,
-            autoUpdate: autoUpdate
+            autoUpdate: autoUpdate,
+            disableDuringDND: disableDuringDND,
+            muteUntil: muteUntil
         )
 
         if let data = try? JSONEncoder().encode(payload) {

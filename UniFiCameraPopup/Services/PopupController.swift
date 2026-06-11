@@ -11,6 +11,20 @@ final class PopupController {
     private init() {}
 
     func show(event: TriggerEvent) {
+        if settings.isMuted {
+            NSLog("Popups muted; skipping popup.")
+            return
+        }
+
+        if settings.disableDuringDND, DoNotDisturbChecker.isActive {
+            NSLog("Do Not Disturb active; skipping popup.")
+            return
+        }
+
+        present(event: event)
+    }
+
+    private func present(event: TriggerEvent) {
         guard let mapping = settings.mapping(for: event.webhookId) else {
             NSLog("No mapping for webhook id: \(event.webhookId)")
             return
@@ -77,7 +91,8 @@ final class PopupController {
             alarmName: alarmName.isEmpty ? "Test" : alarmName,
             timestamp: Date()
         )
-        show(event: testEvent)
+        // Test popups bypass mute / Do Not Disturb so they always appear.
+        present(event: testEvent)
     }
 
     func dismiss() {

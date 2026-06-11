@@ -12,12 +12,12 @@ enum AppConfig {
     static let appToken = "fc4hx4g267g34gr3i4gtcjgx76gr347irc3i4tgi7gtc94710z43x1tt67cgf7jrhfxznngcsfjuzegbfa"
 
     /// Display version shown in the menu bar; incremented by `scripts/build-release.sh`.
-    static let buildNumber = 6
+    static let buildNumber = 7
 
     /// Build identifier, rewritten by `scripts/build-release.sh` on every release.
     /// Must match the server's `versionId`; otherwise the server rejects the
     /// connection and the app shows an "outdated version" warning.
-    static let buildVersionId = "1d23bc98-fe23-4f69-b38c-ecae828ed62f"
+    static let buildVersionId = "c7e137df-8a3e-4561-a491-80b3fc858f01"
 
     /// HTTPS endpoint serving the update manifest (the server's `version.json`).
     /// The app polls this to detect whether a newer build is available.

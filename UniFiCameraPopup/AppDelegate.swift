@@ -6,12 +6,14 @@ import SwiftUI
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private var settingsWindow: NSWindow?
+    private var helpWindow: NSWindow?
     private let settings = SettingsStore.shared
     private let webSocketClient = WebSocketClient()
     private let updateService = UpdateService()
     private var statusMenuItem: NSMenuItem?
     private var versionMenuItem: NSMenuItem?
     private var updateMenuItem: NSMenuItem?
+    private var unmuteMenuItem: NSMenuItem?
     private var updateCheckTimer: Timer?
     /// Prevents retry loops when an automatic install fails.
     private var autoInstallAttemptedVersionId: String?
@@ -74,13 +76,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         menu.addItem(NSMenuItem.separator())
 
-        let settingsItem = NSMenuItem(title: "Einstellungen…", action: #selector(openSettings), keyEquivalent: ",")
+        let unmuteMenuItem = NSMenuItem(
+            title: "Stummschaltung aufheben",
+            action: #selector(clearMute),
+            keyEquivalent: ""
+        )
+        unmuteMenuItem.target = self
+        unmuteMenuItem.isHidden = true
+        menu.addItem(unmuteMenuItem)
+        self.unmuteMenuItem = unmuteMenuItem
+
+        let settingsItem = NSMenuItem(title: "Einstellungen…", action: #selector(openSettings), keyEquivalent: "")
         settingsItem.target = self
         menu.addItem(settingsItem)
 
+        let helpItem = NSMenuItem(title: "Hilfe", action: #selector(openHelp), keyEquivalent: "")
+        helpItem.target = self
+        menu.addItem(helpItem)
+
         menu.addItem(NSMenuItem.separator())
 
-        let quitItem = NSMenuItem(title: "Beenden", action: #selector(quit), keyEquivalent: "q")
+        let quitItem = NSMenuItem(title: "Beenden", action: #selector(quit), keyEquivalent: "")
         quitItem.target = self
         menu.addItem(quitItem)
 
@@ -250,6 +266,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    @objc private func openHelp() {
+        if helpWindow == nil {
+            let view = HelpView()
+
+            helpWindow = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 760, height: 560),
+                styleMask: [.titled, .closable, .resizable],
+                backing: .buffered,
+                defer: false
+            )
+            helpWindow?.title = "Hilfe – UniFi Camera Popup"
+            helpWindow?.center()
+            helpWindow?.contentView = NSHostingView(rootView: view)
+            helpWindow?.isReleasedWhenClosed = false
+        }
+
+        helpWindow?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    @objc private func clearMute() {
+        settings.clearMute()
+    }
+
     @objc private func quit() {
         NSApp.terminate(nil)
     }
@@ -259,5 +299,22 @@ extension AppDelegate: NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         // Refresh the update status whenever the user opens the menu.
         Task { await updateService.checkForUpdates() }
+        updateMuteMenuItem()
+    }
+
+    private func updateMuteMenuItem() {
+        guard let unmuteMenuItem else { return }
+
+        guard settings.isMuted, let muteUntil = settings.muteUntil else {
+            unmuteMenuItem.isHidden = true
+            return
+        }
+
+        let remaining = max(0, Int(muteUntil.timeIntervalSinceNow.rounded(.up)))
+        let minutes = (remaining + 59) / 60
+        unmuteMenuItem.title = minutes > 0
+            ? "Stummschaltung aufheben (noch \(minutes) Min.)"
+            : "Stummschaltung aufheben"
+        unmuteMenuItem.isHidden = false
     }
 }

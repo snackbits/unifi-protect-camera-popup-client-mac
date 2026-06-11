@@ -6,6 +6,7 @@ final class PopupWindow: NSPanel {
     private let thumbnailView = NSImageView()
     private let playerView = VLCPlayerContainerView()
     private let clickCatcher = ClickCatchingView()
+    private let muteBar = MuteBarView()
     private var autoCloseTimer: Timer?
     private var escapeMonitor: Any?
     private var autoCloseSeconds: Double = 0
@@ -82,19 +83,49 @@ final class PopupWindow: NSPanel {
         playerView.alphaValue = 0
 
         clickCatcher.translatesAutoresizingMaskIntoConstraints = false
+        // A left-click only dismisses the popup when the video is not zoomed in.
+        // While zoomed, a click is reserved for panning, so it must not close.
         clickCatcher.onClick = { [weak self] in
+            guard let self else { return }
+            if !self.playerView.isZoomedIn {
+                self.closePopup()
+            }
+        }
+        // A right-click always closes, regardless of zoom state.
+        clickCatcher.onRightClick = { [weak self] in
             self?.closePopup()
+        }
+        clickCatcher.onScroll = { [weak self] delta, location in
+            self?.playerView.zoom(by: delta * 0.01, at: location)
+        }
+        clickCatcher.onMagnify = { [weak self] magnification, location in
+            self?.playerView.zoom(by: magnification, at: location)
+        }
+        clickCatcher.onDrag = { [weak self] delta in
+            self?.playerView.pan(by: delta)
+        }
+        clickCatcher.isZoomedIn = { [weak self] in
+            self?.playerView.isZoomedIn ?? false
         }
         clickCatcher.onMouseEnter = { [weak self] in
             self?.pauseAutoClose()
+            self?.muteBar.setHovering(true)
         }
         clickCatcher.onMouseExit = { [weak self] in
             self?.resumeAutoClose()
+            self?.muteBar.setHovering(false)
+        }
+
+        muteBar.translatesAutoresizingMaskIntoConstraints = false
+        muteBar.onMute = { [weak self] duration in
+            SettingsStore.shared.mute(for: duration)
+            self?.closePopup()
         }
 
         content.addSubview(thumbnailView)
         content.addSubview(playerView)
         content.addSubview(clickCatcher)
+        content.addSubview(muteBar)
 
         NSLayoutConstraint.activate([
             thumbnailView.leadingAnchor.constraint(equalTo: content.leadingAnchor),
@@ -111,6 +142,9 @@ final class PopupWindow: NSPanel {
             clickCatcher.trailingAnchor.constraint(equalTo: content.trailingAnchor),
             clickCatcher.topAnchor.constraint(equalTo: content.topAnchor),
             clickCatcher.bottomAnchor.constraint(equalTo: content.bottomAnchor),
+
+            muteBar.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -8),
+            muteBar.topAnchor.constraint(equalTo: content.topAnchor, constant: 8),
         ])
 
         if let thumbnailDataURI, let image = imageFromDataURI(thumbnailDataURI) {
@@ -193,9 +227,23 @@ final class PopupWindow: NSPanel {
 }
 
 private final class ClickCatchingView: NSView {
+    /// Fired on a left-click that was not a drag.
     var onClick: (() -> Void)?
+    var onRightClick: (() -> Void)?
     var onMouseEnter: (() -> Void)?
     var onMouseExit: (() -> Void)?
+    /// Scroll-wheel zoom: (verticalDelta, locationInView).
+    var onScroll: ((CGFloat, NSPoint) -> Void)?
+    /// Trackpad pinch zoom: (magnification, locationInView).
+    var onMagnify: ((CGFloat, NSPoint) -> Void)?
+    /// Click-and-drag pan delta (in view coordinates) since the last event.
+    var onDrag: ((CGSize) -> Void)?
+    var isZoomedIn: (() -> Bool)?
+
+    private var mouseDownLocation: NSPoint?
+    private var lastDragLocation: NSPoint?
+    private var didDrag = false
+    private static let dragThreshold: CGFloat = 3
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
@@ -217,9 +265,148 @@ private final class ClickCatchingView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
-        onClick?()
+        let location = convert(event.locationInWindow, from: nil)
+        mouseDownLocation = location
+        lastDragLocation = location
+        didDrag = false
     }
 
+    override func mouseDragged(with event: NSEvent) {
+        let location = convert(event.locationInWindow, from: nil)
+        guard let last = lastDragLocation, let start = mouseDownLocation else { return }
+
+        if abs(location.x - start.x) > Self.dragThreshold || abs(location.y - start.y) > Self.dragThreshold {
+            didDrag = true
+        }
+
+        if didDrag {
+            onDrag?(CGSize(width: location.x - last.x, height: location.y - last.y))
+            lastDragLocation = location
+        }
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        if !didDrag {
+            onClick?()
+        }
+        mouseDownLocation = nil
+        lastDragLocation = nil
+        didDrag = false
+    }
+
+    override func rightMouseDown(with event: NSEvent) {
+        onRightClick?()
+    }
+
+    override func scrollWheel(with event: NSEvent) {
+        let location = convert(event.locationInWindow, from: nil)
+        onScroll?(event.scrollingDeltaY, location)
+    }
+
+    override func magnify(with event: NSEvent) {
+        let location = convert(event.locationInWindow, from: nil)
+        onMagnify?(event.magnification, location)
+    }
+
+    override func resetCursorRects() {
+        if isZoomedIn?() == true {
+            addCursorRect(bounds, cursor: .openHand)
+        }
+    }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        true
+    }
+}
+
+/// Two stacked icon buttons (top-right of the popup) that mute all popups for a
+/// fixed duration. Visible always, but emphasised while the mouse hovers.
+private final class MuteBarView: NSView {
+    /// Called with the mute duration in seconds.
+    var onMute: ((TimeInterval) -> Void)?
+
+    private let stack = NSStackView()
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        setup()
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        setup()
+    }
+
+    private func setup() {
+        let oneHour = makeButton(title: "1h", duration: 60 * 60)
+        oneHour.toolTip = "Alle Popups für 1 Stunde stummschalten"
+        let fifteen = makeButton(title: "15m", duration: 15 * 60)
+        fifteen.toolTip = "Alle Popups für 15 Minuten stummschalten"
+
+        stack.orientation = .horizontal
+        stack.spacing = 6
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        stack.addArrangedSubview(oneHour)
+        stack.addArrangedSubview(fifteen)
+        addSubview(stack)
+
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: trailingAnchor),
+            stack.topAnchor.constraint(equalTo: topAnchor),
+            stack.bottomAnchor.constraint(equalTo: bottomAnchor),
+        ])
+
+        alphaValue = 0.55
+    }
+
+    private func makeButton(title: String, duration: TimeInterval) -> NSButton {
+        let button = FirstMouseButton()
+        button.bezelStyle = .regularSquare
+        button.isBordered = false
+        button.wantsLayer = true
+        button.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.55).cgColor
+        button.layer?.cornerRadius = 6
+        button.contentTintColor = .white
+        button.image = NSImage(
+            systemSymbolName: "bell.slash.fill",
+            accessibilityDescription: "Stummschalten"
+        )
+        button.imagePosition = .imageLeading
+        button.imageScaling = .scaleProportionallyDown
+        button.title = title
+        button.font = .systemFont(ofSize: 11, weight: .semibold)
+        button.attributedTitle = NSAttributedString(
+            string: title,
+            attributes: [
+                .foregroundColor: NSColor.white,
+                .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
+            ]
+        )
+        button.target = self
+        button.action = #selector(muteTapped(_:))
+        button.tag = Int(duration)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.widthAnchor.constraint(greaterThanOrEqualToConstant: 46).isActive = true
+        button.heightAnchor.constraint(equalToConstant: 24).isActive = true
+        return button
+    }
+
+    @objc private func muteTapped(_ sender: NSButton) {
+        onMute?(TimeInterval(sender.tag))
+    }
+
+    func setHovering(_ hovering: Bool) {
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.15
+            animator().alphaValue = hovering ? 1.0 : 0.55
+        }
+    }
+}
+
+/// An `NSButton` that fires on the first click even when its window is not key,
+/// which is required inside the non-activating popup panel.
+private final class FirstMouseButton: NSButton {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
         true
     }
