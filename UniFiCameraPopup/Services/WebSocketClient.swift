@@ -1,3 +1,4 @@
+import AppKit
 import Combine
 import Foundation
 
@@ -12,7 +13,11 @@ final class WebSocketClient: NSObject, ObservableObject {
     private var session: URLSession?
     private var reconnectTask: Task<Void, Never>?
     private var receiveTask: Task<Void, Never>?
+    private var livenessTask: Task<Void, Never>?
     private var isRunning = false
+    private var lastServerPingAt: Date?
+    private var handshakeOpenedAt: Date?
+    private var wakeObserver: NSObjectProtocol?
 
     /// Set once the server reports a version mismatch. While set, the app no
     /// longer attempts to reconnect. Only an app restart clears this (new process).
@@ -20,6 +25,12 @@ final class WebSocketClient: NSObject, ObservableObject {
 
     /// Fixed retry interval while disconnected (seconds).
     private let reconnectInterval: TimeInterval = 60
+
+    /// Must exceed the server's heartbeat timeout (default 90 s).
+    private let serverPingTimeout: TimeInterval = 100
+
+    /// Time to wait for the first server ping after the WebSocket opens.
+    private let handshakeConfirmTimeout: TimeInterval = 15
 
     init(settings: SettingsStore = .shared) {
         self.settings = settings
@@ -29,13 +40,19 @@ final class WebSocketClient: NSObject, ObservableObject {
     func start() {
         guard !versionMismatch else { return }
         isRunning = true
+        observeSystemWake()
         connect()
     }
 
     func stop() {
         isRunning = false
+        if let wakeObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(wakeObserver)
+            self.wakeObserver = nil
+        }
         reconnectTask?.cancel()
         receiveTask?.cancel()
+        livenessTask?.cancel()
         webSocketTask?.cancel(with: .goingAway, reason: nil)
         webSocketTask = nil
         session?.invalidateAndCancel()
@@ -66,9 +83,17 @@ final class WebSocketClient: NSObject, ObservableObject {
         self.webSocketTask = task
         task.resume()
 
+        lastServerPingAt = nil
+        handshakeOpenedAt = nil
+
         receiveTask?.cancel()
         receiveTask = Task { [weak self] in
             await self?.listen()
+        }
+
+        livenessTask?.cancel()
+        livenessTask = Task { [weak self] in
+            await self?.watchLiveness()
         }
     }
 
@@ -91,10 +116,10 @@ final class WebSocketClient: NSObject, ObservableObject {
                 let message = try await task.receive()
                 switch message {
                 case .string(let text):
-                    handleMessage(text)
+                    await handleMessage(text)
                 case .data(let data):
                     if let text = String(data: data, encoding: .utf8) {
-                        handleMessage(text)
+                        await handleMessage(text)
                     }
                 @unknown default:
                     break
@@ -105,7 +130,7 @@ final class WebSocketClient: NSObject, ObservableObject {
         }
     }
 
-    private func handleMessage(_ text: String) {
+    private func handleMessage(_ text: String) async {
         guard let data = text.data(using: .utf8),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let type = json["type"] as? String else {
@@ -137,6 +162,10 @@ final class WebSocketClient: NSObject, ObservableObject {
             handleVersionMismatch()
 
         case "ping":
+            lastServerPingAt = Date()
+            if status != .connected {
+                status = .connected
+            }
             sendPong()
 
         default:
@@ -144,11 +173,78 @@ final class WebSocketClient: NSObject, ObservableObject {
         }
     }
 
+    private func watchLiveness() async {
+        while !Task.isCancelled {
+            try? await Task.sleep(nanoseconds: 10_000_000_000)
+            guard isRunning, !versionMismatch else { return }
+
+            if let lastServerPingAt {
+                if Date().timeIntervalSince(lastServerPingAt) > serverPingTimeout {
+                    NSLog("WebSocket server ping timeout – reconnecting")
+                    forceReconnect()
+                    return
+                }
+                continue
+            }
+
+            if let handshakeOpenedAt,
+               Date().timeIntervalSince(handshakeOpenedAt) > handshakeConfirmTimeout {
+                NSLog("WebSocket handshake not confirmed by server – reconnecting")
+                forceReconnect()
+                return
+            }
+        }
+    }
+
+    private func observeSystemWake() {
+        guard wakeObserver == nil else { return }
+
+        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.handleSystemWake()
+            }
+        }
+    }
+
+    private func handleSystemWake() {
+        guard isRunning, !versionMismatch else { return }
+        NSLog("System wake – reconnecting WebSocket")
+        reconnectImmediately()
+    }
+
+    private func forceReconnect() {
+        tearDownConnection()
+        status = .disconnected
+        scheduleReconnect()
+    }
+
+    private func reconnectImmediately() {
+        tearDownConnection()
+        connect()
+    }
+
+    private func tearDownConnection() {
+        receiveTask?.cancel()
+        livenessTask?.cancel()
+        reconnectTask?.cancel()
+        webSocketTask?.cancel(with: .goingAway, reason: nil)
+        webSocketTask = nil
+        session?.invalidateAndCancel()
+        session = nil
+        lastServerPingAt = nil
+        handshakeOpenedAt = nil
+    }
+
     private func handleVersionMismatch() {
         versionMismatch = true
         isRunning = false
         reconnectTask?.cancel()
         receiveTask?.cancel()
+        livenessTask?.cancel()
         webSocketTask?.cancel(with: .normalClosure, reason: nil)
         webSocketTask = nil
         session?.invalidateAndCancel()
@@ -172,6 +268,8 @@ final class WebSocketClient: NSObject, ObservableObject {
         webSocketTask = nil
         session?.invalidateAndCancel()
         session = nil
+        lastServerPingAt = nil
+        handshakeOpenedAt = nil
         if status != .disconnected {
             status = .disconnected
         }
@@ -199,7 +297,12 @@ extension WebSocketClient: URLSessionWebSocketDelegate {
         didOpenWithProtocol protocol: String?
     ) {
         Task { @MainActor in
-            self.status = .connected
+            // Stay on "connecting" until the server sends a ping, which only
+            // happens after the client is registered in the relay hub.
+            if self.status != .outdated {
+                self.handshakeOpenedAt = Date()
+                self.status = .connecting
+            }
         }
     }
 
