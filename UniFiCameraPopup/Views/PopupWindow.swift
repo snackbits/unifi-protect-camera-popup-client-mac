@@ -7,6 +7,8 @@ final class PopupWindow: NSPanel {
     private let playerView = VLCPlayerContainerView()
     private let clickCatcher = ClickCatchingView()
     private let muteBar = MuteBarView()
+    private let cropSelectionView = CropSelectionView()
+    private let cropActionBar = CropActionBarView()
     private var autoCloseTimer: Timer?
     private var escapeMonitor: Any?
     private var autoCloseSeconds: Double = 0
@@ -14,19 +16,40 @@ final class PopupWindow: NSPanel {
     private var mouseInside = false
     private let streamURL: String
     private let soundEnabled: Bool
+    private let rememberZoom: Bool
+    private let initialZoom: SavedCameraZoom?
+    private let cropRegion: CameraCrop?
+    private let cropSelectionMode: Bool
+    private let onWillClose: ((CGFloat, CGPoint) -> Void)?
+    private let onCropSave: ((CameraCrop, CGSize) -> Void)?
+    private let onCropCancel: (() -> Void)?
     private let onClose: () -> Void
 
     init(
         frame: NSRect,
         streamURL: String,
         soundEnabled: Bool = true,
+        rememberZoom: Bool = false,
+        initialZoom: SavedCameraZoom? = nil,
+        cropRegion: CameraCrop? = nil,
         thumbnailDataURI: String?,
         autoCloseSeconds: Double,
+        cropSelectionMode: Bool = false,
+        onWillClose: ((CGFloat, CGPoint) -> Void)? = nil,
+        onCropSave: ((CameraCrop, CGSize) -> Void)? = nil,
+        onCropCancel: (() -> Void)? = nil,
         onClose: @escaping () -> Void
     ) {
         self.onClose = onClose
         self.streamURL = streamURL
         self.soundEnabled = soundEnabled
+        self.rememberZoom = rememberZoom
+        self.initialZoom = initialZoom
+        self.cropRegion = cropRegion
+        self.cropSelectionMode = cropSelectionMode
+        self.onWillClose = onWillClose
+        self.onCropSave = onCropSave
+        self.onCropCancel = onCropCancel
 
         super.init(
             contentRect: frame,
@@ -45,7 +68,7 @@ final class PopupWindow: NSPanel {
         becomesKeyOnlyIfNeeded = true
 
         setupContent(thumbnailDataURI: thumbnailDataURI)
-        setupCloseHandlers(autoCloseSeconds: autoCloseSeconds)
+        setupCloseHandlers(autoCloseSeconds: cropSelectionMode ? 0 : autoCloseSeconds)
     }
 
     // Never become the key/main window so keyboard focus stays in the app the
@@ -54,6 +77,17 @@ final class PopupWindow: NSPanel {
     override var canBecomeMain: Bool { false }
 
     func startPlayback() {
+        if let cropRegion, !cropSelectionMode {
+            playerView.cropRegion = cropRegion
+        }
+
+        if let initialZoom, !cropSelectionMode {
+            playerView.applyZoomState(
+                scale: CGFloat(initialZoom.scale),
+                panOffset: CGPoint(x: initialZoom.panOffsetX, y: initialZoom.panOffsetY)
+            )
+        }
+
         playerView.play(urlString: streamURL, soundEnabled: soundEnabled) { [weak self] in
             guard let self else { return }
             NSAnimationContext.runAnimationGroup { context in
@@ -86,49 +120,72 @@ final class PopupWindow: NSPanel {
         playerView.alphaValue = 0
 
         clickCatcher.translatesAutoresizingMaskIntoConstraints = false
-        // A left-click only dismisses the popup when the video is not zoomed in.
-        // While zoomed, a click is reserved for panning, so it must not close.
-        clickCatcher.onClick = { [weak self] in
-            guard let self else { return }
-            if !self.playerView.isZoomedIn {
-                self.closePopup()
+        if cropSelectionMode {
+            clickCatcher.isHidden = true
+        } else {
+            // A left-click only dismisses the popup when the video is not zoomed in.
+            // While zoomed, a click is reserved for panning, so it must not close.
+            clickCatcher.onClick = { [weak self] in
+                guard let self else { return }
+                if !self.playerView.isZoomedIn {
+                    self.closePopup()
+                }
             }
-        }
-        // A right-click always closes, regardless of zoom state.
-        clickCatcher.onRightClick = { [weak self] in
-            self?.closePopup()
-        }
-        clickCatcher.onScroll = { [weak self] delta, location in
-            self?.playerView.zoom(by: delta * 0.01, at: location)
-        }
-        clickCatcher.onMagnify = { [weak self] magnification, location in
-            self?.playerView.zoom(by: magnification, at: location)
-        }
-        clickCatcher.onDrag = { [weak self] delta in
-            self?.playerView.pan(by: delta)
-        }
-        clickCatcher.isZoomedIn = { [weak self] in
-            self?.playerView.isZoomedIn ?? false
-        }
-        clickCatcher.onMouseEnter = { [weak self] in
-            self?.pauseAutoClose()
-            self?.muteBar.setHovering(true)
-        }
-        clickCatcher.onMouseExit = { [weak self] in
-            self?.resumeAutoClose()
-            self?.muteBar.setHovering(false)
+            // A right-click always closes, regardless of zoom state.
+            clickCatcher.onRightClick = { [weak self] in
+                self?.closePopup()
+            }
+            clickCatcher.onScroll = { [weak self] delta, location in
+                self?.playerView.zoom(by: delta * 0.01, at: location)
+            }
+            clickCatcher.onMagnify = { [weak self] magnification, location in
+                self?.playerView.zoom(by: magnification, at: location)
+            }
+            clickCatcher.onDrag = { [weak self] delta in
+                self?.playerView.pan(by: delta)
+            }
+            clickCatcher.isZoomedIn = { [weak self] in
+                self?.playerView.isZoomedIn ?? false
+            }
+            clickCatcher.onMouseEnter = { [weak self] in
+                self?.pauseAutoClose()
+                self?.muteBar.setHovering(true)
+            }
+            clickCatcher.onMouseExit = { [weak self] in
+                self?.resumeAutoClose()
+                self?.muteBar.setHovering(false)
+            }
         }
 
         muteBar.translatesAutoresizingMaskIntoConstraints = false
+        muteBar.isHidden = cropSelectionMode
         muteBar.onMute = { [weak self] duration in
             SettingsStore.shared.mute(for: duration)
             self?.closePopup()
+        }
+
+        cropSelectionView.translatesAutoresizingMaskIntoConstraints = false
+        cropSelectionView.isHidden = !cropSelectionMode
+        cropSelectionView.onSelectionChanged = { [weak self] in
+            self?.cropActionBar.setSaveEnabled(self?.cropSelectionView.hasValidSelection ?? false)
+        }
+
+        cropActionBar.translatesAutoresizingMaskIntoConstraints = false
+        cropActionBar.isHidden = !cropSelectionMode
+        cropActionBar.setSaveEnabled(false)
+        cropActionBar.onCancel = { [weak self] in
+            self?.cancelCropSelection()
+        }
+        cropActionBar.onSave = { [weak self] in
+            self?.saveCropSelection()
         }
 
         content.addSubview(thumbnailView)
         content.addSubview(playerView)
         content.addSubview(clickCatcher)
         content.addSubview(muteBar)
+        content.addSubview(cropSelectionView)
+        content.addSubview(cropActionBar)
 
         NSLayoutConstraint.activate([
             thumbnailView.leadingAnchor.constraint(equalTo: content.leadingAnchor),
@@ -148,6 +205,14 @@ final class PopupWindow: NSPanel {
 
             muteBar.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -8),
             muteBar.topAnchor.constraint(equalTo: content.topAnchor, constant: 8),
+
+            cropSelectionView.leadingAnchor.constraint(equalTo: content.leadingAnchor),
+            cropSelectionView.trailingAnchor.constraint(equalTo: content.trailingAnchor),
+            cropSelectionView.topAnchor.constraint(equalTo: content.topAnchor),
+            cropSelectionView.bottomAnchor.constraint(equalTo: content.bottomAnchor),
+
+            cropActionBar.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -8),
+            cropActionBar.topAnchor.constraint(equalTo: content.topAnchor, constant: 8),
         ])
 
         if let thumbnailDataURI, let image = imageFromDataURI(thumbnailDataURI) {
@@ -160,7 +225,11 @@ final class PopupWindow: NSPanel {
 
         escapeMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             if event.keyCode == 53 {
-                self?.closePopup()
+                if self?.cropSelectionMode == true {
+                    self?.cancelCropSelection()
+                } else {
+                    self?.closePopup()
+                }
                 return nil
             }
             return event
@@ -214,9 +283,25 @@ final class PopupWindow: NSPanel {
             NSEvent.removeMonitor(escapeMonitor)
             self.escapeMonitor = nil
         }
+        if rememberZoom, !cropSelectionMode {
+            let zoomState = playerView.currentZoomState
+            onWillClose?(zoomState.scale, zoomState.panOffset)
+        }
         playerView.stop()
         orderOut(nil)
         onClose()
+    }
+
+    private func cancelCropSelection() {
+        onCropCancel?()
+        closePopup()
+    }
+
+    private func saveCropSelection() {
+        guard let normalized = cropSelectionView.normalizedCrop() else { return }
+        let pixelSize = cropSelectionView.selectionPixelSize
+        onCropSave?(normalized, pixelSize)
+        closePopup()
     }
 
     private func imageFromDataURI(_ dataURI: String) -> NSImage? {
@@ -430,6 +515,86 @@ private final class MuteBarView: NSView {
             context.duration = 0.15
             animator().alphaValue = hovering ? 1.0 : 0.55
         }
+    }
+}
+
+/// Cancel / Save buttons shown during crop selection (top-right of the popup).
+private final class CropActionBarView: NSView {
+    var onCancel: (() -> Void)?
+    var onSave: (() -> Void)?
+
+    private let stack = NSStackView()
+    private let saveButton: NSButton
+
+    override init(frame frameRect: NSRect) {
+        saveButton = CropActionBarView.makeButton(title: "Speichern")
+        super.init(frame: frameRect)
+        setup()
+    }
+
+    required init?(coder: NSCoder) {
+        saveButton = CropActionBarView.makeButton(title: "Speichern")
+        super.init(coder: coder)
+        setup()
+    }
+
+    private func setup() {
+        let cancelButton = Self.makeButton(title: "Abbrechen")
+        cancelButton.target = self
+        cancelButton.action = #selector(cancelTapped)
+
+        saveButton.target = self
+        saveButton.action = #selector(saveTapped)
+
+        stack.orientation = .horizontal
+        stack.spacing = 6
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        stack.addArrangedSubview(cancelButton)
+        stack.addArrangedSubview(saveButton)
+        addSubview(stack)
+
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: trailingAnchor),
+            stack.topAnchor.constraint(equalTo: topAnchor),
+            stack.bottomAnchor.constraint(equalTo: bottomAnchor),
+        ])
+    }
+
+    private static func makeButton(title: String) -> NSButton {
+        let button = FirstMouseButton()
+        button.bezelStyle = .regularSquare
+        button.isBordered = false
+        button.wantsLayer = true
+        button.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.55).cgColor
+        button.layer?.cornerRadius = 6
+        button.contentTintColor = .white
+        button.title = title
+        button.font = .systemFont(ofSize: 11, weight: .semibold)
+        button.attributedTitle = NSAttributedString(
+            string: title,
+            attributes: [
+                .foregroundColor: NSColor.white,
+                .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
+            ]
+        )
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.widthAnchor.constraint(greaterThanOrEqualToConstant: 72).isActive = true
+        button.heightAnchor.constraint(equalToConstant: 24).isActive = true
+        return button
+    }
+
+    func setSaveEnabled(_ enabled: Bool) {
+        saveButton.isEnabled = enabled
+        saveButton.alphaValue = enabled ? 1.0 : 0.45
+    }
+
+    @objc private func cancelTapped() {
+        onCancel?()
+    }
+
+    @objc private func saveTapped() {
+        onSave?()
     }
 }
 

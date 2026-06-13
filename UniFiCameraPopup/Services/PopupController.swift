@@ -54,12 +54,19 @@ final class PopupController {
             screen: screen
         )
 
+        let webhookId = event.webhookId
         let window = PopupWindow(
             frame: frame,
             streamURL: streamURL,
             soundEnabled: mapping.soundEnabled,
+            rememberZoom: mapping.rememberZoom,
+            initialZoom: mapping.rememberZoom ? mapping.savedZoom : nil,
+            cropRegion: mapping.crop,
             thumbnailDataURI: event.thumbnail,
-            autoCloseSeconds: settings.autoCloseTimeout
+            autoCloseSeconds: settings.autoCloseTimeout,
+            onWillClose: { [weak self] scale, panOffset in
+                self?.settings.saveZoom(for: webhookId, scale: scale, panOffset: panOffset)
+            }
         ) { [weak self] in
             self?.currentWindow = nil
             self?.currentWebhookId = nil
@@ -74,6 +81,60 @@ final class PopupController {
 
     func showTestPopup(for mapping: WebhookMapping) {
         showManualPopup(for: mapping, alarmNameFallback: "Test")
+    }
+
+    func showCropSelection(for mapping: WebhookMapping) {
+        let streamURL = mapping.rtspsURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !streamURL.isEmpty else {
+            NSLog("RTSP URL required to set crop.")
+            return
+        }
+
+        dismiss()
+
+        let position = mapping.positionOverride ?? settings.defaultPosition
+        let width = CGFloat(mapping.width)
+        let height = CGFloat(mapping.height)
+        let screen = WindowPositioner.targetScreen(for: settings.screenTarget)
+        let frame = WindowPositioner.frame(
+            width: width,
+            height: height,
+            position: position,
+            margin: CGFloat(settings.edgeMargin),
+            screen: screen
+        )
+
+        let entryId = mapping.entryId
+        let originalWidth = mapping.width
+        let originalHeight = mapping.height
+
+        let window = PopupWindow(
+            frame: frame,
+            streamURL: streamURL,
+            soundEnabled: false,
+            thumbnailDataURI: nil,
+            autoCloseSeconds: 0,
+            cropSelectionMode: true,
+            onCropSave: { [weak self] normalized, pixelSize in
+                self?.settings.saveCrop(
+                    for: entryId,
+                    crop: normalized,
+                    pixelWidth: Double(pixelSize.width),
+                    pixelHeight: Double(pixelSize.height),
+                    originalWidth: originalWidth,
+                    originalHeight: originalHeight
+                )
+            },
+            onCropCancel: nil
+        ) { [weak self] in
+            self?.currentWindow = nil
+            self?.currentWebhookId = nil
+        }
+
+        currentWindow = window
+        currentWebhookId = mapping.webhookId
+        window.orderFrontRegardless()
+        window.startPlayback()
     }
 
     func showHotkeyPopup(for mapping: WebhookMapping) {

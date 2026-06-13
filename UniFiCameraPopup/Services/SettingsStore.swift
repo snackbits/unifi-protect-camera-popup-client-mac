@@ -134,6 +134,45 @@ final class SettingsStore: ObservableObject {
         mappings.first { $0.webhookId == webhookId }
     }
 
+    func saveZoom(for webhookId: String, scale: CGFloat, panOffset: CGPoint) {
+        guard let index = mappings.firstIndex(where: { $0.webhookId == webhookId }) else { return }
+        guard mappings[index].rememberZoom else { return }
+
+        mappings[index].savedZoom = SavedCameraZoom(
+            scale: Double(scale),
+            panOffsetX: Double(panOffset.x),
+            panOffsetY: Double(panOffset.y)
+        )
+    }
+
+    func saveCrop(
+        for entryId: UUID,
+        crop: CameraCrop,
+        pixelWidth: Double,
+        pixelHeight: Double,
+        originalWidth: Double,
+        originalHeight: Double
+    ) {
+        guard let index = mappings.firstIndex(where: { $0.entryId == entryId }) else { return }
+
+        var savedCrop = crop
+        savedCrop.originalWidth = originalWidth
+        savedCrop.originalHeight = originalHeight
+
+        mappings[index].crop = savedCrop
+        mappings[index].width = max(pixelWidth, 40)
+        mappings[index].height = max(pixelHeight, 40)
+    }
+
+    func removeCrop(for entryId: UUID) {
+        guard let index = mappings.firstIndex(where: { $0.entryId == entryId }),
+              let crop = mappings[index].crop else { return }
+
+        mappings[index].width = crop.originalWidth
+        mappings[index].height = crop.originalHeight
+        mappings[index].crop = nil
+    }
+
     func addMapping() {
         mappings.append(WebhookMapping())
     }

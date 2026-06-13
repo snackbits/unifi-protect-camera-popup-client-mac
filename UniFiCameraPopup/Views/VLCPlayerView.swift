@@ -18,6 +18,17 @@ final class VLCPlayerContainerView: NSView, VLCMediaPlayerDelegate {
 
     private(set) var zoomScale: CGFloat = 1.0
     private var panOffset: CGPoint = .zero
+    private var crop: CameraCrop?
+
+    /// When set, only the normalized crop region is shown; zoom/pan operate within it.
+    var cropRegion: CameraCrop? {
+        get { crop }
+        set {
+            crop = newValue
+            needsLayout = true
+            layoutSubtreeIfNeeded()
+        }
+    }
 
     /// True once the user has zoomed in past the resting scale.
     var isZoomedIn: Bool { zoomScale > Self.minZoom + 0.001 }
@@ -45,11 +56,46 @@ final class VLCPlayerContainerView: NSView, VLCMediaPlayerDelegate {
     }
 
     private func layoutVideoView() {
-        let scaledWidth = bounds.width * zoomScale
-        let scaledHeight = bounds.height * zoomScale
-        let originX = (bounds.width - scaledWidth) / 2 + panOffset.x
-        let originY = (bounds.height - scaledHeight) / 2 + panOffset.y
-        videoView.frame = CGRect(x: originX, y: originY, width: scaledWidth, height: scaledHeight)
+        let layout = videoLayout()
+        videoView.frame = layout.frame
+    }
+
+    private struct VideoLayout {
+        let frame: CGRect
+        let baselineOrigin: CGPoint
+    }
+
+    private func videoLayout(for scale: CGFloat? = nil, pan: CGPoint? = nil) -> VideoLayout {
+        let scale = scale ?? zoomScale
+        let pan = pan ?? panOffset
+
+        if let crop, crop.width > 0, crop.height > 0 {
+            let cw = CGFloat(crop.width)
+            let ch = CGFloat(crop.height)
+            let cx = CGFloat(crop.x)
+            let cy = CGFloat(crop.y)
+
+            let scaledWidth = bounds.width / cw * scale
+            let scaledHeight = bounds.height / ch * scale
+            let baselineOrigin = CGPoint(x: -cx * scaledWidth, y: -cy * scaledHeight)
+            let origin = CGPoint(x: baselineOrigin.x + pan.x, y: baselineOrigin.y + pan.y)
+            return VideoLayout(
+                frame: CGRect(x: origin.x, y: origin.y, width: scaledWidth, height: scaledHeight),
+                baselineOrigin: baselineOrigin
+            )
+        }
+
+        let scaledWidth = bounds.width * scale
+        let scaledHeight = bounds.height * scale
+        let baselineOrigin = CGPoint(
+            x: (bounds.width - scaledWidth) / 2,
+            y: (bounds.height - scaledHeight) / 2
+        )
+        let origin = CGPoint(x: baselineOrigin.x + pan.x, y: baselineOrigin.y + pan.y)
+        return VideoLayout(
+            frame: CGRect(x: origin.x, y: origin.y, width: scaledWidth, height: scaledHeight),
+            baselineOrigin: baselineOrigin
+        )
     }
 
     /// Zooms toward `point` (in this view's coordinate space) by a multiplicative
@@ -60,21 +106,25 @@ final class VLCPlayerContainerView: NSView, VLCMediaPlayerDelegate {
 
     private func setZoom(scale rawScale: CGFloat, at point: NSPoint) {
         let newScale = min(max(rawScale, Self.minZoom), Self.maxZoom)
-        let oldFrame = videoView.frame
+        let oldLayout = videoLayout()
 
         // Keep the content under the cursor anchored while zooming.
         let unit = CGPoint(
-            x: oldFrame.width > 0 ? (point.x - oldFrame.minX) / oldFrame.width : 0.5,
-            y: oldFrame.height > 0 ? (point.y - oldFrame.minY) / oldFrame.height : 0.5
+            x: oldLayout.frame.width > 0 ? (point.x - oldLayout.frame.minX) / oldLayout.frame.width : 0.5,
+            y: oldLayout.frame.height > 0 ? (point.y - oldLayout.frame.minY) / oldLayout.frame.height : 0.5
         )
-        let newSize = CGSize(width: bounds.width * newScale, height: bounds.height * newScale)
-        let newOriginX = point.x - unit.x * newSize.width
-        let newOriginY = point.y - unit.y * newSize.height
+
+        let newLayout = videoLayout(for: newScale, pan: .zero)
+        let newSize = newLayout.frame.size
+        let newOrigin = CGPoint(
+            x: point.x - unit.x * newSize.width,
+            y: point.y - unit.y * newSize.height
+        )
 
         zoomScale = newScale
         panOffset = CGPoint(
-            x: newOriginX - (bounds.width - newSize.width) / 2,
-            y: newOriginY - (bounds.height - newSize.height) / 2
+            x: newOrigin.x - newLayout.baselineOrigin.x,
+            y: newOrigin.y - newLayout.baselineOrigin.y
         )
         clampPan()
         needsLayout = true
@@ -98,11 +148,31 @@ final class VLCPlayerContainerView: NSView, VLCMediaPlayerDelegate {
         layoutSubtreeIfNeeded()
     }
 
+    func applyZoomState(scale: CGFloat, panOffset: CGPoint) {
+        zoomScale = min(max(scale, Self.minZoom), Self.maxZoom)
+        self.panOffset = panOffset
+        clampPan()
+        needsLayout = true
+        layoutSubtreeIfNeeded()
+    }
+
+    var currentZoomState: (scale: CGFloat, panOffset: CGPoint) {
+        (zoomScale, panOffset)
+    }
+
     private func clampPan() {
-        let maxX = max(0, (bounds.width * zoomScale - bounds.width) / 2)
-        let maxY = max(0, (bounds.height * zoomScale - bounds.height) / 2)
-        panOffset.x = min(max(panOffset.x, -maxX), maxX)
-        panOffset.y = min(max(panOffset.y, -maxY), maxY)
+        if crop != nil {
+            // Pan range keeps the crop region filling the view while zoomed in.
+            let minX = bounds.width * (1 - zoomScale)
+            let minY = bounds.height * (1 - zoomScale)
+            panOffset.x = min(max(panOffset.x, minX), 0)
+            panOffset.y = min(max(panOffset.y, minY), 0)
+        } else {
+            let maxX = max(0, (bounds.width * zoomScale - bounds.width) / 2)
+            let maxY = max(0, (bounds.height * zoomScale - bounds.height) / 2)
+            panOffset.x = min(max(panOffset.x, -maxX), maxX)
+            panOffset.y = min(max(panOffset.y, -maxY), maxY)
+        }
     }
 
     override func viewDidMoveToWindow() {

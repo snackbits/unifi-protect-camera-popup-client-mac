@@ -147,6 +147,7 @@ struct SettingsView: View {
                         }
 
                         Toggle("Ton", isOn: $mapping.soundEnabled)
+                        Toggle("Zoom merken", isOn: $mapping.rememberZoom)
 
                         Picker("Position (optional)", selection: Binding<PopupPosition?>(
                             get: { mapping.positionOverride },
@@ -170,6 +171,16 @@ struct SettingsView: View {
 
                         HStack {
                             Spacer()
+                            if mapping.crop != nil {
+                                Button("Ausschnitt löschen") {
+                                    settings.removeCrop(for: mapping.id)
+                                }
+                            } else {
+                                Button("Ausschnitt setzen") {
+                                    PopupController.shared.showCropSelection(for: mapping)
+                                }
+                                .disabled(!canTestPopup(mapping))
+                            }
                             Button("Test-Popup") {
                                 PopupController.shared.showTestPopup(for: mapping)
                             }
