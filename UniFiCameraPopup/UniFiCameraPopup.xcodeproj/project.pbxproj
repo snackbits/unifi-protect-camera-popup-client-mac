@@ -24,6 +24,10 @@
 		A10000000000000000000018 /* HelpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000018 /* HelpView.swift */; };
 		A10000000000000000000019 /* DoNotDisturbChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000019 /* DoNotDisturbChecker.swift */; };
 		A10000000000000000000020 /* FocusMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000020 /* FocusMonitor.swift */; };
+		A10000000000000000000021 /* CameraHotkey.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000021 /* CameraHotkey.swift */; };
+		A10000000000000000000022 /* GlobalHotkeyManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000022 /* GlobalHotkeyManager.swift */; };
+		A10000000000000000000023 /* HotkeyRecorderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000023 /* HotkeyRecorderView.swift */; };
+		A10000000000000000000024 /* AccessibilityHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000024 /* AccessibilityHelper.swift */; };
 		A10000000000000000000013 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000013 /* Assets.xcassets */; };
 		A10000000000000000000014 /* VLCKitSPM in Frameworks */ = {isa = PBXBuildFile; productRef = A50000000000000000000001 /* VLCKitSPM */; };
 /* End PBXBuildFile section */
@@ -46,6 +50,10 @@
 		A20000000000000000000018 /* HelpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpView.swift; sourceTree = "<group>"; };
 		A20000000000000000000019 /* DoNotDisturbChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoNotDisturbChecker.swift; sourceTree = "<group>"; };
 		A20000000000000000000020 /* FocusMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusMonitor.swift; sourceTree = "<group>"; };
+		A20000000000000000000021 /* CameraHotkey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraHotkey.swift; sourceTree = "<group>"; };
+		A20000000000000000000022 /* GlobalHotkeyManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalHotkeyManager.swift; sourceTree = "<group>"; };
+		A20000000000000000000023 /* HotkeyRecorderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyRecorderView.swift; sourceTree = "<group>"; };
+		A20000000000000000000024 /* AccessibilityHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityHelper.swift; sourceTree = "<group>"; };
 		A20000000000000000000013 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A20000000000000000000014 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A20000000000000000000015 /* UniFiCameraPopup.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "UniFi Camera Popup.app"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -98,6 +106,7 @@
 			children = (
 				A20000000000000000000003 /* PopupPosition.swift */,
 				A20000000000000000000004 /* WebhookMapping.swift */,
+				A20000000000000000000021 /* CameraHotkey.swift */,
 				A20000000000000000000005 /* ConnectionStatus.swift */,
 			);
 			path = Models;
@@ -111,6 +120,8 @@
 				A20000000000000000000017 /* UpdateService.swift */,
 				A20000000000000000000008 /* WindowPositioner.swift */,
 				A20000000000000000000009 /* PopupController.swift */,
+				A20000000000000000000022 /* GlobalHotkeyManager.swift */,
+				A20000000000000000000024 /* AccessibilityHelper.swift */,
 				A20000000000000000000019 /* DoNotDisturbChecker.swift */,
 				A20000000000000000000020 /* FocusMonitor.swift */,
 			);
@@ -123,6 +134,7 @@
 				A20000000000000000000010 /* VLCPlayerView.swift */,
 				A20000000000000000000011 /* PopupWindow.swift */,
 				A20000000000000000000012 /* SettingsView.swift */,
+				A20000000000000000000023 /* HotkeyRecorderView.swift */,
 				A20000000000000000000018 /* HelpView.swift */,
 			);
 			path = Views;
@@ -220,6 +232,10 @@
 				A10000000000000000000018 /* HelpView.swift in Sources */,
 				A10000000000000000000019 /* DoNotDisturbChecker.swift in Sources */,
 				A10000000000000000000020 /* FocusMonitor.swift in Sources */,
+				A10000000000000000000021 /* CameraHotkey.swift in Sources */,
+				A10000000000000000000022 /* GlobalHotkeyManager.swift in Sources */,
+				A10000000000000000000023 /* HotkeyRecorderView.swift in Sources */,
+				A10000000000000000000024 /* AccessibilityHelper.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

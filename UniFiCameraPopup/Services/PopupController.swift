@@ -73,27 +73,35 @@ final class PopupController {
     }
 
     func showTestPopup(for mapping: WebhookMapping) {
+        showManualPopup(for: mapping, alarmNameFallback: "Test")
+    }
+
+    func showHotkeyPopup(for mapping: WebhookMapping) {
+        showManualPopup(for: mapping, alarmNameFallback: "Hotkey")
+    }
+
+    private func showManualPopup(for mapping: WebhookMapping, alarmNameFallback: String) {
         let webhookId = mapping.webhookId.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !webhookId.isEmpty else {
-            NSLog("Webhook slug required to test popup.")
+            NSLog("Webhook slug required to open popup.")
             return
         }
 
         let streamURL = mapping.rtspsURL.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !streamURL.isEmpty else {
-            NSLog("RTSP URL required to test popup.")
+            NSLog("RTSP URL required to open popup.")
             return
         }
 
         let alarmName = mapping.label.trimmingCharacters(in: .whitespacesAndNewlines)
-        let testEvent = TriggerEvent(
+        let event = TriggerEvent(
             webhookId: webhookId,
             thumbnail: nil,
-            alarmName: alarmName.isEmpty ? "Test" : alarmName,
+            alarmName: alarmName.isEmpty ? alarmNameFallback : alarmName,
             timestamp: Date()
         )
-        // Test popups bypass mute / Do Not Disturb so they always appear.
-        present(event: testEvent)
+        // Manual popups bypass mute / Do Not Disturb so they always appear.
+        present(event: event)
     }
 
     func dismiss() {

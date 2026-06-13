@@ -14,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var versionMenuItem: NSMenuItem?
     private var updateMenuItem: NSMenuItem?
     private var unmuteMenuItem: NSMenuItem?
+    private var camerasMenuItem: NSMenuItem?
     private var updateCheckTimer: Timer?
     private var muteExpiryTimer: Timer?
     private var dndCheckTimer: Timer?
@@ -28,12 +29,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupStatusItem()
         setupWebSocket()
+        setupHotkeys()
         webSocketClient.start()
         startUpdateChecks()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         webSocketClient.stop()
+        GlobalHotkeyManager.shared.stop()
         updateCheckTimer?.invalidate()
         muteExpiryTimer?.invalidate()
         dndCheckTimer?.invalidate()
@@ -44,6 +47,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func setupWebSocket() {
         webSocketClient.onTrigger = { event in
             PopupController.shared.show(event: event)
+        }
+    }
+
+    private func setupHotkeys() {
+        GlobalHotkeyManager.shared.start { [weak self] entryId in
+            self?.openHotkeyPopup(for: entryId)
+        }
+        GlobalHotkeyManager.shared.sync(mappings: settings.mappings)
+
+        Task {
+            await observeHotkeyMappings()
+        }
+    }
+
+    private func openHotkeyPopup(for entryId: UUID) {
+        guard let mapping = settings.mappings.first(where: { $0.entryId == entryId }) else { return }
+        PopupController.shared.showHotkeyPopup(for: mapping)
+    }
+
+    private func observeHotkeyMappings() async {
+        for await mappings in settings.$mappings.values {
+            GlobalHotkeyManager.shared.sync(mappings: mappings)
         }
     }
 
@@ -99,6 +124,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         menu.addItem(unmuteMenuItem)
         self.unmuteMenuItem = unmuteMenuItem
+
+        let camerasMenuItem = NSMenuItem(title: "Kameras", action: nil, keyEquivalent: "")
+        camerasMenuItem.submenu = NSMenu()
+        camerasMenuItem.isHidden = true
+        menu.addItem(camerasMenuItem)
+        self.camerasMenuItem = camerasMenuItem
 
         let settingsItem = NSMenuItem(title: "Einstellungen…", action: #selector(openSettings), keyEquivalent: "")
         settingsItem.target = self
@@ -404,6 +435,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         scheduleMuteExpiryRefresh()
     }
 
+    @objc private func openCameraFromMenu(_ sender: NSMenuItem) {
+        guard let entryIdString = sender.representedObject as? String,
+              let entryId = UUID(uuidString: entryIdString),
+              let mapping = settings.mappings.first(where: { $0.entryId == entryId }) else {
+            return
+        }
+        PopupController.shared.showHotkeyPopup(for: mapping)
+    }
+
     @objc private func quit() {
         NSApp.terminate(nil)
     }
@@ -414,6 +454,42 @@ extension AppDelegate: NSMenuDelegate {
         // Refresh the update status whenever the user opens the menu.
         Task { await updateService.checkForUpdates() }
         updateMuteMenuItem()
+        updateCamerasMenu()
+    }
+
+    private func updateCamerasMenu() {
+        guard let camerasMenuItem, let submenu = camerasMenuItem.submenu else { return }
+
+        submenu.removeAllItems()
+        let mappings = settings.mappings
+        camerasMenuItem.isHidden = mappings.isEmpty
+
+        for mapping in mappings {
+            let item = NSMenuItem(
+                title: cameraMenuTitle(for: mapping),
+                action: #selector(openCameraFromMenu(_:)),
+                keyEquivalent: ""
+            )
+            item.target = self
+            item.representedObject = mapping.entryId.uuidString
+            item.isEnabled = canOpenCameraPopup(mapping)
+            submenu.addItem(item)
+        }
+    }
+
+    private func cameraMenuTitle(for mapping: WebhookMapping) -> String {
+        let label = mapping.label.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !label.isEmpty { return label }
+
+        let slug = mapping.webhookId.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !slug.isEmpty { return slug }
+
+        return "Kamera"
+    }
+
+    private func canOpenCameraPopup(_ mapping: WebhookMapping) -> Bool {
+        !mapping.webhookId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !mapping.rtspsURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private func updateMuteMenuItem() {

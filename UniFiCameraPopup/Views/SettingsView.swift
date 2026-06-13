@@ -163,6 +163,11 @@ struct SettingsView: View {
                         TextField("Höhe (px)", text: dimensionBinding($mapping.height), prompt: Text("270"))
                             .textFieldStyle(.roundedBorder)
 
+                        HotkeyRecorderView(
+                            hotkey: $mapping.hotkey,
+                            conflictMessage: hotkeyConflictMessage(for: mapping)
+                        )
+
                         HStack {
                             Spacer()
                             Button("Test-Popup") {
@@ -286,6 +291,56 @@ struct SettingsView: View {
     private func canTestPopup(_ mapping: WebhookMapping) -> Bool {
         !mapping.webhookId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && !mapping.rtspsURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private func hotkeyConflictMessage(for mapping: WebhookMapping) -> String? {
+        guard let hotkey = mapping.hotkey else { return nil }
+
+        let duplicates = settings.mappings.filter { $0.hotkey == hotkey }
+        if duplicates.count > 1 {
+            return conflictNamesMessage(
+                prefix: "Dieses Tastenkürzel ist",
+                mappings: duplicates
+            )
+        }
+
+        if hotkey.isSequence, let prefix = hotkey.steps.first {
+            let singleKeyConflicts = settings.mappings.filter {
+                guard mapping.entryId != $0.entryId, let other = $0.hotkey else { return false }
+                return !other.isSequence && other.steps.first == prefix
+            }
+            if !singleKeyConflicts.isEmpty {
+                return conflictNamesMessage(
+                    prefix: "Die erste Taste kollidiert mit dem Einzel-Shortcut von",
+                    mappings: singleKeyConflicts
+                )
+            }
+        }
+
+        if !hotkey.isSequence, let prefix = hotkey.steps.first {
+            let sequenceConflicts = settings.mappings.filter {
+                guard mapping.entryId != $0.entryId, let other = $0.hotkey else { return false }
+                return other.isSequence && other.steps.first == prefix
+            }
+            if !sequenceConflicts.isEmpty {
+                return conflictNamesMessage(
+                    prefix: "Dieser Shortcut blockiert die Sequenz von",
+                    mappings: sequenceConflicts
+                )
+            }
+        }
+
+        return nil
+    }
+
+    private func conflictNamesMessage(prefix: String, mappings: [WebhookMapping]) -> String {
+        let names = mappings
+            .map { $0.label.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        if names.isEmpty {
+            return "\(prefix) mehreren Kameras."
+        }
+        return "\(prefix) \(names.joined(separator: ", "))."
     }
 
     private func streamURLWarning(for url: String) -> String? {
