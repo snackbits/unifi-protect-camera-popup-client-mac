@@ -9,6 +9,7 @@ struct SettingsView: View {
     @State private var copiedWebhookURL = false
     @State private var copiedBearerToken = false
     @State private var dndHasFullDiskAccess = true
+    @State private var launchRequiresApproval = false
 
     var body: some View {
         Form {
@@ -203,7 +204,25 @@ struct SettingsView: View {
             }
 
             Section("System") {
-                Toggle("Beim Login starten", isOn: $settings.launchAtLogin)
+                VStack(alignment: .leading, spacing: 2) {
+                    Toggle("Beim Login starten", isOn: $settings.launchAtLogin)
+
+                    if launchRequiresApproval {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Label(
+                                "„UniFi Camera Popup“ muss in den Anmeldeobjekten freigegeben werden, sonst startet die App nicht automatisch.",
+                                systemImage: "exclamationmark.triangle.fill"
+                            )
+                            .font(.caption2)
+                            .foregroundStyle(.orange)
+                            Button("Anmeldeobjekte öffnen") {
+                                LaunchAtLoginHelper.openLoginItemsSettings()
+                            }
+                            .controlSize(.small)
+                        }
+                        .padding(.top, 4)
+                    }
+                }
                 Toggle("Automatisch aktualisieren", isOn: $settings.autoUpdate)
                 VStack(alignment: .leading, spacing: 2) {
                     Toggle("Bei DND deaktivieren (🧪 LAB)", isOn: $settings.disableDuringDND)
@@ -234,8 +253,12 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .padding()
-        .onAppear { refreshDNDPermission() }
+        .onAppear {
+            refreshDNDPermission()
+            refreshLaunchApprovalState()
+        }
         .onChange(of: settings.disableDuringDND) { _ in refreshDNDPermission() }
+        .onChange(of: settings.launchAtLogin) { _ in refreshLaunchApprovalState() }
         .alert("Neue ID generieren?", isPresented: $showRegenerateConfirm) {
             Button("Abbrechen", role: .cancel) {}
             Button("Neue ID", role: .destructive) {
@@ -291,6 +314,10 @@ struct SettingsView: View {
             return
         }
         dndHasFullDiskAccess = DoNotDisturbChecker.hasFullDiskAccess
+    }
+
+    private func refreshLaunchApprovalState() {
+        launchRequiresApproval = settings.launchAtLogin && LaunchAtLoginHelper.requiresApproval
     }
 
     private func openFullDiskAccessSettings() {

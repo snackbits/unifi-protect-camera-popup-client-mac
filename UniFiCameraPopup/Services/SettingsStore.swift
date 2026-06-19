@@ -75,6 +75,16 @@ final class SettingsStore: ObservableObject {
         muteUntil = nil
     }
 
+    /// Reconciles the persisted "launch at login" preference with the actual
+    /// `SMAppService` registration state. Call this on app launch so a stale or
+    /// failed registration repairs itself instead of silently staying broken.
+    func reconcileLaunchAtLogin() {
+        let resolved = LaunchAtLoginHelper.synchronize(desired: launchAtLogin)
+        if resolved != launchAtLogin {
+            launchAtLogin = resolved
+        }
+    }
+
     private let defaults = UserDefaults.standard
     private let storageKey = "unifi.camera.popup.settings"
 
@@ -246,8 +256,6 @@ final class SettingsStore: ObservableObject {
 }
 
 enum LaunchAtLoginHelper {
-    private static let serviceIdentifier = "com.snackbits.UniFiCameraPopup.LoginItem"
-
     static var isEnabled: Bool {
         if #available(macOS 13.0, *) {
             return SMAppService.mainApp.status == .enabled
@@ -255,17 +263,68 @@ enum LaunchAtLoginHelper {
         return false
     }
 
-    static func setEnabled(_ enabled: Bool) {
-        guard #available(macOS 13.0, *) else { return }
+    /// True when the login item is registered but the user still has to approve
+    /// it in System Settings → General → Login Items. In this state the app will
+    /// NOT launch at login until approved.
+    static var requiresApproval: Bool {
+        if #available(macOS 13.0, *) {
+            return SMAppService.mainApp.status == .requiresApproval
+        }
+        return false
+    }
+
+    @discardableResult
+    static func setEnabled(_ enabled: Bool) -> Bool {
+        guard #available(macOS 13.0, *) else { return false }
 
         do {
             if enabled {
-                try SMAppService.mainApp.register()
+                // Registering an already-enabled service throws; skip in that case.
+                if SMAppService.mainApp.status != .enabled {
+                    try SMAppService.mainApp.register()
+                }
             } else {
                 try SMAppService.mainApp.unregister()
             }
+            return true
         } catch {
             NSLog("Launch at login error: \(error.localizedDescription)")
+            return false
+        }
+    }
+
+    /// Reconciles the persisted preference with the real system registration
+    /// state and returns the value the toggle should reflect afterwards.
+    ///
+    /// This is the self-healing step: if the preference says "on" but the system
+    /// lost the registration (e.g. a previously failed `register()`, the app was
+    /// moved, or the login item was reset), we re-register here.
+    static func synchronize(desired: Bool) -> Bool {
+        guard #available(macOS 13.0, *) else { return false }
+
+        let status = SMAppService.mainApp.status
+
+        if desired {
+            switch status {
+            case .enabled, .requiresApproval:
+                // Already registered (approval is handled separately in the UI).
+                return true
+            default:
+                setEnabled(true)
+                let newStatus = SMAppService.mainApp.status
+                return newStatus == .enabled || newStatus == .requiresApproval
+            }
+        } else {
+            if status == .enabled || status == .requiresApproval {
+                setEnabled(false)
+            }
+            return false
+        }
+    }
+
+    static func openLoginItemsSettings() {
+        if #available(macOS 13.0, *) {
+            SMAppService.openSystemSettingsLoginItems()
         }
     }
 }

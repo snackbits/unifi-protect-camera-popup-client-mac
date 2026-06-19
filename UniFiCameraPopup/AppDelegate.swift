@@ -27,6 +27,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let updateCheckInterval: TimeInterval = 6 * 60 * 60
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        settings.reconcileLaunchAtLogin()
         setupStatusItem()
         setupWebSocket()
         setupHotkeys()
