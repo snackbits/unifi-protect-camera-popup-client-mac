@@ -4,8 +4,18 @@ import AppKit
 final class PopupController {
     static let shared = PopupController()
 
-    private var currentWindow: PopupWindow?
-    private var currentWebhookId: String?
+    /// A popup that is currently on screen. The order of `activePopups` is the
+    /// stacking order and is kept stable: a re-triggering camera only restarts
+    /// its timeout, it is never moved within the stack.
+    private struct ActivePopup {
+        let webhookId: String
+        let window: PopupWindow
+        let size: CGSize
+        /// The position used when only a single popup is shown.
+        let position: PopupPosition
+    }
+
+    private var activePopups: [ActivePopup] = []
     private let settings = SettingsStore.shared
 
     private init() {}
@@ -33,30 +43,42 @@ final class PopupController {
         let streamURL = mapping.rtspsURL.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !streamURL.isEmpty else { return }
 
-        if let currentWindow,
-           currentWebhookId == event.webhookId,
-           settings.multiAlarmBehavior == .extend {
-            currentWindow.extendAutoClose(seconds: settings.autoCloseTimeout)
+        // The same camera triggering again only restarts its auto-close timer.
+        // The popup keeps its place in the stack so windows never jump around.
+        if let existing = activePopups.first(where: { $0.webhookId == event.webhookId }) {
+            existing.window.extendAutoClose(seconds: settings.autoCloseTimeout)
             return
         }
 
-        dismiss()
+        // Without the "show all" option a new camera replaces the current popup.
+        if !settings.showAllActiveCameras {
+            dismiss()
+        }
 
-        let position = mapping.positionOverride ?? settings.defaultPosition
-        let width = CGFloat(mapping.width)
-        let height = CGFloat(mapping.height)
-        let screen = WindowPositioner.targetScreen(for: settings.screenTarget)
-        let frame = WindowPositioner.frame(
-            width: width,
-            height: height,
-            position: position,
-            margin: CGFloat(settings.edgeMargin),
-            screen: screen
+        let window = makeAlarmWindow(event: event, mapping: mapping, streamURL: streamURL)
+        activePopups.append(
+            ActivePopup(
+                webhookId: event.webhookId,
+                window: window,
+                size: CGSize(width: CGFloat(mapping.width), height: CGFloat(mapping.height)),
+                position: mapping.positionOverride ?? settings.defaultPosition
+            )
         )
 
+        relayout()
+        // Show without stealing focus so the user can keep typing in other apps.
+        window.orderFrontRegardless()
+        window.startPlayback()
+    }
+
+    private func makeAlarmWindow(
+        event: TriggerEvent,
+        mapping: WebhookMapping,
+        streamURL: String
+    ) -> PopupWindow {
         let webhookId = event.webhookId
-        let window = PopupWindow(
-            frame: frame,
+        return PopupWindow(
+            frame: NSRect(x: 0, y: 0, width: CGFloat(mapping.width), height: CGFloat(mapping.height)),
             streamURL: streamURL,
             soundEnabled: mapping.soundEnabled,
             rememberZoom: mapping.rememberZoom,
@@ -68,15 +90,46 @@ final class PopupController {
                 self?.settings.saveZoom(for: webhookId, scale: scale, panOffset: panOffset)
             }
         ) { [weak self] in
-            self?.currentWindow = nil
-            self?.currentWebhookId = nil
+            self?.removePopup(webhookId: webhookId)
         }
+    }
 
-        currentWindow = window
-        currentWebhookId = event.webhookId
-        // Show without stealing focus so the user can keep typing in other apps.
-        window.orderFrontRegardless()
-        window.startPlayback()
+    /// Repositions every active popup. With "show all" enabled the popups are
+    /// stacked at the default position; otherwise the single popup uses its own
+    /// (possibly overridden) position.
+    private func relayout() {
+        guard !activePopups.isEmpty else { return }
+
+        let screen = WindowPositioner.targetScreen(for: settings.screenTarget)
+        let margin = CGFloat(settings.edgeMargin)
+
+        if settings.showAllActiveCameras {
+            let frames = WindowPositioner.stackedFrames(
+                sizes: activePopups.map(\.size),
+                position: settings.defaultPosition,
+                margin: margin,
+                screen: screen
+            )
+            for (index, popup) in activePopups.enumerated() {
+                popup.window.setFrame(frames[index], display: true)
+            }
+        } else {
+            for popup in activePopups {
+                let frame = WindowPositioner.frame(
+                    width: popup.size.width,
+                    height: popup.size.height,
+                    position: popup.position,
+                    margin: margin,
+                    screen: screen
+                )
+                popup.window.setFrame(frame, display: true)
+            }
+        }
+    }
+
+    private func removePopup(webhookId: String) {
+        activePopups.removeAll { $0.webhookId == webhookId }
+        relayout()
     }
 
     func showTestPopup(for mapping: WebhookMapping) {
@@ -90,6 +143,7 @@ final class PopupController {
             return
         }
 
+        // Crop selection is a focused editing mode, so clear any open popups.
         dismiss()
 
         let position = mapping.positionOverride ?? settings.defaultPosition
@@ -105,6 +159,7 @@ final class PopupController {
         )
 
         let entryId = mapping.entryId
+        let webhookId = mapping.webhookId
         let originalWidth = mapping.width
         let originalHeight = mapping.height
 
@@ -127,12 +182,17 @@ final class PopupController {
             },
             onCropCancel: nil
         ) { [weak self] in
-            self?.currentWindow = nil
-            self?.currentWebhookId = nil
+            self?.removePopup(webhookId: webhookId)
         }
 
-        currentWindow = window
-        currentWebhookId = mapping.webhookId
+        activePopups.append(
+            ActivePopup(
+                webhookId: webhookId,
+                window: window,
+                size: CGSize(width: width, height: height),
+                position: position
+            )
+        )
         window.orderFrontRegardless()
         window.startPlayback()
     }
@@ -166,8 +226,10 @@ final class PopupController {
     }
 
     func dismiss() {
-        currentWindow?.closePopup()
-        currentWindow = nil
-        currentWebhookId = nil
+        let popups = activePopups
+        activePopups = []
+        for popup in popups {
+            popup.window.closePopup()
+        }
     }
 }

@@ -32,7 +32,9 @@ final class SettingsStore: ObservableObject {
         didSet { persist() }
     }
 
-    @Published var multiAlarmBehavior: MultiAlarmBehavior {
+    /// When enabled, every triggering camera gets its own popup, stacked beneath
+    /// the previous ones. When disabled, a new camera replaces the current popup.
+    @Published var showAllActiveCameras: Bool {
         didSet { persist() }
     }
 
@@ -85,7 +87,7 @@ final class SettingsStore: ObservableObject {
         var edgeMargin: Double
         var autoCloseTimeout: Double
         var screenTarget: ScreenTarget
-        var multiAlarmBehavior: MultiAlarmBehavior
+        var showAllActiveCameras: Bool?
         var launchAtLogin: Bool
         var autoUpdate: Bool?
         var disableDuringDND: Bool?
@@ -108,7 +110,7 @@ final class SettingsStore: ObservableObject {
             edgeMargin = saved.edgeMargin
             autoCloseTimeout = saved.autoCloseTimeout
             screenTarget = saved.screenTarget
-            multiAlarmBehavior = saved.multiAlarmBehavior
+            showAllActiveCameras = saved.showAllActiveCameras ?? false
             launchAtLogin = saved.launchAtLogin
             autoUpdate = saved.autoUpdate ?? true
             disableDuringDND = saved.disableDuringDND ?? false
@@ -120,7 +122,7 @@ final class SettingsStore: ObservableObject {
             edgeMargin = 16
             autoCloseTimeout = 30
             screenTarget = .main
-            multiAlarmBehavior = .replace
+            showAllActiveCameras = false
             launchAtLogin = LaunchAtLoginHelper.isEnabled
             autoUpdate = true
             disableDuringDND = false
@@ -230,7 +232,7 @@ final class SettingsStore: ObservableObject {
             edgeMargin: edgeMargin,
             autoCloseTimeout: autoCloseTimeout,
             screenTarget: screenTarget,
-            multiAlarmBehavior: multiAlarmBehavior,
+            showAllActiveCameras: showAllActiveCameras,
             launchAtLogin: launchAtLogin,
             autoUpdate: autoUpdate,
             disableDuringDND: disableDuringDND,

@@ -117,10 +117,11 @@ struct SettingsView: View {
                         .frame(width: 60, alignment: .trailing)
                 }
 
-                Picker("Mehrfach-Alarme", selection: $settings.multiAlarmBehavior) {
-                    ForEach(MultiAlarmBehavior.allCases) { behavior in
-                        Text(behavior.label).tag(behavior)
-                    }
+                VStack(alignment: .leading, spacing: 2) {
+                    Toggle("Alle aktiven Kameras zeigen", isOn: $settings.showAllActiveCameras)
+                    Text("Jede auslösende Kamera bekommt ein eigenes Popup, untereinander gestapelt. Ohne diese Option ersetzt eine neue Kamera das aktuelle Popup.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
             }
 

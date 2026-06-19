@@ -26,6 +26,17 @@ enum PopupPosition: String, Codable, CaseIterable, Identifiable {
         case .bottomRight: return "Unten rechts"
         }
     }
+
+    /// When several popups are stacked, anchors at the bottom of the screen grow
+    /// upward so the stack never runs off the bottom edge.
+    var stacksUpward: Bool {
+        switch self {
+        case .bottomLeft, .bottomCenter, .bottomRight:
+            return true
+        default:
+            return false
+        }
+    }
 }
 
 enum ScreenTarget: String, Codable, CaseIterable, Identifiable {
@@ -38,20 +49,6 @@ enum ScreenTarget: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .main: return "Hauptbildschirm"
         case .mouse: return "Bildschirm mit Maus"
-        }
-    }
-}
-
-enum MultiAlarmBehavior: String, Codable, CaseIterable, Identifiable {
-    case replace
-    case extend
-
-    var id: String { rawValue }
-
-    var label: String {
-        switch self {
-        case .replace: return "Neuen Alarm ersetzen"
-        case .extend: return "Timeout verlängern"
         }
     }
 }
