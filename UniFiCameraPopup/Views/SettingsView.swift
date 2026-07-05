@@ -6,6 +6,7 @@ struct SettingsView: View {
     @EnvironmentObject private var webSocketClient: WebSocketClient
 
     @State private var showRegenerateConfirm = false
+    @State private var mappingPendingRemoval: WebhookMapping?
     @State private var copiedWebhookURL = false
     @State private var copiedBearerToken = false
     @State private var dndHasFullDiskAccess = true
@@ -187,8 +188,8 @@ struct SettingsView: View {
                                 PopupController.shared.showTestPopup(for: mapping)
                             }
                             .disabled(!canTestPopup(mapping))
-                            Button("Entfernen", role: .destructive) {
-                                settings.removeMapping(id: mapping.id)
+                            Button("Kamera entfernen", role: .destructive) {
+                                mappingPendingRemoval = mapping
                             }
                         }
                     }
@@ -266,6 +267,24 @@ struct SettingsView: View {
             }
         } message: {
             Text("Die Webhook URLs ändern sich. Du musst die Webhooks in UniFi Protect anschließend neu eintragen.")
+        }
+        .alert(
+            "Kamera entfernen?",
+            isPresented: Binding(
+                get: { mappingPendingRemoval != nil },
+                set: { if !$0 { mappingPendingRemoval = nil } }
+            ),
+            presenting: mappingPendingRemoval
+        ) { mapping in
+            Button("Abbrechen", role: .cancel) {}
+            Button("Entfernen", role: .destructive) {
+                settings.removeMapping(id: mapping.id)
+            }
+        } message: { mapping in
+            let name = mapping.label.trimmingCharacters(in: .whitespacesAndNewlines)
+            Text(name.isEmpty
+                ? "Möchtest du diese Kamera wirklich entfernen?"
+                : "Möchtest du die Kamera „\(name)“ wirklich entfernen?")
         }
     }
 
