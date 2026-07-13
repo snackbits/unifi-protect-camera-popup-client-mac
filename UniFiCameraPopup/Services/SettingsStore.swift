@@ -87,6 +87,8 @@ final class SettingsStore: ObservableObject {
 
     private let defaults = UserDefaults.standard
     private let storageKey = "unifi.camera.popup.settings"
+    /// Where raw, undecodable settings are preserved instead of being overwritten.
+    private static let backupKey = "unifi.camera.popup.settings.corrupted-backup"
 
     private struct PersistedSettings: Codable {
         var installationId: String?
@@ -105,7 +107,9 @@ final class SettingsStore: ObservableObject {
     }
 
     private init() {
-        if let data = defaults.data(forKey: storageKey),
+        let existingData = defaults.data(forKey: storageKey)
+
+        if let data = existingData,
            let saved = try? JSONDecoder().decode(PersistedSettings.self, from: data) {
             installationId = saved.installationId?.isEmpty == false
                 ? saved.installationId!
@@ -125,7 +129,22 @@ final class SettingsStore: ObservableObject {
             autoUpdate = saved.autoUpdate ?? true
             disableDuringDND = saved.disableDuringDND ?? false
             muteUntil = saved.muteUntil
+
+            // Decode succeeded: rewrite the (possibly migrated/normalized) payload.
+            persist()
         } else {
+            if let data = existingData {
+                // Settings existed but could not be decoded (e.g. an update
+                // changed the schema in an incompatible way). Do NOT overwrite
+                // them with defaults – preserve the raw data once as a backup so
+                // a later, fixed build can still recover it, and start with
+                // in-memory defaults for this launch only.
+                if defaults.data(forKey: Self.backupKey) == nil {
+                    defaults.set(data, forKey: Self.backupKey)
+                }
+                NSLog("SettingsStore: persisted settings could not be decoded; preserved raw data under \(Self.backupKey), using in-memory defaults")
+            }
+
             installationId = Self.makeInstallationId()
             mappings = []
             defaultPosition = .topRight
@@ -137,9 +156,13 @@ final class SettingsStore: ObservableObject {
             autoUpdate = true
             disableDuringDND = false
             muteUntil = nil
-        }
 
-        persist()
+            // Only persist on a genuine first launch (no prior data). When prior
+            // data existed but failed to decode, leave it untouched above.
+            if existingData == nil {
+                persist()
+            }
+        }
     }
 
     func mapping(for webhookId: String) -> WebhookMapping? {
@@ -232,8 +255,8 @@ final class SettingsStore: ObservableObject {
         }
     }
 
-    private func persist() {
-        let payload = PersistedSettings(
+    private func currentPersistedSettings() -> PersistedSettings {
+        PersistedSettings(
             installationId: installationId,
             mappings: mappings,
             defaultPosition: defaultPosition,
@@ -248,10 +271,76 @@ final class SettingsStore: ObservableObject {
             disableDuringDND: disableDuringDND,
             muteUntil: muteUntil
         )
+    }
 
-        if let data = try? JSONEncoder().encode(payload) {
+    private func persist() {
+        if let data = try? JSONEncoder().encode(currentPersistedSettings()) {
             defaults.set(data, forKey: storageKey)
         }
+    }
+
+    // MARK: - Configuration export / import
+
+    /// Bumped whenever the exported envelope format changes incompatibly.
+    static let configSchemaVersion = 1
+
+    /// Portable wrapper written to / read from a shared config file so the same
+    /// setup (installation ID, cameras, preferences) can be moved between Macs.
+    private struct ConfigEnvelope: Codable {
+        var schemaVersion: Int
+        var settings: PersistedSettings
+    }
+
+    enum ConfigTransferError: LocalizedError {
+        case unreadable
+        case unsupportedVersion(Int)
+
+        var errorDescription: String? {
+            switch self {
+            case .unreadable:
+                return "Die Datei ist keine gültige Konfiguration."
+            case .unsupportedVersion(let version):
+                return "Die Konfiguration wurde mit einer neueren App-Version erstellt (Format \(version)). Bitte aktualisiere die App und versuche es erneut."
+            }
+        }
+    }
+
+    /// Serializes the full configuration (including installation ID) for export.
+    func exportedConfigurationData() throws -> Data {
+        let envelope = ConfigEnvelope(schemaVersion: Self.configSchemaVersion, settings: currentPersistedSettings())
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        return try encoder.encode(envelope)
+    }
+
+    /// Replaces the current configuration with a previously exported one.
+    func importConfiguration(from data: Data) throws {
+        guard let envelope = try? JSONDecoder().decode(ConfigEnvelope.self, from: data) else {
+            throw ConfigTransferError.unreadable
+        }
+        guard envelope.schemaVersion <= Self.configSchemaVersion else {
+            throw ConfigTransferError.unsupportedVersion(envelope.schemaVersion)
+        }
+        apply(envelope.settings)
+    }
+
+    /// Applies imported settings to the live store. Each assignment goes through
+    /// the published properties' `didSet`, so the new state is persisted and the
+    /// UI updates. Optional fields fall back to the current value when absent.
+    private func apply(_ saved: PersistedSettings) {
+        if let id = saved.installationId, !id.isEmpty {
+            installationId = id
+        }
+        mappings = saved.mappings
+        defaultPosition = saved.defaultPosition
+        edgeMargin = saved.edgeMargin
+        autoCloseTimeout = saved.autoCloseTimeout
+        screenTarget = saved.screenTarget
+        showAllActiveCameras = saved.showAllActiveCameras ?? showAllActiveCameras
+        autoUpdate = saved.autoUpdate ?? autoUpdate
+        disableDuringDND = saved.disableDuringDND ?? disableDuringDND
+        muteUntil = saved.muteUntil
+        launchAtLogin = saved.launchAtLogin
     }
 }
 

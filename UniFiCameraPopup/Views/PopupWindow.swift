@@ -10,6 +10,7 @@ final class PopupWindow: NSPanel {
     private let cropSelectionView = CropSelectionView()
     private let cropActionBar = CropActionBarView()
     private var autoCloseTimer: Timer?
+    private var zoomSaveTimer: Timer?
     private var escapeMonitor: Any?
     private var autoCloseSeconds: Double = 0
     private var autoCloseDeadline: Date?
@@ -137,12 +138,15 @@ final class PopupWindow: NSPanel {
             }
             clickCatcher.onScroll = { [weak self] delta, location in
                 self?.playerView.zoom(by: delta * 0.01, at: location)
+                self?.scheduleZoomSave()
             }
             clickCatcher.onMagnify = { [weak self] magnification, location in
                 self?.playerView.zoom(by: magnification, at: location)
+                self?.scheduleZoomSave()
             }
             clickCatcher.onDrag = { [weak self] delta in
                 self?.playerView.pan(by: delta)
+                self?.scheduleZoomSave()
             }
             clickCatcher.isZoomedIn = { [weak self] in
                 self?.playerView.isZoomedIn ?? false
@@ -279,6 +283,8 @@ final class PopupWindow: NSPanel {
 
     func closePopup() {
         autoCloseTimer?.invalidate()
+        zoomSaveTimer?.invalidate()
+        zoomSaveTimer = nil
         if let escapeMonitor {
             NSEvent.removeMonitor(escapeMonitor)
             self.escapeMonitor = nil
@@ -290,6 +296,19 @@ final class PopupWindow: NSPanel {
         playerView.stop()
         orderOut(nil)
         onClose()
+    }
+
+    /// Persists the current zoom/pan shortly after the last interaction, so a
+    /// remembered zoom survives even when the app never reaches `closePopup()`
+    /// (e.g. a crash or force-quit). Debounced to avoid writing on every event.
+    private func scheduleZoomSave() {
+        guard rememberZoom, !cropSelectionMode else { return }
+        zoomSaveTimer?.invalidate()
+        zoomSaveTimer = Timer.scheduledTimer(withTimeInterval: 0.4, repeats: false) { [weak self] _ in
+            guard let self else { return }
+            let zoomState = self.playerView.currentZoomState
+            self.onWillClose?(zoomState.scale, zoomState.panOffset)
+        }
     }
 
     private func cancelCropSelection() {

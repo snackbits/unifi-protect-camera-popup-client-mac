@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @EnvironmentObject private var settings: SettingsStore
@@ -11,6 +12,8 @@ struct SettingsView: View {
     @State private var copiedBearerToken = false
     @State private var dndHasFullDiskAccess = true
     @State private var launchRequiresApproval = false
+    @State private var pendingImportData: Data?
+    @State private var transferError: String?
 
     var body: some View {
         Form {
@@ -251,6 +254,26 @@ struct SettingsView: View {
                     }
                 }
             }
+
+            Section("Konfiguration") {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Exportiere die komplette Einrichtung (eindeutige ID, Kameras und Einstellungen) und importiere sie auf einem anderen Mac, um beide identisch zu konfigurieren.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    HStack {
+                        Button("Konfiguration exportieren…") {
+                            exportConfiguration()
+                        }
+                        Button("Konfiguration importieren…") {
+                            chooseConfigurationToImport()
+                        }
+                        Spacer()
+                    }
+                    Text("Die Exportdatei enthält deine eindeutige ID – teile sie nur mit deinen eigenen Geräten.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
         .formStyle(.grouped)
         .padding()
@@ -285,6 +308,30 @@ struct SettingsView: View {
             Text(name.isEmpty
                 ? "Möchtest du diese Kamera wirklich entfernen?"
                 : "Möchtest du die Kamera „\(name)“ wirklich entfernen?")
+        }
+        .alert(
+            "Konfiguration importieren?",
+            isPresented: Binding(
+                get: { pendingImportData != nil },
+                set: { if !$0 { pendingImportData = nil } }
+            )
+        ) {
+            Button("Abbrechen", role: .cancel) { pendingImportData = nil }
+            Button("Importieren", role: .destructive) { confirmImport() }
+        } message: {
+            Text("Die aktuelle Konfiguration wird vollständig ersetzt – einschließlich der eindeutigen ID und aller Kameras.")
+        }
+        .alert(
+            "Import fehlgeschlagen",
+            isPresented: Binding(
+                get: { transferError != nil },
+                set: { if !$0 { transferError = nil } }
+            ),
+            presenting: transferError
+        ) { _ in
+            Button("OK", role: .cancel) { transferError = nil }
+        } message: { message in
+            Text(message)
         }
     }
 
@@ -325,6 +372,44 @@ struct SettingsView: View {
         pasteboard.clearContents()
         pasteboard.setString(string, forType: .string)
         onCopied()
+    }
+
+    private func exportConfiguration() {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.json]
+        panel.nameFieldStringValue = "unifi-camera-popup-config.json"
+        panel.canCreateDirectories = true
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            let data = try settings.exportedConfigurationData()
+            try data.write(to: url)
+        } catch {
+            transferError = error.localizedDescription
+        }
+    }
+
+    private func chooseConfigurationToImport() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            // Hold the file contents until the user confirms the overwrite.
+            pendingImportData = try Data(contentsOf: url)
+        } catch {
+            transferError = error.localizedDescription
+        }
+    }
+
+    private func confirmImport() {
+        guard let data = pendingImportData else { return }
+        pendingImportData = nil
+        do {
+            try settings.importConfiguration(from: data)
+        } catch {
+            transferError = error.localizedDescription
+        }
     }
 
     private func refreshDNDPermission() {

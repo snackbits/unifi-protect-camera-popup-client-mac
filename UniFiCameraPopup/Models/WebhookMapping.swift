@@ -84,7 +84,6 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
         webhookId = try container.decode(String.self, forKey: .webhookId)
         rtspsURL = try container.decode(String.self, forKey: .rtspsURL)
         label = try container.decode(String.self, forKey: .label)
-        positionOverride = try container.decodeIfPresent(PopupPosition.self, forKey: .positionOverride)
         width = try container.decodeIfPresent(Double.self, forKey: .width)
             ?? container.decodeIfPresent(Double.self, forKey: .widthOverride)
             ?? 480
@@ -93,9 +92,15 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
             ?? 270
         soundEnabled = try container.decodeIfPresent(Bool.self, forKey: .soundEnabled) ?? true
         rememberZoom = try container.decodeIfPresent(Bool.self, forKey: .rememberZoom) ?? false
-        savedZoom = try container.decodeIfPresent(SavedCameraZoom.self, forKey: .savedZoom)
-        hotkey = try container.decodeIfPresent(CameraHotkey.self, forKey: .hotkey)
-        crop = try container.decodeIfPresent(CameraCrop.self, forKey: .crop)
+
+        // Optional sub-objects are decoded leniently: if a future build changes
+        // one of their schemas, an old, now-incompatible value must only reset
+        // that single field – not throw and discard the whole mapping (which,
+        // via the array/PersistedSettings decode, would wipe the entire config).
+        positionOverride = (try? container.decodeIfPresent(PopupPosition.self, forKey: .positionOverride)) ?? nil
+        savedZoom = (try? container.decodeIfPresent(SavedCameraZoom.self, forKey: .savedZoom)) ?? nil
+        hotkey = (try? container.decodeIfPresent(CameraHotkey.self, forKey: .hotkey)) ?? nil
+        crop = (try? container.decodeIfPresent(CameraCrop.self, forKey: .crop)) ?? nil
     }
 
     func encode(to encoder: Encoder) throws {
