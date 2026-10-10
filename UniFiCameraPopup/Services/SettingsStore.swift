@@ -114,12 +114,14 @@ final class SettingsStore: ObservableObject {
             installationId = saved.installationId?.isEmpty == false
                 ? saved.installationId!
                 : Self.makeInstallationId()
-            mappings = Self.migrateMappingDimensions(
+            let loaded = Self.loadActionTokens(into: Self.migrateMappingDimensions(
                 mappings: saved.mappings,
                 from: data,
                 defaultWidth: saved.defaultWidth ?? 480,
                 defaultHeight: saved.defaultHeight ?? 270
-            )
+            ))
+            mappings = loaded.mappings
+            keychainTokens = loaded.fromKeychain
             defaultPosition = saved.defaultPosition
             edgeMargin = saved.edgeMargin
             autoCloseTimeout = saved.autoCloseTimeout
@@ -274,9 +276,71 @@ final class SettingsStore: ObservableObject {
     }
 
     private func persist() {
-        if let data = try? JSONEncoder().encode(currentPersistedSettings()) {
+        let plaintextTokenIDs = syncActionTokensToKeychain()
+        let encoder = JSONEncoder()
+        encoder.userInfo[.plaintextActionTokenIDs] = plaintextTokenIDs
+        if let data = try? encoder.encode(currentPersistedSettings()) {
             defaults.set(data, forKey: storageKey)
         }
+    }
+
+    // MARK: - Action tokens (keychain)
+
+    /// Tokens as last written to the keychain, to skip redundant writes
+    /// (`persist()` runs on every keystroke in the settings).
+    private var keychainTokens: [UUID: String] = [:]
+
+    /// Fills in each action's bearer token from the keychain. A token that is
+    /// still present in the decoded data (written by 1.1.0 in plain text) is
+    /// kept and moved into the keychain by the next `persist()`.
+    private static func loadActionTokens(
+        into mappings: [WebhookMapping]
+    ) -> (mappings: [WebhookMapping], fromKeychain: [UUID: String]) {
+        var fromKeychain: [UUID: String] = [:]
+        let filled = mappings.map { mapping in
+            var updated = mapping
+            updated.actions = mapping.actions.map { action in
+                var action = action
+                if action.bearerToken.isEmpty,
+                   let token = KeychainStore.string(
+                       service: KeychainStore.actionTokenService,
+                       account: action.id.uuidString
+                   ) {
+                    action.bearerToken = token
+                    fromKeychain[action.id] = token
+                }
+                return action
+            }
+            return updated
+        }
+        return (filled, fromKeychain)
+    }
+
+    /// Writes changed tokens to the keychain and removes those of deleted
+    /// actions. Returns the ids whose token could not be stored there; they
+    /// stay in plain text so the token is never lost.
+    private func syncActionTokensToKeychain() -> Set<UUID> {
+        var current: [UUID: String] = [:]
+        for action in mappings.flatMap(\.actions) where !action.bearerToken.isEmpty {
+            current[action.id] = action.bearerToken
+        }
+
+        var failed = Set<UUID>()
+        for (id, token) in current where keychainTokens[id] != token {
+            if KeychainStore.set(token, service: KeychainStore.actionTokenService, account: id.uuidString) {
+                keychainTokens[id] = token
+            } else {
+                failed.insert(id)
+            }
+        }
+
+        // Removed actions or cleared tokens.
+        for id in keychainTokens.keys where current[id] == nil {
+            KeychainStore.delete(service: KeychainStore.actionTokenService, account: id.uuidString)
+            keychainTokens[id] = nil
+        }
+
+        return failed
     }
 
     // MARK: - Configuration export / import
@@ -310,6 +374,8 @@ final class SettingsStore: ObservableObject {
         let envelope = ConfigEnvelope(schemaVersion: Self.configSchemaVersion, settings: currentPersistedSettings())
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        // Exports carry the tokens so an import on another Mac works as-is.
+        encoder.userInfo[.includeActionTokens] = true
         return try encoder.encode(envelope)
     }
 

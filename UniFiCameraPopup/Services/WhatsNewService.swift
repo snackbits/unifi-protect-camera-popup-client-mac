@@ -22,6 +22,10 @@ struct WhatsNewInfo: Equatable {
 enum WhatsNewService {
     /// Newest version first.
     static let changelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "1.1.1", items: [
+            "Mehr Sicherheit: Die Bearer-Tokens der Aktions-Buttons werden jetzt im macOS-Schlüsselbund "
+                + "gespeichert statt im Klartext in den Einstellungen. Bereits eingetragene Tokens werden automatisch übernommen.",
+        ]),
         ChangelogEntry(version: "1.1.0", items: [
             "Aktions-Buttons: Pro Kamera kannst du bis zu 3 eigene Buttons (z. B. „Tür öffnen“) anlegen. "
                 + "Sie erscheinen im Popup rechts neben den Stummschalt-Buttons und rufen eine Webhook-URL auf "

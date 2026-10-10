@@ -17,6 +17,15 @@ struct CameraCrop: Codable, Equatable {
     var originalHeight: Double
 }
 
+extension CodingUserInfoKey {
+    /// `true` when bearer tokens of camera actions should be written in plain
+    /// text (configuration export). Otherwise they live in the keychain.
+    static let includeActionTokens = CodingUserInfoKey(rawValue: "includeActionTokens")!
+    /// `Set<UUID>` of action ids whose token must stay in plain text because
+    /// the keychain refused to store it (prevents losing the token).
+    static let plaintextActionTokenIDs = CodingUserInfoKey(rawValue: "plaintextActionTokenIDs")!
+}
+
 /// A user-defined button shown in the popup that calls a webhook (e.g. "Tür öffnen").
 struct CameraAction: Codable, Identifiable, Equatable {
     enum Method: String, Codable, CaseIterable, Identifiable {
@@ -32,6 +41,14 @@ struct CameraAction: Codable, Identifiable, Equatable {
     var method: Method
     /// Sent as `Authorization: Bearer <token>` when not empty.
     var bearerToken: String
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case title
+        case url
+        case method
+        case bearerToken
+    }
 
     init(
         id: UUID = UUID(),
@@ -54,6 +71,22 @@ struct CameraAction: Codable, Identifiable, Equatable {
         url = (try? container.decodeIfPresent(String.self, forKey: .url)) ?? ""
         method = (try? container.decodeIfPresent(Method.self, forKey: .method)) ?? .post
         bearerToken = (try? container.decodeIfPresent(String.self, forKey: .bearerToken)) ?? ""
+    }
+
+    /// The bearer token is only encoded when explicitly requested (export or
+    /// keychain fallback); normally `SettingsStore` keeps it in the keychain.
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(title, forKey: .title)
+        try container.encode(url, forKey: .url)
+        try container.encode(method, forKey: .method)
+
+        let includeAll = encoder.userInfo[.includeActionTokens] as? Bool == true
+        let plaintextIDs = encoder.userInfo[.plaintextActionTokenIDs] as? Set<UUID> ?? []
+        if !bearerToken.isEmpty, includeAll || plaintextIDs.contains(id) {
+            try container.encode(bearerToken, forKey: .bearerToken)
+        }
     }
 
     var trimmedTitle: String {

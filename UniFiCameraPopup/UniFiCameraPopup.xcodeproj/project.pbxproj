@@ -16,6 +16,7 @@
 		A10000000000000000000006 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000006 /* SettingsStore.swift */; };
 		A10000000000000000000007 /* WebSocketClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000007 /* WebSocketClient.swift */; };
 		A10000000000000000000017 /* UpdateService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000017 /* UpdateService.swift */; };
+		A10000000000000000000043 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000043 /* KeychainStore.swift */; };
 		A10000000000000000000041 /* WhatsNewService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000041 /* WhatsNewService.swift */; };
 		A10000000000000000000040 /* CameraActionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000040 /* CameraActionService.swift */; };
 		A10000000000000000000008 /* WindowPositioner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000008 /* WindowPositioner.swift */; };
@@ -46,6 +47,7 @@
 		A20000000000000000000006 /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
 		A20000000000000000000007 /* WebSocketClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketClient.swift; sourceTree = "<group>"; };
 		A20000000000000000000017 /* UpdateService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateService.swift; sourceTree = "<group>"; };
+		A20000000000000000000043 /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
 		A20000000000000000000041 /* WhatsNewService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhatsNewService.swift; sourceTree = "<group>"; };
 		A20000000000000000000040 /* CameraActionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraActionService.swift; sourceTree = "<group>"; };
 		A20000000000000000000008 /* WindowPositioner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowPositioner.swift; sourceTree = "<group>"; };
@@ -126,6 +128,7 @@
 				A20000000000000000000006 /* SettingsStore.swift */,
 				A20000000000000000000007 /* WebSocketClient.swift */,
 				A20000000000000000000017 /* UpdateService.swift */,
+				A20000000000000000000043 /* KeychainStore.swift */,
 				A20000000000000000000041 /* WhatsNewService.swift */,
 				A20000000000000000000040 /* CameraActionService.swift */,
 				A20000000000000000000008 /* WindowPositioner.swift */,
@@ -236,6 +239,7 @@
 				A10000000000000000000006 /* SettingsStore.swift in Sources */,
 				A10000000000000000000007 /* WebSocketClient.swift in Sources */,
 				A10000000000000000000017 /* UpdateService.swift in Sources */,
+				A10000000000000000000043 /* KeychainStore.swift in Sources */,
 				A10000000000000000000041 /* WhatsNewService.swift in Sources */,
 				A10000000000000000000040 /* CameraActionService.swift in Sources */,
 				A10000000000000000000008 /* WindowPositioner.swift in Sources */,
@@ -315,7 +319,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.1.0;
+				MARKETING_VERSION = 1.1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.snackbits.UniFiCameraPopup;
 				PRODUCT_NAME = "UniFi Camera Popup";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -339,7 +343,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.1.0;
+				MARKETING_VERSION = 1.1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.snackbits.UniFiCameraPopup;
 				PRODUCT_NAME = "UniFi Camera Popup";
 				SWIFT_EMIT_LOC_STRINGS = YES;
