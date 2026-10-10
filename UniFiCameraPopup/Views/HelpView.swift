@@ -129,6 +129,14 @@ struct HelpView: View {
                 "Über die beiden Buttons oben rechts im Popup unterdrückst du alle Popups – "
                 + "links für 1 Stunde, rechts für 15 Minuten. Die Stummschaltung hebst du jederzeit "
                 + "über das Menüleisten-Symbol wieder auf.")
+
+            tip("Aktions-Buttons", "bolt",
+                "Pro Kamera kannst du in den Einstellungen bis zu 3 eigene Buttons anlegen – z. B. „Tür öffnen“. "
+                + "Gib dafür einen Titel und eine Webhook-URL an, wähle GET oder POST und trage bei Bedarf "
+                + "einen Bearer-Token ein. Die Buttons erscheinen im Popup oben rechts neben den Stummschalt-Buttons. "
+                + "Ein Klick ruft die URL auf (z. B. einen Home-Assistant-Webhook oder ein Shelly-Relais), "
+                + "das Popup bleibt dabei geöffnet. Ein Häkchen bestätigt den Erfolg, ein Warndreieck zeigt einen Fehler – "
+                + "die Details siehst du im Tooltip. Mit „Testen“ in den Einstellungen prüfst du die URL vorab.")
         }
     }
 

@@ -17,7 +17,69 @@ struct CameraCrop: Codable, Equatable {
     var originalHeight: Double
 }
 
+/// A user-defined button shown in the popup that calls a webhook (e.g. "Tür öffnen").
+struct CameraAction: Codable, Identifiable, Equatable {
+    enum Method: String, Codable, CaseIterable, Identifiable {
+        case get = "GET"
+        case post = "POST"
+
+        var id: String { rawValue }
+    }
+
+    var id: UUID
+    var title: String
+    var url: String
+    var method: Method
+    /// Sent as `Authorization: Bearer <token>` when not empty.
+    var bearerToken: String
+
+    init(
+        id: UUID = UUID(),
+        title: String = "",
+        url: String = "",
+        method: Method = .post,
+        bearerToken: String = ""
+    ) {
+        self.id = id
+        self.title = title
+        self.url = url
+        self.method = method
+        self.bearerToken = bearerToken
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = (try? container.decodeIfPresent(UUID.self, forKey: .id)) ?? UUID()
+        title = (try? container.decodeIfPresent(String.self, forKey: .title)) ?? ""
+        url = (try? container.decodeIfPresent(String.self, forKey: .url)) ?? ""
+        method = (try? container.decodeIfPresent(Method.self, forKey: .method)) ?? .post
+        bearerToken = (try? container.decodeIfPresent(String.self, forKey: .bearerToken)) ?? ""
+    }
+
+    var trimmedTitle: String {
+        title.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// The parsed URL, if it is a valid http(s) URL with a host.
+    var requestURL: URL? {
+        let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let parsed = URL(string: trimmed),
+              let scheme = parsed.scheme?.lowercased(),
+              scheme == "http" || scheme == "https",
+              parsed.host?.isEmpty == false else { return nil }
+        return parsed
+    }
+
+    /// Only fully configured actions are shown in the popup.
+    var isConfigured: Bool {
+        !trimmedTitle.isEmpty && requestURL != nil
+    }
+}
+
 struct WebhookMapping: Codable, Identifiable, Equatable {
+    /// Maximum number of action buttons per camera.
+    static let maxActions = 3
+
     var id: UUID { entryId }
     var entryId: UUID
     var webhookId: String
@@ -32,6 +94,7 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
     var savedZoom: SavedCameraZoom?
     var hotkey: CameraHotkey?
     var crop: CameraCrop?
+    var actions: [CameraAction]
 
     enum CodingKeys: String, CodingKey {
         case entryId
@@ -46,6 +109,7 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
         case savedZoom
         case hotkey
         case crop
+        case actions
         case widthOverride
         case heightOverride
     }
@@ -62,7 +126,8 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
         rememberZoom: Bool = false,
         savedZoom: SavedCameraZoom? = nil,
         hotkey: CameraHotkey? = nil,
-        crop: CameraCrop? = nil
+        crop: CameraCrop? = nil,
+        actions: [CameraAction] = []
     ) {
         self.entryId = entryId
         self.webhookId = webhookId
@@ -76,6 +141,7 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
         self.savedZoom = savedZoom
         self.hotkey = hotkey
         self.crop = crop
+        self.actions = actions
     }
 
     init(from decoder: Decoder) throws {
@@ -101,6 +167,7 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
         savedZoom = (try? container.decodeIfPresent(SavedCameraZoom.self, forKey: .savedZoom)) ?? nil
         hotkey = (try? container.decodeIfPresent(CameraHotkey.self, forKey: .hotkey)) ?? nil
         crop = (try? container.decodeIfPresent(CameraCrop.self, forKey: .crop)) ?? nil
+        actions = (try? container.decodeIfPresent([CameraAction].self, forKey: .actions)) ?? []
     }
 
     func encode(to encoder: Encoder) throws {
@@ -117,6 +184,7 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
         try container.encodeIfPresent(savedZoom, forKey: .savedZoom)
         try container.encodeIfPresent(hotkey, forKey: .hotkey)
         try container.encodeIfPresent(crop, forKey: .crop)
+        try container.encode(actions, forKey: .actions)
     }
 }
 

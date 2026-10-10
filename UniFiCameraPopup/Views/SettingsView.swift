@@ -175,6 +175,8 @@ struct SettingsView: View {
                             conflictMessage: hotkeyConflictMessage(for: mapping)
                         )
 
+                        CameraActionsEditor(actions: $mapping.actions)
+
                         HStack {
                             Spacer()
                             if mapping.crop != nil {
@@ -269,7 +271,7 @@ struct SettingsView: View {
                         }
                         Spacer()
                     }
-                    Text("Die Exportdatei enthält deine eindeutige ID – teile sie nur mit deinen eigenen Geräten.")
+                    Text("Die Exportdatei enthält deine eindeutige ID und die Bearer-Tokens der Aktions-Buttons – teile sie nur mit deinen eigenen Geräten.")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
@@ -536,5 +538,122 @@ struct SettingsView: View {
                 value.wrappedValue = parsed
             }
         )
+    }
+}
+
+/// Edits a camera's action buttons (title, webhook URL, method, optional token).
+private struct CameraActionsEditor: View {
+    @Binding var actions: [CameraAction]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Aktions-Buttons")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            ForEach($actions) { $action in
+                CameraActionRow(action: $action) {
+                    actions.removeAll { $0.id == action.id }
+                }
+            }
+
+            HStack {
+                Button("Aktions-Button hinzufügen") {
+                    actions.append(CameraAction())
+                }
+                .disabled(actions.count >= WebhookMapping.maxActions)
+                Text("max. \(WebhookMapping.maxActions) pro Kamera")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                Spacer()
+            }
+        }
+    }
+}
+
+private struct CameraActionRow: View {
+    @Binding var action: CameraAction
+    let onRemove: () -> Void
+
+    private enum TestState: Equatable {
+        case idle, running, succeeded, failed(String)
+    }
+
+    @State private var testState: TestState = .idle
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                TextField("Titel (z. B. Tür öffnen)", text: $action.title)
+                    .textFieldStyle(.roundedBorder)
+                Picker("", selection: $action.method) {
+                    ForEach(CameraAction.Method.allCases) { method in
+                        Text(method.rawValue).tag(method)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .fixedSize()
+            }
+            TextField("Webhook-URL", text: $action.url, prompt: Text("https://…"))
+                .textFieldStyle(.roundedBorder)
+            SecureField("Bearer-Token (optional)", text: $action.bearerToken)
+                .textFieldStyle(.roundedBorder)
+
+            if let warning = urlWarning {
+                Label(warning, systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
+
+            HStack {
+                testStatusView
+                Spacer()
+                Button("Testen") { runTest() }
+                    .disabled(!action.isConfigured || testState == .running)
+                Button("Entfernen", role: .destructive, action: onRemove)
+            }
+        }
+        .padding(8)
+        .background(RoundedRectangle(cornerRadius: 6).fill(Color.secondary.opacity(0.08)))
+    }
+
+    @ViewBuilder
+    private var testStatusView: some View {
+        switch testState {
+        case .idle:
+            EmptyView()
+        case .running:
+            ProgressView().controlSize(.small)
+        case .succeeded:
+            Label("Erfolgreich", systemImage: "checkmark.circle.fill")
+                .font(.caption)
+                .foregroundStyle(.green)
+        case .failed(let message):
+            Label(message, systemImage: "exclamationmark.triangle.fill")
+                .font(.caption)
+                .foregroundStyle(.orange)
+        }
+    }
+
+    private var urlWarning: String? {
+        let trimmed = action.url.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, action.requestURL == nil else { return nil }
+        return "Bitte eine gültige http:// oder https:// URL eintragen."
+    }
+
+    private func runTest() {
+        let snapshot = action
+        testState = .running
+        Task {
+            do {
+                try await CameraActionService.trigger(snapshot)
+                testState = .succeeded
+            } catch {
+                testState = .failed(error.localizedDescription)
+            }
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            if testState != .running { testState = .idle }
+        }
     }
 }

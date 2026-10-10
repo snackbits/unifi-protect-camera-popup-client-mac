@@ -86,6 +86,7 @@ final class PopupController {
             cropRegion: mapping.crop,
             thumbnailDataURI: event.thumbnail,
             autoCloseSeconds: settings.autoCloseTimeout,
+            actions: mapping.actions.filter(\.isConfigured),
             onWillClose: { [weak self] scale, panOffset in
                 self?.settings.saveZoom(for: webhookId, scale: scale, panOffset: panOffset)
             }

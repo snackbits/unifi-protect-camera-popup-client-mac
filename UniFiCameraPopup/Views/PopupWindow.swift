@@ -21,6 +21,7 @@ final class PopupWindow: NSPanel {
     private let initialZoom: SavedCameraZoom?
     private let cropRegion: CameraCrop?
     private let cropSelectionMode: Bool
+    private let actions: [CameraAction]
     private let onWillClose: ((CGFloat, CGPoint) -> Void)?
     private let onCropSave: ((CameraCrop, CGSize) -> Void)?
     private let onCropCancel: (() -> Void)?
@@ -36,6 +37,7 @@ final class PopupWindow: NSPanel {
         thumbnailDataURI: String?,
         autoCloseSeconds: Double,
         cropSelectionMode: Bool = false,
+        actions: [CameraAction] = [],
         onWillClose: ((CGFloat, CGPoint) -> Void)? = nil,
         onCropSave: ((CameraCrop, CGSize) -> Void)? = nil,
         onCropCancel: (() -> Void)? = nil,
@@ -48,6 +50,7 @@ final class PopupWindow: NSPanel {
         self.initialZoom = initialZoom
         self.cropRegion = cropRegion
         self.cropSelectionMode = cropSelectionMode
+        self.actions = cropSelectionMode ? [] : actions
         self.onWillClose = onWillClose
         self.onCropSave = onCropSave
         self.onCropCancel = onCropCancel
@@ -166,6 +169,19 @@ final class PopupWindow: NSPanel {
         muteBar.onMute = { [weak self] duration in
             SettingsStore.shared.mute(for: duration)
             self?.closePopup()
+        }
+        muteBar.setActions(actions)
+        // Action buttons call their webhook but leave the popup open.
+        muteBar.onAction = { action, completion in
+            Task {
+                do {
+                    try await CameraActionService.trigger(action)
+                    completion(nil)
+                } catch {
+                    NSLog("Camera action \"\(action.trimmedTitle)\" failed: \(error.localizedDescription)")
+                    completion(error.localizedDescription)
+                }
+            }
         }
 
         cropSelectionView.translatesAutoresizingMaskIntoConstraints = false
@@ -426,13 +442,21 @@ private final class ClickCatchingView: NSView {
     }
 }
 
-/// Two stacked icon buttons (top-right of the popup) that mute all popups for a
-/// fixed duration. Visible always, but emphasised while the mouse hovers.
+/// Icon buttons (top-right of the popup): two that mute all popups for a fixed
+/// duration, followed by the camera's optional action buttons. Visible always,
+/// but emphasised while the mouse hovers.
 private final class MuteBarView: NSView {
     /// Called with the mute duration in seconds.
     var onMute: ((TimeInterval) -> Void)?
+    /// Called when an action button is clicked. The handler must call the
+    /// completion with `nil` on success or an error message on failure.
+    var onAction: ((CameraAction, @escaping (String?) -> Void) -> Void)?
+
+    private static let actionIcon = "bolt.fill"
+    private static let feedbackDuration: TimeInterval = 1.5
 
     private let stack = NSStackView()
+    private var actionButtons: [(button: NSButton, action: CameraAction)] = []
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -467,7 +491,31 @@ private final class MuteBarView: NSView {
         alphaValue = 0.55
     }
 
+    /// Appends one button per action to the right of the mute buttons.
+    func setActions(_ actions: [CameraAction]) {
+        actionButtons.forEach { $0.button.removeFromSuperview() }
+        actionButtons = actions.prefix(WebhookMapping.maxActions).map { action in
+            let button = makeStyledButton(title: action.trimmedTitle, symbolName: Self.actionIcon)
+            button.toolTip = action.trimmedTitle
+            button.lineBreakMode = .byTruncatingTail
+            button.widthAnchor.constraint(lessThanOrEqualToConstant: 140).isActive = true
+            button.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+            button.target = self
+            button.action = #selector(actionTapped(_:))
+            stack.addArrangedSubview(button)
+            return (button, action)
+        }
+    }
+
     private func makeButton(title: String, duration: TimeInterval) -> NSButton {
+        let button = makeStyledButton(title: title, symbolName: "bell.slash.fill")
+        button.target = self
+        button.action = #selector(muteTapped(_:))
+        button.tag = Int(duration)
+        return button
+    }
+
+    private func makeStyledButton(title: String, symbolName: String) -> NSButton {
         let button = FirstMouseButton()
         button.bezelStyle = .regularSquare
         button.isBordered = false
@@ -475,7 +523,7 @@ private final class MuteBarView: NSView {
         button.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.55).cgColor
         button.layer?.cornerRadius = 6
         button.contentTintColor = .white
-        button.image = muteButtonImage(leadingPadding: 6)
+        button.image = iconImage(symbolName: symbolName, leadingPadding: 6)
         button.imagePosition = .imageLeading
         button.imageScaling = .scaleProportionallyDown
         button.title = title
@@ -487,19 +535,16 @@ private final class MuteBarView: NSView {
                 .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
             ]
         )
-        button.target = self
-        button.action = #selector(muteTapped(_:))
-        button.tag = Int(duration)
         button.translatesAutoresizingMaskIntoConstraints = false
         button.widthAnchor.constraint(greaterThanOrEqualToConstant: 52).isActive = true
         button.heightAnchor.constraint(equalToConstant: 24).isActive = true
         return button
     }
 
-    private func muteButtonImage(leadingPadding: CGFloat) -> NSImage? {
+    private func iconImage(symbolName: String, leadingPadding: CGFloat) -> NSImage? {
         guard let symbol = NSImage(
-            systemSymbolName: "bell.slash.fill",
-            accessibilityDescription: "Stummschalten"
+            systemSymbolName: symbolName,
+            accessibilityDescription: nil
         ) else { return nil }
 
         let configured = symbol.withSymbolConfiguration(
@@ -527,6 +572,33 @@ private final class MuteBarView: NSView {
 
     @objc private func muteTapped(_ sender: NSButton) {
         onMute?(TimeInterval(sender.tag))
+    }
+
+    @objc private func actionTapped(_ sender: NSButton) {
+        guard let entry = actionButtons.first(where: { $0.button === sender }) else { return }
+        let action = entry.action
+
+        // Disabled while the request runs, so repeated clicks are ignored.
+        sender.isEnabled = false
+        sender.image = iconImage(symbolName: "hourglass", leadingPadding: 6)
+
+        onAction?(action) { [weak self, weak sender] errorMessage in
+            guard let self, let sender else { return }
+            let succeeded = errorMessage == nil
+            sender.image = self.iconImage(
+                symbolName: succeeded ? "checkmark.circle.fill" : "exclamationmark.triangle.fill",
+                leadingPadding: 6
+            )
+            sender.contentTintColor = succeeded ? .systemGreen : .systemOrange
+            sender.toolTip = errorMessage.map { "\(action.trimmedTitle): \($0)" } ?? action.trimmedTitle
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + Self.feedbackDuration) { [weak self, weak sender] in
+                guard let self, let sender else { return }
+                sender.image = self.iconImage(symbolName: Self.actionIcon, leadingPadding: 6)
+                sender.contentTintColor = .white
+                sender.isEnabled = true
+            }
+        }
     }
 
     func setHovering(_ hovering: Bool) {

@@ -7,6 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private var settingsWindow: NSWindow?
     private var helpWindow: NSWindow?
+    private var whatsNewWindow: NSWindow?
     private let settings = SettingsStore.shared
     private let webSocketClient = WebSocketClient()
     private let updateService = UpdateService()
@@ -33,6 +34,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         setupHotkeys()
         webSocketClient.start()
         startUpdateChecks()
+        showWhatsNewIfNeeded()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -92,7 +94,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(statusMenuItem!)
 
         let versionMenuItem = NSMenuItem(
-            title: "Version: \(AppConfig.buildNumber)",
+            title: currentVersionLabel,
             action: nil,
             keyEquivalent: ""
         )
@@ -263,12 +265,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         switch state {
         case .idle, .checking, .upToDate:
-            versionMenuItem.title = "Version: \(AppConfig.buildNumber)"
+            versionMenuItem.title = currentVersionLabel
             updateMenuItem.isHidden = true
             updateMenuItem.isEnabled = true
 
-        case .available(let buildNumber, _):
-            versionMenuItem.title = "Version: \(AppConfig.buildNumber) → \(buildNumber)"
+        case .available(let buildNumber, let shortVersion):
+            let target = shortVersion.map { "\($0) (\(buildNumber))" } ?? "\(buildNumber)"
+            versionMenuItem.title = "\(currentVersionLabel) → \(target)"
             updateMenuItem.title = "Auf neue Version aktualisieren"
             updateMenuItem.isHidden = false
             updateMenuItem.isEnabled = true
@@ -407,6 +410,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         settingsWindow?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    private var currentVersionLabel: String {
+        "Version: \(AppConfig.shortVersion) (\(AppConfig.buildNumber))"
+    }
+
+    /// Announces what changed once after an update. Fresh installs see nothing.
+    private func showWhatsNewIfNeeded() {
+        let info = WhatsNewService.pendingUpdateInfo()
+        // Mark right away so the popup never reappears, however it is closed.
+        WhatsNewService.markCurrentVersionSeen()
+        guard let info else { return }
+
+        let view = WhatsNewView(info: info) { [weak self] in
+            self?.whatsNewWindow?.close()
+        }
+
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 540, height: 420),
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "Was ist neu – UniFi Camera Popup"
+        window.center()
+        window.contentView = NSHostingView(rootView: view)
+        window.isReleasedWhenClosed = false
+        whatsNewWindow = window
+
+        window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
 

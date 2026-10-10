@@ -15,12 +15,18 @@ enum AppConfig {
     static let webhookToken = "71gri3ctroc73qzo8tttv58t7h784tqtzr76ctr"
 
     /// Display version shown in the menu bar; incremented by `scripts/build-release.sh`.
-    static let buildNumber = 25
+    static let buildNumber = 26
+
+    /// Semantic app version (`MARKETING_VERSION`), raised manually per release.
+    /// Used for the "Was ist neu" popup after an update.
+    static var shortVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
+    }
 
     /// Build identifier, rewritten by `scripts/build-release.sh` on every release.
     /// Must match the server's `versionId`; otherwise the server rejects the
     /// connection and the app shows an "outdated version" warning.
-    static let buildVersionId = "11fa5211-2931-4913-82f6-c43242e7a380"
+    static let buildVersionId = "20c1490d-83cd-41bc-96fb-665470f2df67"
 
     /// HTTPS endpoint serving the update manifest (the server's `version.json`).
     /// The app polls this to detect whether a newer build is available.

@@ -52,6 +52,17 @@ APP_PATH=".build/Build/Products/Release/UniFi Camera Popup.app"
 "${SCRIPT_DIR}/resign-app.sh" "$APP_PATH"
 
 SHORT_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "${APP_PATH}/Contents/Info.plist" 2>/dev/null || echo "1.0.0")"
+echo "App version: ${SHORT_VERSION}"
+
+# The "Was ist neu" popup only appears when the changelog has an entry for
+# this version (raise MARKETING_VERSION in the Xcode project per release).
+if ! grep -q "version: \"${SHORT_VERSION}\"" Services/WhatsNewService.swift; then
+  echo ""
+  echo "WARNING: No changelog entry for version ${SHORT_VERSION} in Services/WhatsNewService.swift."
+  echo "         Users will not see a \"Was ist neu\" popup after this update."
+  echo "         Raise MARKETING_VERSION and add a ChangelogEntry for new features."
+  echo ""
+fi
 
 # ---------------------------------------------------------------------------
 # Package: zip the .app → server/public/app.zip (fixed name for nginx + git pull).
