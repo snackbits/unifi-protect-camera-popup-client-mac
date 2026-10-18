@@ -226,9 +226,9 @@ enum SnapshotRenderer {
             // 7 – menu panel.
             let panel = StatusPanelView(
                 settings: sample.settings, events: EventLog.shared, protectEvents: protectEvents,
-                relay: relay, protect: ProtectSession.shared, clock: StatusPanelClock(),
+                relay: relay, protect: ProtectSession.shared, clock: StatusPanelClock(), updates: UpdateService(),
                 actions: StatusPanelActions(openSettings: {}, openHelp: {}, quit: {}, openCamera: { _ in },
-                                            close: {}, resize: { _ in })
+                                            installUpdate: {}, close: {}, resize: { _ in })
             )
             let panelHost = NSHostingView(rootView: panel)
             let panelSize = panelHost.fittingSize
@@ -239,6 +239,25 @@ enum SnapshotRenderer {
             panelWindow.contentView = panelHost
             write(window: panelWindow, appearance: appearance, includeFrame: false,
                   to: directory.appendingPathComponent("7-panel-\(suffix).png"))
+
+            // 7 – menu panel with an available update (Phase 5).
+            let updates = UpdateService()
+            let manifestJSON = #"{"versionId":"x","buildNumber":30,"shortVersion":"1.3.0","url":"https://example.invalid/app.zip","sha256":"","signature":"s"}"#
+            if let manifest = try? JSONDecoder().decode(UpdateManifest.self, from: Data(manifestJSON.utf8)) {
+                updates.debugApply(state: .available(buildNumber: 30, shortVersion: "1.3.0"), manifest: manifest)
+            }
+            let updatePanel = NSHostingView(rootView: StatusPanelView(
+                settings: sample.settings, events: EventLog.shared, protectEvents: protectEvents,
+                relay: relay, protect: ProtectSession.shared, clock: StatusPanelClock(), updates: updates,
+                actions: StatusPanelActions(openSettings: {}, openHelp: {}, quit: {}, openCamera: { _ in },
+                                            installUpdate: {}, close: {}, resize: { _ in })
+            ))
+            updatePanel.frame = NSRect(origin: .zero, size: CGSize(width: 338, height: updatePanel.fittingSize.height))
+            let updateWindow = NSWindow(contentRect: updatePanel.frame, styleMask: [.borderless], backing: .buffered, defer: false)
+            updateWindow.backgroundColor = .clear
+            updateWindow.contentView = updatePanel
+            write(window: updateWindow, appearance: appearance, includeFrame: false,
+                  to: directory.appendingPathComponent("7-panel-update-\(suffix).png"))
 
             // 8 – popup chrome, mute menu closed and open.
             for menuOpen in [false, true] {

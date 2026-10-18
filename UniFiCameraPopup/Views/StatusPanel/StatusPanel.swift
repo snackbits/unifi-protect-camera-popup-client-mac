@@ -9,6 +9,8 @@ struct StatusPanelActions {
     let openHelp: () -> Void
     let quit: () -> Void
     let openCamera: (UUID) -> Void
+    /// „Update auf … installieren“: the former menu's update action (confirmation, download, restart).
+    let installUpdate: () -> Void
     let close: () -> Void
     let resize: (CGSize) -> Void
 }
@@ -34,6 +36,7 @@ struct StatusPanelView: View {
     @ObservedObject var relay: WebSocketClient
     @ObservedObject var protect: ProtectSession
     @ObservedObject var clock: StatusPanelClock
+    @ObservedObject var updates: UpdateService
     @ObservedObject private var router = ConnectionRouter.shared
     let actions: StatusPanelActions
 
@@ -49,6 +52,7 @@ struct StatusPanelView: View {
             }
             muteButtons
             CardDivider(color: Tokens.mainBorder)
+            versionSection
             footerRow("Einstellungen …", shortcut: "⌘,", action: actions.openSettings)
                 .keyboardShortcut(",", modifiers: .command)
             footerRow("Hilfe", shortcut: nil, action: actions.openHelp)
@@ -198,6 +202,36 @@ struct StatusPanelView: View {
                     .buttonStyle(SoftButtonStyle())
                 }
             }
+        }
+    }
+
+    // MARK: Version und Update (Phase 5, not in the template)
+
+    /// „Version 1.2.0 (29)“ 11 `muted`; with an update a full-width button like the mute buttons.
+    private var versionSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(DisplayText.version(short: AppConfig.shortVersion, build: AppConfig.buildNumber))
+                .font(.system(size: 11))
+                .foregroundStyle(Tokens.muted.color)
+            if let title = updateButtonTitle {
+                Button(title, action: actions.installUpdate)
+                    .buttonStyle(SoftButtonStyle())
+                    .disabled(updates.isInstalling)
+            }
+        }
+    }
+
+    private var updateButtonTitle: String? {
+        switch updates.state {
+        case .downloading: return "Lade neue Version …"
+        case .installing: return "Installiere …"
+        default:
+            guard let manifest = updates.availableManifest else { return nil }
+            return DisplayText.updateButton(
+                targetShort: manifest.shortVersion,
+                targetBuild: manifest.buildNumber,
+                currentShort: AppConfig.shortVersion
+            )
         }
     }
 
