@@ -50,6 +50,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
     private var updateCheckTimer: Timer?
     private var muteExpiryTimer: Timer?
+    private var wakeObserver: NSObjectProtocol?
+    private var clockObserver: NSObjectProtocol?
     private var dndCheckTimer: Timer?
     private var focusMonitor: FocusMonitor?
     private var connectionStatus: ConnectionStatus = .disconnected
@@ -244,6 +246,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         startDNDPolling()
         scheduleMuteExpiryRefresh()
+        observeClockJumps()
+    }
+
+    /// Timers do not fire reliably across sleep or a clock change: re-prune and re-arm.
+    private func observeClockJumps() {
+        let refresh: (Notification) -> Void = { [weak self] _ in
+            Task { @MainActor in
+                self?.settings.pruneMutes()
+                self?.scheduleMuteExpiryRefresh()
+            }
+        }
+        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification, object: nil, queue: .main, using: refresh)
+        clockObserver = NotificationCenter.default.addObserver(
+            forName: .NSSystemClockDidChange, object: nil, queue: .main, using: refresh)
     }
 
     private func observeConnectionStatus() async {

@@ -180,6 +180,9 @@ final class SettingsStore: ObservableObject {
     private let defaults = UserDefaults.standard
     #endif
     private let storageKey = "unifi.camera.popup.settings"
+    /// Phase-2 state under a key of its own: the installed older build rewrites `storageKey`
+    /// without the keys it does not know (see `SettingsExtensions`).
+    private let extensionsKey = "settingsExtensionsV2"
     /// Where raw, undecodable settings are preserved instead of being overwritten.
     private static let backupKey = "unifi.camera.popup.settings.corrupted-backup"
 
@@ -230,15 +233,23 @@ final class SettingsStore: ObservableObject {
             launchAtLogin = saved.launchAtLogin
             autoUpdate = saved.autoUpdate ?? true
             disableDuringDND = saved.disableDuringDND ?? false
-            var schedule = MuteSchedule.migrated(stored: saved.muteSchedule, legacyGlobalUntil: saved.muteUntil)
+            // The extension holds what an older build rewriting the main blob would have dropped.
+            let ext = SettingsExtensions.decode(defaults.data(forKey: extensionsKey))
+            var schedule = MuteSchedule.migrated(
+                stored: ext?.muteSchedule ?? saved.muteSchedule,
+                legacyGlobalUntil: saved.muteUntil
+            )
             schedule.prune(at: Date(), validEntries: Set(loaded.mappings.map(\.entryId.uuidString)))
             muteSchedule = schedule
-            muteShort = saved.muteShort ?? .defaultShort
-            muteLong = saved.muteLong ?? .defaultLong
-            appearance = saved.appearance ?? .system
-            protectConsoleName = saved.protectConsoleName
-            protectHost = saved.protectHost.map { ProtectClient.canonicalHost($0) ?? $0 } ?? ""
-            protectCertificateFingerprint = saved.protectCertificateFingerprint
+            muteShort = ext?.muteShort ?? saved.muteShort ?? .defaultShort
+            muteLong = ext?.muteLong ?? saved.muteLong ?? .defaultLong
+            appearance = ext?.appearance ?? saved.appearance ?? .system
+            protectConsoleName = ext?.protectConsoleName ?? saved.protectConsoleName
+            protectHost = (ext?.protectHost ?? saved.protectHost).map { ProtectClient.canonicalHost($0) ?? $0 } ?? ""
+            protectCertificateFingerprint = ext?.protectCertificateFingerprint ?? saved.protectCertificateFingerprint
+            if let ext {
+                mappings = Self.overlay(ext, onto: mappings)
+            }
 
             // Decode succeeded: rewrite the (possibly migrated/normalized) payload.
             persist()
@@ -406,12 +417,68 @@ final class SettingsStore: ObservableObject {
         )
     }
 
+    /// Applies extension values to the mappings decoded from the main blob. The extension wins for
+    /// fields an older build cannot write; ids that no longer exist are ignored.
+    private static func overlay(_ ext: SettingsExtensions, onto mappings: [WebhookMapping]) -> [WebhookMapping] {
+        mappings.map { mapping in
+            var mapping = mapping
+            if let m = ext.mappings[mapping.entryId.uuidString] {
+                if let id = m.protectCameraId { mapping.protectCameraId = id }
+                if let raw = m.triggers { mapping.triggers = Set(raw.compactMap(TriggerKind.init(rawValue:))) }
+                if let enabled = m.webhookTriggerEnabled { mapping.webhookTriggerEnabled = enabled }
+                if let chime = m.chimeOnOpen { mapping.chimeOnOpen = chime }
+            }
+            mapping.actions = mapping.actions.map { action in
+                var action = action
+                if let a = ext.actions[action.id.uuidString] {
+                    if let icon = a.icon.flatMap(ActionIcon.init(rawValue:)) { action.icon = icon }
+                    if let confirm = a.confirmBeforeRun { action.confirmBeforeRun = confirm }
+                }
+                return action
+            }
+            return mapping
+        }
+    }
+
+    private func currentExtensions() -> SettingsExtensions {
+        var mappingValues: [String: SettingsExtensions.Mapping] = [:]
+        var actionValues: [String: SettingsExtensions.Action] = [:]
+        for mapping in mappings {
+            mappingValues[mapping.entryId.uuidString] = .init(
+                protectCameraId: mapping.protectCameraId,
+                triggers: TriggerKind.ordered.filter(mapping.triggers.contains).map(\.rawValue),
+                webhookTriggerEnabled: mapping.webhookTriggerEnabled,
+                chimeOnOpen: mapping.chimeOnOpen
+            )
+            for action in mapping.actions {
+                actionValues[action.id.uuidString] = .init(
+                    icon: action.icon.rawValue,
+                    confirmBeforeRun: action.confirmBeforeRun
+                )
+            }
+        }
+        return SettingsExtensions(
+            protectHost: protectHost,
+            protectCertificateFingerprint: protectCertificateFingerprint,
+            protectConsoleName: protectConsoleName,
+            muteSchedule: muteSchedule,
+            muteShort: muteShort,
+            muteLong: muteLong,
+            appearance: appearance,
+            mappings: mappingValues,
+            actions: actionValues
+        )
+    }
+
     private func persist() {
         let plaintextTokenIDs = syncActionTokensToKeychain()
         let encoder = JSONEncoder()
         encoder.userInfo[.plaintextActionTokenIDs] = plaintextTokenIDs
         if let data = try? encoder.encode(currentPersistedSettings()) {
             defaults.set(data, forKey: storageKey)
+        }
+        if let data = try? JSONEncoder().encode(currentExtensions()) {
+            defaults.set(data, forKey: extensionsKey)
         }
     }
 
@@ -504,6 +571,9 @@ final class SettingsStore: ObservableObject {
     func exportedConfigurationData() throws -> Data {
         var exported = currentPersistedSettings()
         exported.protectCertificateFingerprint = nil
+        // Active mutes are runtime state, not configuration.
+        exported.muteSchedule = nil
+        exported.muteUntil = nil
         let envelope = ConfigEnvelope(schemaVersion: Self.configSchemaVersion, settings: exported)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -538,9 +608,8 @@ final class SettingsStore: ObservableObject {
         showAllActiveCameras = saved.showAllActiveCameras ?? showAllActiveCameras
         autoUpdate = saved.autoUpdate ?? autoUpdate
         disableDuringDND = saved.disableDuringDND ?? disableDuringDND
-        var schedule = MuteSchedule.migrated(stored: saved.muteSchedule, legacyGlobalUntil: saved.muteUntil)
-        schedule.prune(at: Date(), validEntries: Set(saved.mappings.map(\.entryId.uuidString)))
-        muteSchedule = schedule
+        // Mutes are never imported (nor exported); current ones only lose removed cameras.
+        pruneMutes()
         muteShort = saved.muteShort ?? muteShort
         muteLong = saved.muteLong ?? muteLong
         appearance = saved.appearance ?? appearance

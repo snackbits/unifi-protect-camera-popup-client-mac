@@ -362,6 +362,7 @@ struct DurationField: View {
         .background(RoundedRectangle(cornerRadius: 6).fill(Tokens.field.color))
         .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Tokens.chipBorder.color, lineWidth: 1))
         .onAppear { text = String(duration.value) }
+        .onDisappear { commit() }
         .onChange(of: duration) { newValue in
             if !focused { text = String(newValue.value) }
         }
