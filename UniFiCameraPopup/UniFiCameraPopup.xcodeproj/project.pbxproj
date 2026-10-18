@@ -41,6 +41,8 @@
 		A10000000000000000000014 /* VLCKitSPM in Frameworks */ = {isa = PBXBuildFile; productRef = A50000000000000000000001 /* VLCKitSPM */; };
 		A10000000000000000000015 /* ProtectKit in Frameworks */ = {isa = PBXBuildFile; productRef = A50000000000000000000002 /* ProtectKit */; };
 		A10000000000000000000070 /* AppCore in Frameworks */ = {isa = PBXBuildFile; productRef = A50000000000000000000003 /* AppCore */; };
+		A10000000000000000000071 /* DesignComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000071 /* DesignComponents.swift */; };
+		A10000000000000000000072 /* PopUpField.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000072 /* PopUpField.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -77,6 +79,8 @@
 		A20000000000000000000013 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A20000000000000000000014 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A20000000000000000000015 /* UniFiCameraPopup.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "UniFi Camera Popup.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		A20000000000000000000071 /* DesignComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignComponents.swift; sourceTree = "<group>"; };
+		A20000000000000000000072 /* PopUpField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopUpField.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -164,6 +168,15 @@
 			path = Onboarding;
 			sourceTree = "<group>";
 		};
+		A40000000000000000000070 /* Design */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000071 /* DesignComponents.swift */,
+				A20000000000000000000072 /* PopUpField.swift */,
+			);
+			path = Design;
+			sourceTree = "<group>";
+		};
 		A40000000000000000000006 /* Views */ = {
 			isa = PBXGroup;
 			children = (
@@ -175,6 +188,7 @@
 				A20000000000000000000018 /* HelpView.swift */,
 				A20000000000000000000042 /* WhatsNewView.swift */,
 				A40000000000000000000060 /* Onboarding */,
+				A40000000000000000000070 /* Design */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -288,6 +302,8 @@
 				A10000000000000000000023 /* HotkeyRecorderView.swift in Sources */,
 				A10000000000000000000024 /* AccessibilityHelper.swift in Sources */,
 				A10000000000000000000025 /* CropSelectionView.swift in Sources */,
+				A10000000000000000000071 /* DesignComponents.swift in Sources */,
+				A10000000000000000000072 /* PopUpField.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
