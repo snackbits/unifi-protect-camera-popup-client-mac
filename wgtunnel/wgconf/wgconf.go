@@ -236,6 +236,11 @@ func Parse(text string) (*Config, error) {
 			ifc := &cfg.Interface
 			switch key {
 			case "privatekey":
+				if strings.TrimSpace(val) == "" {
+					// UniFi leaves it empty for clients with a custom public key.
+					return nil, errAt(ln, "PrivateKey ist leer – die Datei enthält keinen privaten Schlüssel. "+
+						"In UniFi beim Client den Schlüssel neu erzeugen lassen und die Datei erneut herunterladen")
+				}
 				k, err := ParseKey(val)
 				if err != nil {
 					return nil, errAt(ln, "PrivateKey: %v", err)

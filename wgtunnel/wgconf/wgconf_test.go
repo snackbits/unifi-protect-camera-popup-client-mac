@@ -127,6 +127,7 @@ func TestErrors(t *testing.T) {
 		{"no privkey", "[Interface]\nAddress=10.0.0.2\n" + peer, "PrivateKey fehlt", 0},
 		{"no address", "[Interface]\nPrivateKey=" + k1 + "\n" + peer, "Address fehlt", 0},
 		{"bad base64", strings.Replace(iface, k1, "not-base64!!", 1) + peer, "Base64", 2},
+		{"empty privkey", strings.Replace(iface, k1, "", 1) + peer, "PrivateKey ist leer", 2},
 		{"short key", strings.Replace(iface, k1, "AAAA", 1) + peer, "3 statt 32", 2},
 		{"bad address", strings.Replace(iface, "10.0.0.2/32", "10.0.0.300/32", 1) + peer, "Address", 3},
 		{"bad mtu", iface + "MTU = 99999\n" + peer, "MTU", 4},
