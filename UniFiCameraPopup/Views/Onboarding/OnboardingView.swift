@@ -390,11 +390,7 @@ struct OnboardingView: View {
         let current = selected.first { $0.id == model.triggerTab } ?? selected.first
         return VStack(spacing: 14) {
             Text("Wann soll sich welche Kamera melden?").font(.title3.bold())
-            Picker("Kamera", selection: $model.triggerTab) {
-                ForEach(selected) { Text($0.name).tag($0.id) }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
+            cameraSwitcher(selected, current: current)
             if let cam = current {
                 Text("Tippe an, was bei \(cam.name) ein Popup auslöst. Gestrichelt: kann diese Kamera nicht.")
                     .font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center)
@@ -407,6 +403,43 @@ struct OnboardingView: View {
             HStack {
                 Button("Zurück") { model.step = .cameras }.controlSize(.large)
                 primary("Fertig") { model.finish() }
+            }
+        }
+    }
+}
+
+extension OnboardingView {
+    /// Segmented tabs while every name fits; beyond four cameras a menu with
+    /// previous/next arrows, so any number of cameras stays reachable.
+    @ViewBuilder
+    fileprivate func cameraSwitcher(_ selected: [ProtectCamera], current: ProtectCamera?) -> some View {
+        if selected.count <= 4 {
+            Picker("Kamera", selection: $model.triggerTab) {
+                ForEach(selected) { Text($0.name).tag($0.id) }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+        } else {
+            let index = current.flatMap { cam in selected.firstIndex { $0.id == cam.id } } ?? 0
+            HStack(spacing: 8) {
+                Button {
+                    model.triggerTab = selected[index - 1].id
+                } label: { Image(systemName: "chevron.left") }
+                .disabled(index == 0)
+                .accessibilityLabel("Vorherige Kamera")
+                Picker("Kamera", selection: $model.triggerTab) {
+                    ForEach(selected) { Text($0.name).tag($0.id) }
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .frame(maxWidth: 260)
+                Button {
+                    model.triggerTab = selected[index + 1].id
+                } label: { Image(systemName: "chevron.right") }
+                .disabled(index >= selected.count - 1)
+                .accessibilityLabel("Nächste Kamera")
+                Text("\(index + 1) von \(selected.count)")
+                    .font(.callout).foregroundStyle(.secondary).monospacedDigit()
             }
         }
     }
