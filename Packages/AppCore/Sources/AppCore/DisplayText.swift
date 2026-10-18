@@ -94,3 +94,33 @@ public enum DisplayText {
         return trimmed
     }
 }
+
+// MARK: - Phase 5
+
+extension DisplayText {
+    /// Menu panel: "Version 1.2.0 (29)".
+    public static func version(short: String, build: Int) -> String {
+        "Version \(short) (\(build))"
+    }
+
+    /// Menu panel update button: "Update auf 1.3.0 installieren"; same marketing version
+    /// (newer build only) or none: "Update auf 1.2.0 (30) installieren".
+    public static func updateButton(targetShort: String?, targetBuild: Int, currentShort: String) -> String {
+        let short = (targetShort ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if short.isEmpty || short == currentShort {
+            return "Update auf \(currentShort) (\(targetBuild)) installieren"
+        }
+        return "Update auf \(short) installieren"
+    }
+
+    /// Button row in Kameras: address without scheme, "Ton „Gong“" or "ha.local/x + Ton".
+    public static func actionTarget(url: String, soundName: String?) -> String {
+        let address = actionAddress(url)
+        switch (address.isEmpty, soundName) {
+        case (false, nil): return address
+        case (false, .some): return "\(address) + Ton"
+        case (true, let name?): return "Ton „\(name)“"
+        case (true, nil): return ""
+        }
+    }
+}

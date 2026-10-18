@@ -38,6 +38,23 @@ public enum AnnouncementAudio {
             }
     }
 
+    /// The voice every new rendering uses (Anna, else the best German voice).
+    public static func preferredVoice() -> AVSpeechSynthesisVoice? {
+        let all = voices()
+        guard let pick = VoiceChoice.pick(from: all.map(candidate)) else { return nil }
+        return all.first { $0.identifier == pick.identifier }
+    }
+
+    public static func candidate(_ voice: AVSpeechSynthesisVoice) -> VoiceChoice.Candidate {
+        let quality: Int
+        switch voice.quality {
+        case .premium: quality = 3
+        case .enhanced: quality = 2
+        default: quality = 1
+        }
+        return VoiceChoice.Candidate(identifier: voice.identifier, name: voice.name, language: voice.language, quality: quality)
+    }
+
     /// "Anna (Premium) · macOS" – template wording of the voice pop-up.
     public static func label(for voice: AVSpeechSynthesisVoice) -> String {
         let quality: String
@@ -49,7 +66,7 @@ public enum AnnouncementAudio {
         return "\(voice.name)\(quality) · macOS"
     }
 
-    /// Speaks `text` into a buffer (`AVSpeechSynthesizer.write`). Unknown voice = system default German voice.
+    /// Speaks `text` into a buffer (`AVSpeechSynthesizer.write`). Unknown voice = `preferredVoice()`.
     /// Fails with `.speechFailed` for empty text or when the synthesizer does not finish within `timeout`
     /// (default 20 s + 0.15 s per character); honours task cancellation.
     public static func render(text: String, voiceIdentifier: String?, timeout: TimeInterval? = nil) async throws -> AVAudioPCMBuffer {
@@ -59,7 +76,7 @@ public enum AnnouncementAudio {
         if let voiceIdentifier, let voice = AVSpeechSynthesisVoice(identifier: voiceIdentifier) {
             utterance.voice = voice
         } else {
-            utterance.voice = voices().first ?? AVSpeechSynthesisVoice(language: "de-DE")
+            utterance.voice = preferredVoice() ?? AVSpeechSynthesisVoice(language: "de-DE")
         }
         let limit = timeout ?? (20 + 0.15 * Double(trimmed.count))
         let collector = SpeechCollector()
