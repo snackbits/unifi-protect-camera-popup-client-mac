@@ -1,4 +1,6 @@
+import AppCore
 import AppKit
+import ProtectKit
 
 @MainActor
 final class PopupController {
@@ -22,9 +24,25 @@ final class PopupController {
 
     private init() {}
 
+    /// Entry point for triggers (Protect events, relay webhooks). The event is recorded for the
+    /// menu panel even when muted; then global mute, the camera's own mute and Focus are honored.
     func show(event: TriggerEvent) {
+        let mapping = mapping(for: event)
+        if let mapping {
+            EventLog.shared.record(
+                mapping: mapping,
+                kindLabel: Self.kindLabel(for: event, mapping: mapping),
+                date: event.timestamp
+            )
+        }
+
         if settings.isMuted {
             NSLog("Popups muted; skipping popup.")
+            return
+        }
+
+        if let mapping, settings.isMuted(entryId: mapping.entryId) {
+            NSLog("Camera muted; skipping popup.")
             return
         }
 
@@ -33,12 +51,20 @@ final class PopupController {
             return
         }
 
-        present(event: event)
+        present(event: event, isTrigger: true)
     }
 
-    private func present(event: TriggerEvent) {
-        let found = event.mappingId.flatMap(settings.mapping(forEntry:)) ?? settings.mapping(for: event.webhookId)
-        guard let mapping = found else {
+    /// Event kind for the popup chip and the menu panel ("Klingel"); nil for webhook and manual popups.
+    static func kindLabel(for event: TriggerEvent, mapping: WebhookMapping) -> String? {
+        TriggerKind.displayOrder.first { event.kinds.contains($0) && mapping.triggers.contains($0) }?.label
+    }
+
+    private func mapping(for event: TriggerEvent) -> WebhookMapping? {
+        event.mappingId.flatMap(settings.mapping(forEntry:)) ?? settings.mapping(for: event.webhookId)
+    }
+
+    private func present(event: TriggerEvent, isTrigger: Bool) {
+        guard let mapping = mapping(for: event) else {
             NSLog("No mapping for event: \(event.webhookId) \(String(describing: event.mappingId))")
             return
         }
@@ -74,6 +100,9 @@ final class PopupController {
             // Show without stealing focus so the user can keep typing in other apps.
             window.orderFrontRegardless()
             window.startPlayback()
+            if isTrigger, mapping.chimeOnOpen {
+                NSSound(named: "Glass")?.play()
+            }
         }
     }
 
@@ -228,7 +257,7 @@ final class PopupController {
             mappingId: mapping.entryId
         )
         // Manual popups bypass mute / Do Not Disturb so they always appear.
-        present(event: event)
+        present(event: event, isTrigger: false)
     }
 
     func dismiss() {

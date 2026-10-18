@@ -1,3 +1,4 @@
+import AppCore
 import AppKit
 import Combine
 import SwiftUI
@@ -34,6 +35,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let updateCheckInterval: TimeInterval = 6 * 60 * 60
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        settings.pruneMutes()
         settings.reconcileLaunchAtLogin()
         setupStatusItem()
         if !settings.isProtectConfigured && settings.mappings.isEmpty {
@@ -101,6 +103,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         for await mappings in settings.$mappings.values {
             GlobalHotkeyManager.shared.sync(mappings: mappings)
             syncRelayConnection(mappings: mappings)
+            EventLog.shared.removeEntries(notIn: Set(mappings.map(\.entryId)))
         }
     }
 
@@ -285,9 +288,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func observePopupSuppressionState() async {
         await withTaskGroup(of: Void.self) { group in
             group.addTask { @MainActor in
-                for await _ in self.settings.$muteUntil.values {
-                    self.updateStatusBarIcon()
-                    self.scheduleMuteExpiryRefresh()
+                for await schedule in self.settings.$muteSchedule.values {
+                    self.scheduleMuteExpiryRefresh(schedule)
                 }
             }
             group.addTask { @MainActor in
@@ -295,27 +297,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     self.updateStatusBarIcon()
                 }
             }
+            group.addTask { @MainActor in
+                for await mode in self.settings.$appearance.values {
+                    NSApp.appearance = mode.appearanceName.flatMap { NSAppearance(named: $0) }
+                }
+            }
         }
     }
 
-    private func scheduleMuteExpiryRefresh() {
+    /// Refreshes the icon now and again when the next mute ends; then prunes ended mutes.
+    private func scheduleMuteExpiryRefresh(_ schedule: MuteSchedule? = nil) {
         muteExpiryTimer?.invalidate()
         muteExpiryTimer = nil
+        updateStatusBarIcon()
 
-        guard settings.isMuted, let muteUntil = settings.muteUntil else {
-            updateStatusBarIcon()
-            return
-        }
-
-        let interval = muteUntil.timeIntervalSinceNow
-        guard interval > 0 else {
-            updateStatusBarIcon()
-            return
-        }
-
-        let timer = Timer(timeInterval: interval, repeats: false) { [weak self] _ in
+        guard let next = (schedule ?? settings.muteSchedule).nextExpiry(after: Date()) else { return }
+        let timer = Timer(timeInterval: max(next.timeIntervalSinceNow, 0.5), repeats: false) { [weak self] _ in
             Task { @MainActor in
-                self?.updateStatusBarIcon()
+                self?.settings.pruneMutes()
+                self?.scheduleMuteExpiryRefresh()
             }
         }
         RunLoop.main.add(timer, forMode: .common)
@@ -611,16 +611,20 @@ extension AppDelegate: NSMenuDelegate {
     private func updateMuteMenuItem() {
         guard let unmuteMenuItem else { return }
 
-        guard settings.isMuted, let muteUntil = settings.muteUntil else {
+        let now = Date()
+        let schedule = settings.muteSchedule
+        let cameraCount = schedule.activeCameraMutes(at: now).count
+        if let globalEnd = schedule.globalEnd(at: now) {
+            let minutes = max(1, Int((globalEnd.timeIntervalSince(now) / 60).rounded(.up)))
+            unmuteMenuItem.title = "Stummschaltung aufheben (noch \(minutes) Min.)"
+        } else if cameraCount > 0 {
+            unmuteMenuItem.title = cameraCount == 1
+                ? "Stummschaltung aufheben (1 Kamera)"
+                : "Stummschaltung aufheben (\(cameraCount) Kameras)"
+        } else {
             unmuteMenuItem.isHidden = true
             return
         }
-
-        let remaining = max(0, Int(muteUntil.timeIntervalSinceNow.rounded(.up)))
-        let minutes = (remaining + 59) / 60
-        unmuteMenuItem.title = minutes > 0
-            ? "Stummschaltung aufheben (noch \(minutes) Min.)"
-            : "Stummschaltung aufheben"
         unmuteMenuItem.isHidden = false
     }
 }

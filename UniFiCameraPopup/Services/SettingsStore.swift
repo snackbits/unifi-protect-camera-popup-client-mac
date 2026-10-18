@@ -23,12 +23,18 @@ final class SettingsStore: ObservableObject {
             // A certificate pin never carries over to another console.
             if Self.normalizedHost(oldValue) != Self.normalizedHost(protectHost) {
                 protectCertificateFingerprint = nil
+                protectConsoleName = nil
             }
             persist()
         }
     }
 
     @Published var protectCertificateFingerprint: String? {
+        didSet { persist() }
+    }
+
+    /// Console name from discovery ("UDM Pro"); nil for a typed address.
+    @Published var protectConsoleName: String? {
         didSet { persist() }
     }
 
@@ -96,23 +102,65 @@ final class SettingsStore: ObservableObject {
         didSet { persist() }
     }
 
-    /// When set to a future date, all popups are suppressed until then.
-    @Published var muteUntil: Date? {
+    /// Global and per-camera mutes. Absolute dates: a mute survives a restart.
+    @Published private(set) var muteSchedule: MuteSchedule {
         didSet { persist() }
     }
 
-    /// Whether popups are currently muted via the temporary mute buttons.
+    /// The two offered mute lengths ("Kurz" / "Lang").
+    @Published var muteShort: MuteDuration {
+        didSet { persist() }
+    }
+
+    @Published var muteLong: MuteDuration {
+        didSet { persist() }
+    }
+
+    var muteOptions: [MuteDuration] { [muteShort, muteLong] }
+
+    /// "Erscheinungsbild": applied to `NSApp.appearance` by `AppDelegate`.
+    @Published var appearance: AppearanceMode {
+        didSet { persist() }
+    }
+
+    /// Whether all popups are muted right now (menu bar badge, global check).
     var isMuted: Bool {
-        guard let muteUntil else { return false }
-        return muteUntil > Date()
+        muteSchedule.isGloballyMuted(at: Date())
     }
 
-    func mute(for duration: TimeInterval) {
-        muteUntil = Date().addingTimeInterval(duration)
+    /// Whether this camera must not open a popup (own mute or global mute).
+    func isMuted(entryId: UUID) -> Bool {
+        muteSchedule.isMuted(entry: entryId.uuidString, at: Date())
     }
 
+    func muteAll(for duration: MuteDuration) {
+        muteSchedule.muteAll(for: duration.seconds, from: Date())
+    }
+
+    func mute(entryId: UUID, for duration: MuteDuration) {
+        muteSchedule.mute(entry: entryId.uuidString, for: duration.seconds, from: Date())
+    }
+
+    func clearGlobalMute() {
+        muteSchedule.clearGlobal()
+    }
+
+    func clearMute(entryId: UUID) {
+        muteSchedule.clear(entry: entryId.uuidString)
+    }
+
+    /// Lifts every mute (menu "Stummschaltung aufheben").
     func clearMute() {
-        muteUntil = nil
+        muteSchedule.clearAll()
+    }
+
+    /// Drops ended mutes and mutes of removed cameras; writes only on change.
+    func pruneMutes() {
+        var pruned = muteSchedule
+        pruned.prune(at: Date(), validEntries: Set(mappings.map(\.entryId.uuidString)))
+        if pruned != muteSchedule {
+            muteSchedule = pruned
+        }
     }
 
     /// Reconciles the persisted "launch at login" preference with the actual
@@ -146,6 +194,11 @@ final class SettingsStore: ObservableObject {
         var muteUntil: Date?
         var protectHost: String?
         var protectCertificateFingerprint: String?
+        var muteSchedule: MuteSchedule?
+        var muteShort: MuteDuration?
+        var muteLong: MuteDuration?
+        var appearance: AppearanceMode?
+        var protectConsoleName: String?
     }
 
     private init() {
@@ -172,7 +225,13 @@ final class SettingsStore: ObservableObject {
             launchAtLogin = saved.launchAtLogin
             autoUpdate = saved.autoUpdate ?? true
             disableDuringDND = saved.disableDuringDND ?? false
-            muteUntil = saved.muteUntil
+            var schedule = MuteSchedule.migrated(stored: saved.muteSchedule, legacyGlobalUntil: saved.muteUntil)
+            schedule.prune(at: Date(), validEntries: Set(loaded.mappings.map(\.entryId.uuidString)))
+            muteSchedule = schedule
+            muteShort = saved.muteShort ?? .defaultShort
+            muteLong = saved.muteLong ?? .defaultLong
+            appearance = saved.appearance ?? .system
+            protectConsoleName = saved.protectConsoleName
             protectHost = saved.protectHost.map { ProtectClient.canonicalHost($0) ?? $0 } ?? ""
             protectCertificateFingerprint = saved.protectCertificateFingerprint
 
@@ -201,7 +260,11 @@ final class SettingsStore: ObservableObject {
             launchAtLogin = LaunchAtLoginHelper.isEnabled
             autoUpdate = true
             disableDuringDND = false
-            muteUntil = nil
+            muteSchedule = MuteSchedule()
+            muteShort = .defaultShort
+            muteLong = .defaultLong
+            appearance = .system
+            protectConsoleName = nil
             protectHost = ""
             protectCertificateFingerprint = nil
 
@@ -270,6 +333,7 @@ final class SettingsStore: ObservableObject {
 
     func removeMapping(id: UUID) {
         mappings.removeAll { $0.entryId == id }
+        muteSchedule.clear(entry: id.uuidString)
     }
 
     /// Generates a fresh installation ID. This changes all webhook URLs, so
@@ -325,9 +389,15 @@ final class SettingsStore: ObservableObject {
             launchAtLogin: launchAtLogin,
             autoUpdate: autoUpdate,
             disableDuringDND: disableDuringDND,
-            muteUntil: muteUntil,
+            // Still written so an older installed build keeps honoring a global mute.
+            muteUntil: muteSchedule.globalUntil,
             protectHost: protectHost,
-            protectCertificateFingerprint: protectCertificateFingerprint
+            protectCertificateFingerprint: protectCertificateFingerprint,
+            muteSchedule: muteSchedule,
+            muteShort: muteShort,
+            muteLong: muteLong,
+            appearance: appearance,
+            protectConsoleName: protectConsoleName
         )
     }
 
@@ -463,7 +533,12 @@ final class SettingsStore: ObservableObject {
         showAllActiveCameras = saved.showAllActiveCameras ?? showAllActiveCameras
         autoUpdate = saved.autoUpdate ?? autoUpdate
         disableDuringDND = saved.disableDuringDND ?? disableDuringDND
-        muteUntil = saved.muteUntil
+        var schedule = MuteSchedule.migrated(stored: saved.muteSchedule, legacyGlobalUntil: saved.muteUntil)
+        schedule.prune(at: Date(), validEntries: Set(saved.mappings.map(\.entryId.uuidString)))
+        muteSchedule = schedule
+        muteShort = saved.muteShort ?? muteShort
+        muteLong = saved.muteLong ?? muteLong
+        appearance = saved.appearance ?? appearance
         launchAtLogin = saved.launchAtLogin
         // Never trust a pin from a file. A different console means the stored
         // API key must not be sent there: drop key and pin, setup must be re-run.
@@ -472,6 +547,9 @@ final class SettingsStore: ObservableObject {
             protectAPIKey = ""
             protectCertificateFingerprint = nil
             protectHost = ProtectClient.canonicalHost(host) ?? host
+        }
+        if let name = saved.protectConsoleName {
+            protectConsoleName = name
         }
     }
 }

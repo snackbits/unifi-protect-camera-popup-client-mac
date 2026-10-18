@@ -25,9 +25,15 @@ public struct MuteSchedule: Codable, Equatable, Sendable {
         cameras = (try? container.decodeIfPresent([String: Date].self, forKey: .cameras)) ?? [:]
     }
 
-    /// Settings written before per-camera muting only stored a global `muteUntil`.
+    /// Settings written before per-camera muting only stored a global `muteUntil`, and an older
+    /// installed build keeps writing it. When both exist the later global end wins, so a mute set
+    /// in the old build is not ignored.
     public static func migrated(stored: MuteSchedule?, legacyGlobalUntil: Date?) -> MuteSchedule {
-        stored ?? MuteSchedule(globalUntil: legacyGlobalUntil)
+        guard var schedule = stored else { return MuteSchedule(globalUntil: legacyGlobalUntil) }
+        if let legacyGlobalUntil, legacyGlobalUntil > (schedule.globalUntil ?? .distantPast) {
+            schedule.globalUntil = legacyGlobalUntil
+        }
+        return schedule
     }
 
     public func globalEnd(at now: Date) -> Date? {

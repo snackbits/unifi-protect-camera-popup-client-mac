@@ -27,6 +27,34 @@ extension CodingUserInfoKey {
     static let plaintextActionTokenIDs = CodingUserInfoKey(rawValue: "plaintextActionTokenIDs")!
 }
 
+/// Symbol of a popup button (template sheet: door, bulb, house, bolt).
+enum ActionIcon: String, Codable, CaseIterable, Identifiable {
+    case door
+    case bulb
+    case house
+    case bolt
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .door: return "Tür"
+        case .bulb: return "Licht"
+        case .house: return "Haus"
+        case .bolt: return "Blitz"
+        }
+    }
+
+    var templateIcon: TemplateIcon {
+        switch self {
+        case .door: return .actionDoor
+        case .bulb: return .actionBulb
+        case .house: return .actionHouse
+        case .bolt: return .actionBolt
+        }
+    }
+}
+
 /// A user-defined button shown in the popup that calls a webhook (e.g. "Tür öffnen").
 struct CameraAction: Codable, Identifiable, Equatable {
     enum Method: String, Codable, CaseIterable, Identifiable {
@@ -42,6 +70,10 @@ struct CameraAction: Codable, Identifiable, Equatable {
     var method: Method
     /// Sent as `Authorization: Bearer <token>` when not empty.
     var bearerToken: String
+    /// Symbol in the popup's button pill.
+    var icon: ActionIcon
+    /// Ask before calling the webhook (e.g. opening a door).
+    var confirmBeforeRun: Bool
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -49,6 +81,8 @@ struct CameraAction: Codable, Identifiable, Equatable {
         case url
         case method
         case bearerToken
+        case icon
+        case confirmBeforeRun
     }
 
     init(
@@ -56,13 +90,17 @@ struct CameraAction: Codable, Identifiable, Equatable {
         title: String = "",
         url: String = "",
         method: Method = .post,
-        bearerToken: String = ""
+        bearerToken: String = "",
+        icon: ActionIcon = .bolt,
+        confirmBeforeRun: Bool = false
     ) {
         self.id = id
         self.title = title
         self.url = url
         self.method = method
         self.bearerToken = bearerToken
+        self.icon = icon
+        self.confirmBeforeRun = confirmBeforeRun
     }
 
     init(from decoder: Decoder) throws {
@@ -72,6 +110,8 @@ struct CameraAction: Codable, Identifiable, Equatable {
         url = (try? container.decodeIfPresent(String.self, forKey: .url)) ?? ""
         method = (try? container.decodeIfPresent(Method.self, forKey: .method)) ?? .post
         bearerToken = (try? container.decodeIfPresent(String.self, forKey: .bearerToken)) ?? ""
+        icon = (try? container.decodeIfPresent(ActionIcon.self, forKey: .icon)) ?? .bolt
+        confirmBeforeRun = (try? container.decodeIfPresent(Bool.self, forKey: .confirmBeforeRun)) ?? false
     }
 
     /// The bearer token is only encoded when explicitly requested (export or
@@ -82,6 +122,8 @@ struct CameraAction: Codable, Identifiable, Equatable {
         try container.encode(title, forKey: .title)
         try container.encode(url, forKey: .url)
         try container.encode(method, forKey: .method)
+        try container.encode(icon, forKey: .icon)
+        try container.encode(confirmBeforeRun, forKey: .confirmBeforeRun)
 
         let includeAll = encoder.userInfo[.includeActionTokens] as? Bool == true
         let plaintextIDs = encoder.userInfo[.plaintextActionTokenIDs] as? Set<UUID> ?? []
@@ -135,6 +177,8 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
     var triggers: Set<TriggerKind>
     /// Hidden option: also open the popup when the relay server receives `webhookId`.
     var webhookTriggerEnabled: Bool
+    /// "Hinweiston beim Öffnen": system sound when a triggered popup opens.
+    var chimeOnOpen: Bool
 
     enum CodingKeys: String, CodingKey {
         case entryId
@@ -153,6 +197,7 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
         case protectCameraId
         case triggers
         case webhookTriggerEnabled
+        case chimeOnOpen
         case widthOverride
         case heightOverride
     }
@@ -173,7 +218,8 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
         actions: [CameraAction] = [],
         protectCameraId: String? = nil,
         triggers: Set<TriggerKind> = [.ring, .person],
-        webhookTriggerEnabled: Bool = false
+        webhookTriggerEnabled: Bool = false,
+        chimeOnOpen: Bool = false
     ) {
         self.entryId = entryId
         self.webhookId = webhookId
@@ -191,6 +237,7 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
         self.protectCameraId = protectCameraId
         self.triggers = triggers
         self.webhookTriggerEnabled = webhookTriggerEnabled
+        self.chimeOnOpen = chimeOnOpen
     }
 
     init(from decoder: Decoder) throws {
@@ -222,6 +269,7 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
         // Legacy entries were webhook-driven: keep them working.
         webhookTriggerEnabled = (try? container.decodeIfPresent(Bool.self, forKey: .webhookTriggerEnabled))
             ?? !webhookId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        chimeOnOpen = (try? container.decodeIfPresent(Bool.self, forKey: .chimeOnOpen)) ?? false
     }
 
     func encode(to encoder: Encoder) throws {
@@ -242,6 +290,7 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
         try container.encodeIfPresent(protectCameraId, forKey: .protectCameraId)
         try container.encode(TriggerKind.ordered.filter(triggers.contains), forKey: .triggers)
         try container.encode(webhookTriggerEnabled, forKey: .webhookTriggerEnabled)
+        try container.encode(chimeOnOpen, forKey: .chimeOnOpen)
     }
 }
 

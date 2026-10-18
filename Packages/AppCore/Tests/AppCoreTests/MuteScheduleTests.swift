@@ -94,8 +94,22 @@ final class MuteScheduleTests: XCTestCase {
         XCTAssertEqual(MuteSchedule.migrated(stored: nil, legacyGlobalUntil: legacyEnd).globalUntil, legacyEnd)
         XCTAssertEqual(MuteSchedule.migrated(stored: nil, legacyGlobalUntil: nil), MuteSchedule())
         let stored = MuteSchedule(cameras: ["A": legacyEnd])
-        XCTAssertEqual(MuteSchedule.migrated(stored: stored, legacyGlobalUntil: legacyEnd), stored)
+        XCTAssertEqual(MuteSchedule.migrated(stored: stored, legacyGlobalUntil: nil), stored)
         let broken = try JSONDecoder().decode(MuteSchedule.self, from: Data(#"{"globalUntil":"kaputt","cameras":7}"#.utf8))
         XCTAssertEqual(broken, MuteSchedule())
+    }
+
+    // The installed old app still writes only `muteUntil`: the later end wins.
+    func testMigrationTakesLaterOfStoredAndLegacyGlobalEnd() {
+        let early = now.addingTimeInterval(300)
+        let late = now.addingTimeInterval(900)
+        let cameras = ["A": early]
+        let storedEarly = MuteSchedule(globalUntil: early, cameras: cameras)
+        let storedLate = MuteSchedule(globalUntil: late, cameras: cameras)
+
+        XCTAssertEqual(MuteSchedule.migrated(stored: storedEarly, legacyGlobalUntil: late).globalUntil, late)
+        XCTAssertEqual(MuteSchedule.migrated(stored: storedLate, legacyGlobalUntil: early).globalUntil, late)
+        XCTAssertEqual(MuteSchedule.migrated(stored: MuteSchedule(cameras: cameras), legacyGlobalUntil: late).globalUntil, late)
+        XCTAssertEqual(MuteSchedule.migrated(stored: storedEarly, legacyGlobalUntil: late).cameras, cameras)
     }
 }

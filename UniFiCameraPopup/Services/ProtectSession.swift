@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import ProtectKit
 
@@ -12,6 +13,7 @@ final class ProtectSession: ObservableObject {
     /// event loop with the new client; a replaced client is always invalidated first.
     @Published private(set) var client: ProtectClient?
     private var streamCache: [String: String] = [:]
+    private var snapshotCache: [String: (image: NSImage, date: Date)] = [:]
     private let settings = SettingsStore.shared
 
     private init() {}
@@ -19,6 +21,7 @@ final class ProtectSession: ObservableObject {
     /// Rebuilds the client from current settings (after onboarding or settings changes).
     func reconnect() {
         streamCache = [:]
+        snapshotCache = [:]
         lastError = nil
         client?.invalidate()
         guard settings.isProtectConfigured else {
@@ -70,5 +73,20 @@ final class ProtectSession: ObservableObject {
             if client === self.client { lastError = error.localizedDescription }
             return nil
         }
+    }
+
+    /// Camera still for thumbnails, cached for `maxAge` seconds (0 = always fresh).
+    /// nil without Protect, for unknown cameras or on any error.
+    func snapshot(cameraId: String, maxAge: TimeInterval = 60) async -> NSImage? {
+        if let cached = snapshotCache[cameraId], Date().timeIntervalSince(cached.date) < maxAge {
+            return cached.image
+        }
+        guard let client else { return nil }
+        guard let data = try? await client.snapshot(cameraId: cameraId),
+              let image = NSImage(data: data) else { return nil }
+        if client === self.client {
+            snapshotCache[cameraId] = (image, Date())
+        }
+        return image
     }
 }

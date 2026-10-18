@@ -167,7 +167,8 @@ final class PopupWindow: NSPanel {
         muteBar.translatesAutoresizingMaskIntoConstraints = false
         muteBar.isHidden = cropSelectionMode
         muteBar.onMute = { [weak self] duration in
-            SettingsStore.shared.mute(for: duration)
+            let settings = SettingsStore.shared
+            settings.muteAll(for: duration >= 3600 ? settings.muteLong : settings.muteShort)
             self?.closePopup()
         }
         muteBar.setActions(actions)

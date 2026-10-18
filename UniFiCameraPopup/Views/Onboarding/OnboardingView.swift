@@ -162,6 +162,9 @@ final class OnboardingModel: ObservableObject {
         let settings = SettingsStore.shared
         // Order matters: setting a different host clears the pinned fingerprint.
         settings.protectHost = canonicalHost ?? host
+        if let name = consoles.first(where: { $0.ip == host })?.displayName {
+            settings.protectConsoleName = name
+        }
         if let capturedFingerprint { settings.protectCertificateFingerprint = capturedFingerprint }
         settings.protectAPIKey = apiKey
         for cam in cameras where selectedCameraIds.contains(cam.id) {
