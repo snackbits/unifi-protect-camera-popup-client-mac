@@ -1,0 +1,4 @@
+module WGTunnelC {
+    header "wgtunnel.h"
+    export *
+}

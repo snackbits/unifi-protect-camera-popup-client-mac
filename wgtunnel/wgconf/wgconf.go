@@ -19,6 +19,12 @@ func (k Key) Hex() string    { return hex.EncodeToString(k[:]) }
 func (k Key) Base64() string { return base64.StdEncoding.EncodeToString(k[:]) }
 func (k Key) IsZero() bool   { return k == Key{} }
 
+// String and GoString keep key bytes out of %v, %+v, %#v, %s and %x, so a
+// formatted Config (log line, test failure) never shows a key. Use Hex or
+// Base64 where the key is really needed.
+func (k Key) String() string   { return "<redacted>" }
+func (k Key) GoString() string { return "<redacted>" }
+
 type Interface struct {
 	PrivateKey Key
 	Addresses  []netip.Prefix

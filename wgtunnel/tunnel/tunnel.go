@@ -1,17 +1,19 @@
 // Package tunnel runs a userspace WireGuard peer (wireguard-go + gVisor netstack)
 // that is visible only to this process, and exposes local TCP/UDP port forwards
-// on 127.0.0.1 so other programs (libVLC, ffmpeg, curl) can reach hosts behind it.
+// on 127.0.0.1 so other code (URLSession, libVLC) can reach hosts behind it.
+//
+// Forwards are deliberately narrow: they bind 127.0.0.1 only, reach only
+// addresses inside the peers' AllowedIPs, a UDP forward answers only the first
+// local sender, and every listener closes with the tunnel.
 package tunnel
 
 import (
 	"context"
-	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
 	"log"
 	"net"
-	"net/http"
 	"net/netip"
 	"strconv"
 	"strings"
@@ -26,21 +28,42 @@ import (
 	"wgtunnel/wgconf"
 )
 
+// DefaultKeepalive is used for peers whose config has no PersistentKeepalive.
+// The app sits behind NAT on foreign networks; without keepalives the mapping
+// expires and an idle tunnel only notices that on the next request.
+const DefaultKeepalive = 25
+
 type Tunnel struct {
 	Config *wgconf.Config
 	Net    *netstack.Net
 	dev    *device.Device
 
-	mu       sync.Mutex
-	forwards []io.Closer
-	closed   bool
+	mu        sync.Mutex
+	listeners []io.Closer
+	byRemote  map[string]int      // "tcp/host:port" or "udp/ip:port" -> local port
+	active    map[*relay]struct{} // relayed TCP connections currently open
+	closed    bool
 
 	FwdConns   atomic.Int64
 	FwdBytesUp atomic.Int64 // local -> remote
 	FwdBytesDn atomic.Int64 // remote -> local
+	// UDPForeignDropped counts datagrams a UDP forward discarded because they
+	// came from a local address other than the one it locked to.
+	UDPForeignDropped atomic.Int64
 }
 
-func resolve(host string) (netip.Addr, error) {
+// relay is one accepted local connection and its tunnel-side counterpart.
+type relay struct {
+	local, remote net.Conn
+}
+
+func (r *relay) close() {
+	r.local.Close()
+	r.remote.Close()
+}
+
+// Resolver maps an endpoint host name to an IP (outside the tunnel).
+var Resolver = func(host string) (netip.Addr, error) {
 	ips, err := net.DefaultResolver.LookupNetIP(context.Background(), "ip", host)
 	if err != nil {
 		return netip.Addr{}, err
@@ -67,6 +90,11 @@ func Start(configText string, logLevel int) (*Tunnel, error) {
 }
 
 func StartConfig(cfg *wgconf.Config, logLevel int) (*Tunnel, error) {
+	for i := range cfg.Peers {
+		if cfg.Peers[i].PersistentKeepalive == 0 {
+			cfg.Peers[i].PersistentKeepalive = DefaultKeepalive
+		}
+	}
 	var local []netip.Addr
 	for _, p := range cfg.Interface.Addresses {
 		local = append(local, p.Addr())
@@ -76,7 +104,7 @@ func StartConfig(cfg *wgconf.Config, logLevel int) (*Tunnel, error) {
 		return nil, fmt.Errorf("netstack: %w", err)
 	}
 	dev := device.NewDevice(tdev, conn.NewDefaultBind(), device.NewLogger(logLevel, "wg: "))
-	uapi, err := cfg.UAPI(resolve)
+	uapi, err := cfg.UAPI(Resolver)
 	if err != nil {
 		dev.Close()
 		return nil, err
@@ -89,7 +117,10 @@ func StartConfig(cfg *wgconf.Config, logLevel int) (*Tunnel, error) {
 		dev.Close()
 		return nil, fmt.Errorf("Up: %w", err)
 	}
-	return &Tunnel{Config: cfg, Net: tnet, dev: dev}, nil
+	return &Tunnel{
+		Config: cfg, Net: tnet, dev: dev,
+		byRemote: map[string]int{}, active: map[*relay]struct{}{},
+	}, nil
 }
 
 func (t *Tunnel) Close() {
@@ -99,90 +130,160 @@ func (t *Tunnel) Close() {
 		return
 	}
 	t.closed = true
-	fw := t.forwards
-	t.forwards = nil
+	ls := t.listeners
+	t.listeners = nil
+	rs := t.active
+	t.active = map[*relay]struct{}{}
 	t.mu.Unlock()
-	for _, c := range fw {
+	for _, c := range ls {
 		c.Close()
+	}
+	for r := range rs {
+		r.close()
 	}
 	t.dev.Close()
 }
 
-// DialContext dials through the tunnel (for http.Transport etc.).
+// DialContext dials through the tunnel.
 func (t *Tunnel) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
 	return t.Net.DialContext(ctx, network, addr)
 }
 
-// HTTPClient returns a client whose connections go through the tunnel.
-// insecure skips TLS verification (UniFi consoles use self-signed certs);
-// a real app should pin the console certificate instead.
-func (t *Tunnel) HTTPClient(insecure bool) *http.Client {
-	tr := &http.Transport{
-		DialContext:         t.DialContext,
-		TLSClientConfig:     &tls.Config{InsecureSkipVerify: insecure},
-		ForceAttemptHTTP2:   true,
-		TLSHandshakeTimeout: 10 * time.Second,
+// allowed reports whether ip lies inside the AllowedIPs of any peer, i.e.
+// whether WireGuard would route it through the tunnel at all.
+func (t *Tunnel) allowed(ip netip.Addr) bool {
+	ip = ip.Unmap()
+	for _, p := range t.Config.Peers {
+		for _, pfx := range p.AllowedIPs {
+			if pfx.Contains(ip) {
+				return true
+			}
+		}
 	}
-	return &http.Client{Transport: tr, Timeout: 30 * time.Second}
+	return false
 }
 
-func (t *Tunnel) track(c io.Closer) bool {
+// target turns a forward destination into an address inside AllowedIPs.
+// Host names are resolved once, through the tunnel's DNS, and the forward
+// stays pinned to the first allowed answer.
+func (t *Tunnel) target(host string) (netip.Addr, error) {
+	if ip, err := netip.ParseAddr(host); err == nil {
+		if !t.allowed(ip) {
+			return netip.Addr{}, fmt.Errorf("Ziel %s liegt nicht in AllowedIPs", ip)
+		}
+		return ip.Unmap(), nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	names, err := t.Net.LookupContextHost(ctx, host)
+	if err != nil {
+		return netip.Addr{}, fmt.Errorf("Ziel %q nicht auflösbar: %v", host, err)
+	}
+	for _, n := range names {
+		if ip, err := netip.ParseAddr(n); err == nil && t.allowed(ip) {
+			return ip.Unmap(), nil
+		}
+	}
+	return netip.Addr{}, fmt.Errorf("Ziel %q liegt nicht in AllowedIPs", host)
+}
+
+// lookup returns the existing local port for key, or registers the listeners
+// produced by open. Holding mu across open keeps two callers from binding twice.
+func (t *Tunnel) lookup(key string, open func() (int, []io.Closer, error)) (int, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.closed {
+		return 0, errors.New("Tunnel geschlossen")
+	}
+	if p, ok := t.byRemote[key]; ok {
+		return p, nil
+	}
+	p, cs, err := open()
+	if err != nil {
+		return 0, err
+	}
+	t.byRemote[key] = p
+	t.listeners = append(t.listeners, cs...)
+	return p, nil
+}
+
+// AddForward listens on 127.0.0.1:localPort (0 = ephemeral) with a normal macOS
+// socket and relays every accepted connection to remoteHost:remotePort via the tunnel.
+// Asking again for the same remote returns the port bound the first time.
+// remoteHost must be (or resolve to) an address inside AllowedIPs.
+func (t *Tunnel) AddForward(localPort int, remoteHost string, remotePort int) (int, error) {
+	if remotePort < 1 || remotePort > 65535 {
+		return 0, fmt.Errorf("ungültiger Zielport %d", remotePort)
+	}
+	// Resolve before taking mu: a DNS lookup must not block Close or ResetConnections.
+	ip, err := t.target(remoteHost)
+	if err != nil {
+		return 0, err
+	}
+	remote := netip.AddrPortFrom(ip, uint16(remotePort)).String()
+	key := "tcp/" + net.JoinHostPort(remoteHost, strconv.Itoa(remotePort))
+	return t.lookup(key, func() (int, []io.Closer, error) {
+		ln, err := net.Listen("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(localPort)))
+		if err != nil {
+			return 0, nil, err
+		}
+		go func() {
+			for {
+				c, err := ln.Accept()
+				if err != nil {
+					return
+				}
+				go t.relayTCP(c, remote)
+			}
+		}()
+		return ln.Addr().(*net.TCPAddr).Port, []io.Closer{ln}, nil
+	})
+}
+
+func (t *Tunnel) track(r *relay) bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	if t.closed {
 		return false
 	}
-	t.forwards = append(t.forwards, c)
+	t.active[r] = struct{}{}
 	return true
 }
 
-// AddForward listens on 127.0.0.1:localPort (0 = ephemeral) with a normal macOS
-// socket and relays every accepted connection to remoteHost:remotePort via the tunnel.
-// Returns the bound local port.
-func (t *Tunnel) AddForward(localPort int, remoteHost string, remotePort int) (int, error) {
-	ln, err := net.Listen("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(localPort)))
-	if err != nil {
-		return 0, err
-	}
-	if !t.track(ln) {
-		ln.Close()
-		return 0, errors.New("Tunnel geschlossen")
-	}
-	remote := net.JoinHostPort(remoteHost, strconv.Itoa(remotePort))
-	go func() {
-		for {
-			c, err := ln.Accept()
-			if err != nil {
-				return
-			}
-			go t.relayTCP(c, remote)
-		}
-	}()
-	return ln.Addr().(*net.TCPAddr).Port, nil
+func (t *Tunnel) untrack(r *relay) {
+	t.mu.Lock()
+	delete(t.active, r)
+	t.mu.Unlock()
 }
 
 func (t *Tunnel) relayTCP(local net.Conn, remote string) {
-	defer local.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	r, err := t.Net.DialContext(ctx, "tcp", remote)
+	rc, err := t.Net.DialContext(ctx, "tcp", remote)
 	cancel()
 	if err != nil {
 		log.Printf("forward %s: %v", remote, err)
+		local.Close()
 		return
 	}
-	defer r.Close()
+	r := &relay{local: local, remote: rc}
+	if !t.track(r) {
+		r.close()
+		return
+	}
+	defer t.untrack(r)
+	defer r.close()
 	t.FwdConns.Add(1)
 	done := make(chan struct{}, 2)
 	go func() {
-		n, _ := io.Copy(r, local)
+		n, _ := io.Copy(rc, local)
 		t.FwdBytesUp.Add(n)
-		if cw, ok := r.(interface{ CloseWrite() error }); ok {
+		if cw, ok := rc.(interface{ CloseWrite() error }); ok {
 			cw.CloseWrite()
 		}
 		done <- struct{}{}
 	}()
 	go func() {
-		n, _ := io.Copy(local, r)
+		n, _ := io.Copy(local, rc)
 		t.FwdBytesDn.Add(n)
 		if cw, ok := local.(*net.TCPConn); ok {
 			cw.CloseWrite()
@@ -193,53 +294,104 @@ func (t *Tunnel) relayTCP(local net.Conn, remote string) {
 	<-done
 }
 
-// AddUDPForward listens on 127.0.0.1:localPort (UDP). Datagrams from the most
-// recent local sender are relayed to remoteHost:remotePort through the tunnel;
-// replies go back to that sender. Enough for talkback (one sender).
+// ResetConnections closes every relayed TCP connection but keeps the listeners,
+// so clients reconnect to the same 127.0.0.1 ports. Needed after an outage:
+// a gVisor TCP connection that lived through a long blackout can stay stuck
+// forever although the tunnel itself works again. Returns how many were closed.
+func (t *Tunnel) ResetConnections() int {
+	t.mu.Lock()
+	rs := t.active
+	t.active = map[*relay]struct{}{}
+	t.mu.Unlock()
+	for r := range rs {
+		r.close()
+	}
+	return len(rs)
+}
+
+// Rebind re-resolves endpoint host names and rebinds the UDP socket. Call after
+// the Mac changed networks (new Wi-Fi, wake from sleep, hotspot).
+func (t *Tunnel) Rebind() error {
+	var b strings.Builder
+	for _, p := range t.Config.Peers {
+		addr, err := netip.ParseAddr(p.EndpointHost)
+		if err != nil {
+			addr, err = Resolver(p.EndpointHost)
+			if err != nil {
+				return fmt.Errorf("Endpoint %q nicht auflösbar: %v", p.EndpointHost, err)
+			}
+		}
+		fmt.Fprintf(&b, "public_key=%s\nupdate_only=true\nendpoint=%s\n",
+			p.PublicKey.Hex(), netip.AddrPortFrom(addr.Unmap(), p.EndpointPort))
+	}
+	if err := t.dev.IpcSet(b.String()); err != nil {
+		return fmt.Errorf("IpcSet: %w", err)
+	}
+	return t.dev.BindUpdate()
+}
+
+// AddUDPForward listens on 127.0.0.1:localPort (UDP) and relays datagrams to
+// remoteHost:remotePort (an IP inside AllowedIPs) through the tunnel. The
+// forward locks to the first local sender: replies go only to it, datagrams
+// from any other local address are dropped (counted in UDPForeignDropped).
+// The lock lasts as long as the forward, i.e. until the tunnel closes.
+// Enough for talkback (one sender).
 func (t *Tunnel) AddUDPForward(localPort int, remoteHost string, remotePort int) (int, error) {
 	raddr, err := netip.ParseAddrPort(net.JoinHostPort(remoteHost, strconv.Itoa(remotePort)))
 	if err != nil {
 		return 0, fmt.Errorf("UDP-Ziel muss IP sein: %w", err)
 	}
-	lc, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: localPort})
-	if err != nil {
-		return 0, err
+	raddr = netip.AddrPortFrom(raddr.Addr().Unmap(), raddr.Port())
+	if !t.allowed(raddr.Addr()) {
+		return 0, fmt.Errorf("Ziel %s liegt nicht in AllowedIPs", raddr.Addr())
 	}
-	rc, err := t.Net.DialUDPAddrPort(netip.AddrPort{}, raddr)
-	if err != nil {
-		lc.Close()
-		return 0, err
-	}
-	if !t.track(lc) || !t.track(rc) {
-		lc.Close()
-		rc.Close()
-		return 0, errors.New("Tunnel geschlossen")
-	}
-	var peer atomic.Pointer[net.UDPAddr]
-	go func() {
-		buf := make([]byte, 65535)
-		for {
-			n, from, err := lc.ReadFromUDP(buf)
-			if err != nil {
-				return
-			}
-			peer.Store(from)
-			rc.Write(buf[:n])
+	return t.lookup("udp/"+raddr.String(), func() (int, []io.Closer, error) {
+		lc, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: localPort})
+		if err != nil {
+			return 0, nil, err
 		}
-	}()
-	go func() {
-		buf := make([]byte, 65535)
-		for {
-			n, err := rc.Read(buf)
-			if err != nil {
-				return
-			}
-			if p := peer.Load(); p != nil {
-				lc.WriteToUDP(buf[:n], p)
-			}
+		rc, err := t.Net.DialUDPAddrPort(netip.AddrPort{}, raddr)
+		if err != nil {
+			lc.Close()
+			return 0, nil, err
 		}
-	}()
-	return lc.LocalAddr().(*net.UDPAddr).Port, nil
+		localPort := lc.LocalAddr().(*net.UDPAddr).Port
+		var peer atomic.Pointer[netip.AddrPort] // first local sender, never replaced
+		go func() {
+			buf := make([]byte, 65535)
+			for {
+				n, from, err := lc.ReadFromUDPAddrPort(buf)
+				if err != nil {
+					return
+				}
+				p := peer.Load()
+				if p == nil {
+					peer.CompareAndSwap(nil, &from)
+					p = peer.Load()
+				}
+				if *p != from {
+					if d := t.UDPForeignDropped.Add(1); d == 1 || d%1000 == 0 {
+						log.Printf("UDP-Weiterleitung 127.0.0.1:%d: bisher %d Datagramme fremder lokaler Absender verworfen", localPort, d)
+					}
+					continue
+				}
+				rc.Write(buf[:n])
+			}
+		}()
+		go func() {
+			buf := make([]byte, 65535)
+			for {
+				n, err := rc.Read(buf)
+				if err != nil {
+					return
+				}
+				if p := peer.Load(); p != nil {
+					lc.WriteToUDPAddrPort(buf[:n], *p)
+				}
+			}
+		}()
+		return localPort, []io.Closer{lc, rc}, nil
+	})
 }
 
 type PeerStatus struct {
@@ -258,10 +410,11 @@ type Status struct {
 	FwdConns     int64        `json:"forwardConnections"`
 	FwdBytesUp   int64        `json:"forwardBytesUp"`
 	FwdBytesDown int64        `json:"forwardBytesDown"`
+	UDPDropped   int64        `json:"udpForeignDropped"`
 }
 
 func (t *Tunnel) Status() (Status, error) {
-	s := Status{Up: true, FwdConns: t.FwdConns.Load(), FwdBytesUp: t.FwdBytesUp.Load(), FwdBytesDown: t.FwdBytesDn.Load()}
+	s := Status{Up: true, Peers: []PeerStatus{}, FwdConns: t.FwdConns.Load(), FwdBytesUp: t.FwdBytesUp.Load(), FwdBytesDown: t.FwdBytesDn.Load(), UDPDropped: t.UDPForeignDropped.Load()}
 	raw, err := t.dev.IpcGet()
 	if err != nil {
 		return s, err

@@ -2,6 +2,7 @@ package wgconf
 
 import (
 	"errors"
+	"fmt"
 	"net/netip"
 	"strings"
 	"testing"
@@ -160,5 +161,29 @@ func TestErrors(t *testing.T) {
 				t.Errorf("line: got %v, want %d", pe, tc.line)
 			}
 		})
+	}
+}
+
+func TestKeyFormattingIsRedacted(t *testing.T) {
+	c, err := Parse(unifiExport)
+	if err != nil {
+		t.Fatal(err)
+	}
+	secrets := []string{k1, k2, k3,
+		c.Interface.PrivateKey.Hex(), c.Peers[0].PublicKey.Hex(), c.Peers[0].PresharedKey.Hex()}
+	k := c.Interface.PrivateKey
+	for _, out := range []string{
+		fmt.Sprintf("%+v", c), fmt.Sprintf("%v", c), fmt.Sprintf("%#v", c),
+		fmt.Sprintf("%+v", *c), fmt.Sprintf("%#v", *c), fmt.Sprintf("%+v", c.Peers),
+		fmt.Sprintf("%v", k), fmt.Sprintf("%s", k), fmt.Sprintf("%x", k), fmt.Sprintf("%#v", k),
+	} {
+		for _, s := range secrets {
+			if strings.Contains(out, s) {
+				t.Fatal("formatted config contains key material") // never print out: it holds the key
+			}
+		}
+	}
+	if got := fmt.Sprintf("%+v", k); got != "<redacted>" {
+		t.Fatalf("key formats as %d bytes, want <redacted>", len(got))
 	}
 }
