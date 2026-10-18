@@ -14,6 +14,7 @@ final class ProtectEventService: ObservableObject {
     private var loop: Task<Void, Never>?
     private var clientChange: AnyCancellable?
     private var wakeObserver: NSObjectProtocol?
+    private var tunnelResetObserver: NSObjectProtocol?
     private var dedup = EventDeduplicator()
     private var backoff = Backoff(base: 2, max: 60)
 
@@ -43,6 +44,14 @@ final class ProtectEventService: ObservableObject {
                 self?.restartLoop()
             }
         }
+        // After a tunnel outage the old socket may hang forever: reconnect at once.
+        tunnelResetObserver = NotificationCenter.default.addObserver(
+            forName: TunnelController.connectionsResetNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.restartLoop() }
+        }
         startLoop()
     }
 
@@ -51,6 +60,10 @@ final class ProtectEventService: ObservableObject {
         if let wakeObserver {
             NSWorkspace.shared.notificationCenter.removeObserver(wakeObserver)
             self.wakeObserver = nil
+        }
+        if let tunnelResetObserver {
+            NotificationCenter.default.removeObserver(tunnelResetObserver)
+            self.tunnelResetObserver = nil
         }
         stopLoop()
         status = .disconnected
@@ -114,6 +127,8 @@ final class ProtectEventService: ObservableObject {
             guard !Task.isCancelled else { return }
             ws.cancel(with: .goingAway, reason: nil)
             status = .disconnected
+            // Maybe the Mac left home (or came back): let the router check the route.
+            ConnectionRouter.shared.noteConnectionFailure()
             let delay = backoff.next()
             try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
         }

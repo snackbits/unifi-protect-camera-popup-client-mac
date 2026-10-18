@@ -11,6 +11,8 @@ final class PopupWindow: NSPanel {
     private var talkControls: PopupTalkControls?
     private let cropSelectionView = CropSelectionView()
     private let cropActionBar = CropActionBarView()
+    /// Stream not reachable on the current route (away, camera not in the tunnel).
+    private let streamNotice = PopupNoticeView()
     private var autoCloseTimer: Timer?
     private var zoomSaveTimer: Timer?
     private var escapeMonitor: Any?
@@ -198,8 +200,14 @@ final class PopupWindow: NSPanel {
         content.addSubview(clickCatcher)
         content.addSubview(cropSelectionView)
         content.addSubview(cropActionBar)
+        content.addSubview(streamNotice)
+        playerView.onUnavailable = { [weak self] text in self?.streamNotice.show(text) }
 
         NSLayoutConstraint.activate([
+            streamNotice.centerXAnchor.constraint(equalTo: content.centerXAnchor),
+            streamNotice.centerYAnchor.constraint(equalTo: content.centerYAnchor),
+            streamNotice.widthAnchor.constraint(lessThanOrEqualTo: content.widthAnchor, constant: -20),
+
             thumbnailView.leadingAnchor.constraint(equalTo: content.leadingAnchor),
             thumbnailView.trailingAnchor.constraint(equalTo: content.trailingAnchor),
             thumbnailView.topAnchor.constraint(equalTo: content.topAnchor),

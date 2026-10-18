@@ -100,6 +100,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         protectEvents.onTrigger = { event in
             PopupController.shared.show(event: event)
         }
+        // Route first: it decides whether ProtectSession talks to the console directly or via the tunnel.
+        ConnectionRouter.shared.start()
         ProtectSession.shared.reconnect()
         protectEvents.start()
     }
@@ -283,6 +285,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func observeProtectStatus() async {
         for await status in protectEvents.$status.values {
             protectStatus = status
+            // Tunnel liveness is judged only while the events socket (pings every 30 s) is open.
+            TunnelController.shared.eventsSocketChanged(open: status == .connected)
             updateStatusMenu()
         }
     }

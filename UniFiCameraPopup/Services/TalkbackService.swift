@@ -259,7 +259,10 @@ final class TalkbackService: ObservableObject {
             sampleRate: session.samplingRate
         )
         TalkbackLog.write("Talkback: Ziel \(target.host):\(target.port), \(target.codec.rawValue), \(target.sampleRate) Hz, \(session.bitsPerSample) Bit")
-        return target
+        // Away: through a UDP forward of the tunnel (camera IP inside AllowedIPs), else a notice.
+        let routed = try await ConnectionRouter.shared.talkbackTarget(target)
+        if routed != target { TalkbackLog.write("Talkback: über den Tunnel (\(routed.host):\(routed.port))") }
+        return routed
     }
 
     private func makeStreamer(target: TalkbackTarget, entryId: UUID) throws -> TalkbackStreamer {

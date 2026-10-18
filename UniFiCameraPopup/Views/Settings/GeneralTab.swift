@@ -448,7 +448,11 @@ struct GeneralTab: View {
         Task {
             defer { probingCertificate = false }
             do {
-                pendingFingerprint = try await ProtectClient.probeFingerprint(host: host)
+                // Away: through the tunnel (no key is sent, only the certificate is read).
+                guard let probeHost = await ConnectionRouter.shared.resolveAPIHost(for: host) else {
+                    throw TunnelRouteError.apiUnreachable
+                }
+                pendingFingerprint = try await ProtectClient.probeFingerprint(host: probeHost)
             } catch {
                 trustProbeError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
             }

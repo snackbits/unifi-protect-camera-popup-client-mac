@@ -59,7 +59,15 @@ final class OnboardingModel: ObservableObject {
         keyError = nil
         Task {
             let result: Result<String, Error>
-            do { result = .success(try await ProtectClient.probeFingerprint(host: host)) } catch { result = .failure(error) }
+            do {
+                // Away: through the tunnel (no key is sent, only the certificate is read).
+                guard let probeHost = await ConnectionRouter.shared.resolveAPIHost(for: host) else {
+                    throw TunnelRouteError.apiUnreachable
+                }
+                result = .success(try await ProtectClient.probeFingerprint(host: probeHost))
+            } catch {
+                result = .failure(error)
+            }
             guard attempt == generation else { return }  // a newer attempt owns the state
             probing = false
             guard canonicalHost == probeHost else { return }
@@ -111,18 +119,31 @@ final class OnboardingModel: ObservableObject {
         certificateChanged = false
         capturedFingerprint = confirmed
         let pin = confirmed ?? (samePinnedHost ? settings.protectCertificateFingerprint : nil)
-        let client = ProtectClient(host: host, apiKey: apiKey, pinnedFingerprint: pin, onNewFingerprint: { [weak self] fp in
-            Task { @MainActor in
-                guard let self, self.generation == attempt else { return }
-                self.capturedFingerprint = fp
-            }
-        })
+        let dialHost = host
+        let key = apiKey
         Task {
             defer {
-                client.invalidate()
                 // A newer attempt owns `checking`; otherwise this attempt is over on every path.
                 if attempt == generation { checking = false }
             }
+            // Away: through the tunnel, never the direct address as a fallback.
+            guard let apiHost = await ConnectionRouter.shared.resolveAPIHost(for: dialHost) else {
+                if attempt == generation { keyError = TunnelRouteError.apiUnreachable.errorDescription }
+                return
+            }
+            // Through the tunnel the key only goes out pinned to a known or confirmed certificate.
+            if apiHost != dialHost, pin?.isEmpty ?? true {
+                if attempt == generation { keyError = TunnelRouteError.pinRequired.errorDescription }
+                return
+            }
+            // The client (and with it this callback) is released when the attempt ends.
+            let client = ProtectClient(host: apiHost, apiKey: key, pinnedFingerprint: pin, onNewFingerprint: { fp in
+                Task { @MainActor in
+                    guard self.generation == attempt else { return }
+                    self.capturedFingerprint = fp
+                }
+            })
+            defer { client.invalidate() }
             do {
                 _ = try await client.metaInfo()
                 let cams = try await client.cameras()

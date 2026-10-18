@@ -37,10 +37,26 @@ final class ProtectSession: ObservableObject {
             return
         }
         let host = settings.protectHost
+        let router = ConnectionRouter.shared
+        let pin = settings.protectCertificateFingerprint
+        // Away: 127.0.0.1:<forward>, never the direct address as a fallback (fail closed).
+        guard let apiHost = router.apiHost(for: host) else {
+            client = nil
+            lastError = TunnelRouteError.apiUnreachable.errorDescription
+            return
+        }
+        // Through the tunnel the key only goes to a console whose certificate is already
+        // pinned (confirmed at home or via re-trust); no trust on first use there.
+        if router.isViaTunnel, pin?.isEmpty ?? true {
+            client = nil
+            lastError = TunnelRouteError.pinRequired.errorDescription
+            return
+        }
         client = ProtectClient(
-            host: host,
+            // The pin below stays the console's, whichever address is dialed.
+            host: apiHost,
             apiKey: settings.protectAPIKey,
-            pinnedFingerprint: settings.protectCertificateFingerprint,
+            pinnedFingerprint: pin,
             onNewFingerprint: { fp in
                 Task { @MainActor in
                     // A late handshake of a replaced client must not pin another console.

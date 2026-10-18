@@ -104,6 +104,9 @@ public enum TunnelText {
         }
     }
 
+    /// Popup notice when talkback is asked for away from home but the camera is not routed.
+    public static let talkbackNotRouted = "Sprechen unterwegs nicht möglich (Kamera nicht im Tunnel)."
+
     /// Hint shown after an import when the console address is not routed through the tunnel.
     public static func consoleNotRouted(_ host: String) -> String {
         "Achtung: Konsole \(host) liegt nicht in „AllowedIPs“."

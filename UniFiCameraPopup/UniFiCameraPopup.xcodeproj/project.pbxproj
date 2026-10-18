@@ -64,6 +64,10 @@
 		C31000000000000000000008 /* PopupTalkViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = C32000000000000000000008 /* PopupTalkViews.swift */; };
 		D41000000000000000000001 /* TunnelBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = D42000000000000000000001 /* TunnelBridge.swift */; };
 		D41000000000000000000030 /* ThirdPartyNotices.txt in Resources */ = {isa = PBXBuildFile; fileRef = D42000000000000000000030 /* ThirdPartyNotices.txt */; };
+		D41000000000000000000010 /* TunnelStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D42000000000000000000010 /* TunnelStore.swift */; };
+		D41000000000000000000011 /* TunnelImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D42000000000000000000011 /* TunnelImporter.swift */; };
+		D41000000000000000000012 /* TunnelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D42000000000000000000012 /* TunnelController.swift */; };
+		D41000000000000000000013 /* ConnectionRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D42000000000000000000013 /* ConnectionRouter.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -123,6 +127,10 @@
 		C32000000000000000000008 /* PopupTalkViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopupTalkViews.swift; sourceTree = "<group>"; };
 		D42000000000000000000001 /* TunnelBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TunnelBridge.swift; sourceTree = "<group>"; };
 		D42000000000000000000030 /* ThirdPartyNotices.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = ThirdPartyNotices.txt; sourceTree = "<group>"; };
+		D42000000000000000000010 /* TunnelStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TunnelStore.swift; sourceTree = "<group>"; };
+		D42000000000000000000011 /* TunnelImporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TunnelImporter.swift; sourceTree = "<group>"; };
+		D42000000000000000000012 /* TunnelController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TunnelController.swift; sourceTree = "<group>"; };
+		D42000000000000000000013 /* ConnectionRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionRouter.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -299,6 +307,10 @@
 		D44000000000000000000001 /* Tunnel */ = {
 			isa = PBXGroup;
 			children = (
+				D42000000000000000000013 /* ConnectionRouter.swift */,
+				D42000000000000000000012 /* TunnelController.swift */,
+				D42000000000000000000011 /* TunnelImporter.swift */,
+				D42000000000000000000010 /* TunnelStore.swift */,
 				D42000000000000000000001 /* TunnelBridge.swift */,
 			);
 			path = Tunnel;
@@ -406,6 +418,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D41000000000000000000013 /* ConnectionRouter.swift in Sources */,
+				D41000000000000000000012 /* TunnelController.swift in Sources */,
+				D41000000000000000000011 /* TunnelImporter.swift in Sources */,
+				D41000000000000000000010 /* TunnelStore.swift in Sources */,
 				D41000000000000000000001 /* TunnelBridge.swift in Sources */,
 				A10000000000000000000001 /* UniFiCameraPopupApp.swift in Sources */,
 				A10000000000000000000002 /* AppDelegate.swift in Sources */,
