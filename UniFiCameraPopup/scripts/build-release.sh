@@ -41,14 +41,32 @@ sed -i '' -E \
 # ---------------------------------------------------------------------------
 # Build + re-sign the app with the stable identity.
 # ---------------------------------------------------------------------------
+# generic/platform=macOS builds every architecture in ARCHS (arm64 + x86_64);
+# without it xcodebuild only builds for this Mac. The build phase
+# "Build WireGuard tunnel" produces the universal libwgtunnel.a first.
 xcodebuild \
   -project UniFiCameraPopup.xcodeproj \
   -scheme UniFiCameraPopup \
   -configuration Release \
+  -destination 'generic/platform=macOS' \
   -derivedDataPath .build \
   build
 
 APP_PATH=".build/Build/Products/Release/UniFi Camera Popup.app"
+
+# The release must run on Apple silicon and Intel Macs.
+BINARY_ARCHS="$(lipo -archs "${APP_PATH}/Contents/MacOS/UniFi Camera Popup")"
+for arch in arm64 x86_64; do
+  if [[ " ${BINARY_ARCHS} " != *" ${arch} "* ]]; then
+    echo "ERROR: App binary lacks ${arch} (has: ${BINARY_ARCHS})." >&2
+    exit 1
+  fi
+done
+if [[ ! -s "${APP_PATH}/Contents/Resources/ThirdPartyNotices.txt" ]]; then
+  echo "ERROR: ThirdPartyNotices.txt missing from the app bundle." >&2
+  exit 1
+fi
+
 "${SCRIPT_DIR}/resign-app.sh" "$APP_PATH"
 
 SHORT_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "${APP_PATH}/Contents/Info.plist" 2>/dev/null || echo "1.0.0")"

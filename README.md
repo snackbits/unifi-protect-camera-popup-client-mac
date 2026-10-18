@@ -24,7 +24,7 @@ Menu bar app that shows a borderless RTSPS camera popup when UniFi Protect alarm
 
 1. Open `UniFiCameraPopup.xcodeproj` in Xcode (inside the `UniFiCameraPopup` folder)
 2. Wait for Swift Package `VLCKitSPM` to resolve
-3. Build and run (⌘R)
+3. Build and run (⌘R). The first build downloads the pinned Go toolchain (go1.27.2, ~70 MB, SHA-256 checked) into `wgtunnel/.toolchain/` and builds the WireGuard tunnel (`wgtunnel/build/libwgtunnel.a`, arm64 + x86_64). Network access is needed once; the system Go is never used.
 
 ### Ohne Xcode (Kommandozeile)
 

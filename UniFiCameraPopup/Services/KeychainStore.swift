@@ -7,6 +7,8 @@ import Security
 enum KeychainStore {
     static let actionTokenService = "com.snackbits.UniFiCameraPopup.action-token"
     static let protectAPIKeyService = "com.snackbits.UniFiCameraPopup.protect-api-key"
+    /// Full wg-quick text of the WireGuard tunnel (contains the private key).
+    static let wireGuardConfigService = "com.snackbits.UniFiCameraPopup.wireguard-config"
 
     static func string(service: String, account: String) -> String? {
         #if DEBUG
@@ -31,6 +33,9 @@ enum KeychainStore {
     /// Stores or replaces the value. Returns `false` when the keychain refused.
     @discardableResult
     static func set(_ value: String, service: String, account: String) -> Bool {
+        #if DEBUG
+        if SnapshotRenderer.isActive { return true }
+        #endif
         let data = Data(value.utf8)
         let query = baseQuery(service: service, account: account)
 
@@ -56,6 +61,9 @@ enum KeychainStore {
     }
 
     static func delete(service: String, account: String) {
+        #if DEBUG
+        if SnapshotRenderer.isActive { return }
+        #endif
         let status = SecItemDelete(baseQuery(service: service, account: account) as CFDictionary)
         if status != errSecSuccess, status != errSecItemNotFound {
             NSLog("Keychain delete failed (\(status)) for \(account)")
