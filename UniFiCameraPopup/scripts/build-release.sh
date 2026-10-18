@@ -105,7 +105,8 @@ PIPER_ROOT="${SCRIPT_DIR}/../../piper"
 rm -rf "$PIPER_SRC_DIR"
 mkdir -p "$PIPER_SRC_DIR"
 for archive in "${PIPER_ROOT}/.cache/"piper-* "${PIPER_ROOT}/.cache/"espeak-ng-* "${PIPER_ROOT}/.cache/"fmt-* \
-               "${PIPER_ROOT}/.cache/"spdlog-* "${PIPER_ROOT}/.cache/"onnxruntime-*; do
+               "${PIPER_ROOT}/.cache/"spdlog-* "${PIPER_ROOT}/.cache/"onnxruntime-osx-universal2-*.tgz \
+               "${PIPER_ROOT}/.cache/onnxruntime-1.14.1-src.tar.gz"; do
   if [[ ! -f "$archive" ]]; then
     echo "ERROR: Piper source archive ${archive} missing – run piper/scripts/build-piper.sh first." >&2
     exit 1

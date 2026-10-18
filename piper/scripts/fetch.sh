@@ -1,7 +1,8 @@
 #!/bin/bash
 # Downloads every pinned input of the Piper build into piper/.cache (gitignored) and checks
 # its SHA-256: CMake (build tool), the sources of piper, piper-phonemize, espeak-ng, fmt and
-# spdlog, the onnxruntime release and the bundled voice Thorsten (medium). Idempotent: a file
+# spdlog, the onnxruntime release (plus its matching source tag, mirror-only: the build does not
+# use it, it belongs to the GPL source offer) and the bundled voice Thorsten (medium). Idempotent: a file
 # with the right checksum is not downloaded again. Prints the cache directory.
 set -euo pipefail
 
@@ -21,6 +22,7 @@ espeak-ng-0f65aa3.tar.gz|37ebbabb010200be8ec26c61b770e93f964f4503a329d7d74c239a1
 fmt-10.0.0.tar.gz|ede1b6b42188163a3f2e0f25ad5c0637eca564bd8df74d02e31a311dd6b37ad8|https://github.com/fmtlib/fmt/archive/refs/tags/10.0.0.tar.gz
 spdlog-1.12.0.tar.gz|4dccf2d10f410c1e2feaff89966bfc49a1abb29ef6f08246335b110e001e09a9|https://github.com/gabime/spdlog/archive/refs/tags/v1.12.0.tar.gz
 onnxruntime-osx-universal2-1.14.1.tgz|bcbaa573172caa74f8273598d70733572a1b15279e63c7a18031cc8cc97cf134|https://github.com/microsoft/onnxruntime/releases/download/v1.14.1/onnxruntime-osx-universal2-1.14.1.tgz
+onnxruntime-1.14.1-src.tar.gz|f998352b131bb89fa7dd1f1d87ddbafe647dfaddd11929b6b5168b3f4ef857de|https://github.com/microsoft/onnxruntime/archive/refs/tags/v1.14.1.tar.gz
 de_DE-thorsten-medium.onnx|7e64762d8e5118bb578f2eea6207e1a35a8e0c30595010b666f983fc87bb7819|${HF}/de/de_DE/thorsten/medium/de_DE-thorsten-medium.onnx
 de_DE-thorsten-medium.onnx.json|974adee790533adb273a1ac88f49027d2a1b8f0f2cf4905954a4791e79264e85|${HF}/de/de_DE/thorsten/medium/de_DE-thorsten-medium.onnx.json
 "

@@ -211,11 +211,14 @@ struct HelpView: View {
                 .fixedSize(horizontal: false, vertical: true)
             Text("Ansagen aus Text spricht Piper 2023.11.14-2 (MIT-Lizenz, © Michael Hansen) mit espeak-ng "
                  + "(GPL-3.0-or-later), piper-phonemize (MIT), onnxruntime 1.14.1 (MIT, © Microsoft), fmt und spdlog (MIT). "
-                 + "Piper, espeak-ng und onnxruntime liegen als eigenständige Programme im App-Paket und laufen als eigener "
-                 + "Prozess – die App selbst steht nicht unter der GPL. Den Quellcode der GPL-Teile gibt es auf "
-                 + "https://unifi-protect-camera-popup-server.snackbits.dev/piper-source/2023.11.14-2/ (neben der App-Datei); "
-                 + "die genauen Upstream-Adressen, die Lizenzen jeder Stimme und alle Lizenztexte stehen unten.")
+                 + "Piper liegt samt seinen Bibliotheken (espeak-ng, piper-phonemize, onnxruntime) als eigenständiges "
+                 + "Programm im App-Paket und läuft als eigener Prozess – die App selbst steht nicht unter der GPL. "
+                 + "Den Quellcode der GPL-Teile samt Build-Skripten gibt es neben der App-Datei auf dem Update-Server. "
+                 + "Die genauen Upstream-Adressen, die Lizenzen jeder Stimme und alle Lizenztexte stehen unten.")
                 .fixedSize(horizontal: false, vertical: true)
+            if let mirror = URL(string: "https://unifi-protect-camera-popup-server.snackbits.dev/piper-source/2023.11.14-2/") {
+                Link("Quellcode-Spiegel öffnen …", destination: mirror)
+            }
             Button("Hinweise zu onnxruntime öffnen …") {
                 if let url = Bundle.main.url(forResource: "ThirdPartyNotices-onnxruntime", withExtension: "txt", subdirectory: "piper") {
                     NSWorkspace.shared.open(url)
