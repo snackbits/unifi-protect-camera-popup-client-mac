@@ -1,0 +1,10 @@
+[
+  {"id":"cam-door","modelKey":"camera","name":"Haustür","type":"G4 Doorbell Pro","state":"CONNECTED","mac":"AABBCC000001",
+   "lcdMessage":{},"featureFlags":{"hasSpeaker":true,"hasMic":true,"smartDetectTypes":["person","package","vehicle"],"smartDetectAudioTypes":["alrmSpeak"]},
+   "smartDetectSettings":{"objectTypes":["person","package"],"audioTypes":[]}},
+  {"id":"cam-drive","modelKey":"camera","name":"Einfahrt","state":"CONNECTED","mac":"AABBCC000002",
+   "featureFlags":{"hasSpeaker":false,"hasMic":true,"smartDetectTypes":["person","vehicle","licensePlate","somethingNew"],"smartDetectAudioTypes":[]},
+   "smartDetectSettings":{"objectTypes":["vehicle"],"audioTypes":[]}},
+  {"id":"cam-old","modelKey":"camera","name":null,"state":"DISCONNECTED","mac":"AABBCC000003",
+   "featureFlags":{}}
+]
