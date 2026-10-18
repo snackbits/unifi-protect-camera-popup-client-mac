@@ -7,8 +7,16 @@ public enum FileChecksum {
         let handle = try FileHandle(forReadingFrom: url)
         defer { try? handle.close() }
         var hasher = SHA256()
-        while let chunk = try handle.read(upToCount: 1 << 20), !chunk.isEmpty {
-            hasher.update(data: chunk)
+        // Each read returns autoreleased Data: drain it per chunk, or the whole file stays in memory.
+        var reading = true
+        while reading {
+            try autoreleasepool {
+                guard let chunk = try handle.read(upToCount: 1 << 20), !chunk.isEmpty else {
+                    reading = false
+                    return
+                }
+                hasher.update(data: chunk)
+            }
         }
         return hasher.finalize().map { String(format: "%02x", $0) }.joined()
     }
