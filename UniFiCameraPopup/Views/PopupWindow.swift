@@ -8,6 +8,7 @@ final class PopupWindow: NSPanel {
     private let playerView = VLCPlayerContainerView()
     private let clickCatcher = ClickCatchingView()
     private var muteMenu: PopupMuteMenuView?
+    private var talkControls: PopupTalkControls?
     private let cropSelectionView = CropSelectionView()
     private let cropActionBar = CropActionBarView()
     private var autoCloseTimer: Timer?
@@ -135,6 +136,9 @@ final class PopupWindow: NSPanel {
             // While zoomed, a click is reserved for panning, so it must not close.
             clickCatcher.onClick = { [weak self] in
                 guard let self else { return }
+                if self.talkControls?.closeMenu() == true {
+                    return
+                }
                 // An open mute menu takes the first click away from the video.
                 if self.muteMenu?.isHidden == false {
                     self.muteMenu?.isHidden = true
@@ -165,9 +169,11 @@ final class PopupWindow: NSPanel {
             }
             clickCatcher.onMouseEnter = { [weak self] in
                 self?.pauseAutoClose()
+                self?.talkControls?.pointerInside(true)
             }
             clickCatcher.onMouseExit = { [weak self] in
                 self?.resumeAutoClose()
+                self?.talkControls?.pointerInside(false)
             }
         }
 
@@ -258,8 +264,14 @@ final class PopupWindow: NSPanel {
             mute.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -40),
             mute.topAnchor.constraint(equalTo: content.topAnchor, constant: 10),
         ]
-        if !actions.isEmpty {
-            let pill = ActionPillView(actions: actions)
+        var leading: [NSView] = []
+        if let talk = overlay.talk {
+            let controls = PopupTalkControls(content: talk)
+            leading = [controls.soundButton, controls.talkButton]
+            talkControls = controls
+        }
+        if !actions.isEmpty || !leading.isEmpty {
+            let pill = ActionPillView(actions: actions, leadingViews: leading)
             pill.onAction = { [weak self] action, button in
                 self?.run(action, from: button)
             }
@@ -268,6 +280,7 @@ final class PopupWindow: NSPanel {
                 pill.centerXAnchor.constraint(equalTo: content.centerXAnchor),
                 pill.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -12),
             ]
+            talkControls?.install(in: content, above: pill)
         }
         // Last, so the open menu lies above the pill and the chip.
         content.addSubview(menu)
@@ -334,7 +347,7 @@ final class PopupWindow: NSPanel {
         guard seconds > 0, !mouseInside else { return }
 
         autoCloseTimer = Timer.scheduledTimer(withTimeInterval: seconds, repeats: false) { [weak self] _ in
-            self?.closePopup()
+            self?.autoCloseFired()
         }
     }
 
@@ -352,13 +365,22 @@ final class PopupWindow: NSPanel {
 
         let remaining = deadline.timeIntervalSinceNow
         guard remaining > 0 else {
-            closePopup()
+            autoCloseFired()
             return
         }
 
         autoCloseTimer = Timer.scheduledTimer(withTimeInterval: remaining, repeats: false) { [weak self] _ in
-            self?.closePopup()
+            self?.autoCloseFired()
         }
+    }
+
+    /// Auto-close waits while this popup talks or sends an announcement.
+    private func autoCloseFired() {
+        if talkControls?.isBusy == true {
+            scheduleAutoClose(after: 5)
+            return
+        }
+        closePopup()
     }
 
     func extendAutoClose(seconds: Double) {
@@ -367,6 +389,7 @@ final class PopupWindow: NSPanel {
     }
 
     func closePopup() {
+        talkControls?.popupClosed()
         autoCloseTimer?.invalidate()
         zoomSaveTimer?.invalidate()
         zoomSaveTimer = nil

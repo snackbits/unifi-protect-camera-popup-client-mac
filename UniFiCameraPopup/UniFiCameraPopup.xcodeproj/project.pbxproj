@@ -61,6 +61,7 @@
 		C31000000000000000000007 /* SoundTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = C32000000000000000000007 /* SoundTab.swift */; };
 		C31000000000000000000009 /* bin-gleich-da.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = C32000000000000000000009 /* bin-gleich-da.mp3 */; };
 		C31000000000000000000010 /* paket-abstellen.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = C32000000000000000000010 /* paket-abstellen.mp3 */; };
+		C31000000000000000000008 /* PopupTalkViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = C32000000000000000000008 /* PopupTalkViews.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -117,6 +118,7 @@
 		C32000000000000000000007 /* SoundTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundTab.swift; sourceTree = "<group>"; };
 		C32000000000000000000009 /* bin-gleich-da.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = "bin-gleich-da.mp3"; sourceTree = "<group>"; };
 		C32000000000000000000010 /* paket-abstellen.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = "paket-abstellen.mp3"; sourceTree = "<group>"; };
+		C32000000000000000000008 /* PopupTalkViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopupTalkViews.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -242,6 +244,7 @@
 			isa = PBXGroup;
 			children = (
 				A20000000000000000000080 /* PopupOverlayViews.swift */,
+				C32000000000000000000008 /* PopupTalkViews.swift */,
 			);
 			path = Popup;
 			sourceTree = "<group>";
@@ -416,6 +419,7 @@
 				C31000000000000000000005 /* PushToTalkKey.swift in Sources */,
 				C31000000000000000000006 /* TalkbackService.swift in Sources */,
 				C31000000000000000000007 /* SoundTab.swift in Sources */,
+				C31000000000000000000008 /* PopupTalkViews.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

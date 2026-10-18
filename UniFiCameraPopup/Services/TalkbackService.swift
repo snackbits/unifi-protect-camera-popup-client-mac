@@ -51,6 +51,14 @@ final class TalkbackService: ObservableObject {
 
     private init() {}
 
+    #if DEBUG
+    /// Snapshot renderer only: shows popup states without a camera.
+    func debugApply(activity: TalkbackActivity?, notice: TalkbackNotice?) {
+        self.activity = activity
+        self.notice = notice
+    }
+    #endif
+
     /// Sprechen and Ton abspielen exist only for Protect cameras with a speaker.
     func canTalk(_ mapping: WebhookMapping) -> Bool {
         guard SettingsStore.shared.isProtectConfigured, let cameraId = mapping.protectCameraId else { return false }

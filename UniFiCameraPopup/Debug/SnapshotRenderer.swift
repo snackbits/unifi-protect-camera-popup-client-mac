@@ -212,6 +212,48 @@ enum SnapshotRenderer {
                 write(window: popup, appearance: appearance, includeFrame: false,
                       to: directory.appendingPathComponent("8-popup\(menuOpen ? "-menue" : "")-\(suffix).png"))
             }
+
+            // 9 – popup with "Ton abspielen" / "Leertaste halten": idle, announcement menu, connecting, talking, playing, notice.
+            let doorId = sample.door.entryId
+            let notice = TalkbackNotice(entryId: doorId, text: "Kein Zugriff aufs Mikrofon. Erlaube den Zugriff in den Systemeinstellungen unter Datenschutz & Sicherheit.")
+            let talkStates: [(name: String, activity: TalkbackActivity?, notice: TalkbackNotice?, openMenu: Bool)] = [
+                ("ruhe", nil, nil, false),
+                ("menue", nil, nil, true),
+                ("verbinde", TalkbackActivity(entryId: doorId, purpose: .talk, phase: .preparing), nil, false),
+                ("spricht", TalkbackActivity(entryId: doorId, purpose: .talk, phase: .live), nil, false),
+                ("ansage", TalkbackActivity(entryId: doorId, purpose: .announcement(UUID()), phase: .live), nil, false),
+                ("hinweis", nil, notice, false),
+            ]
+            for state in talkStates {
+                TalkbackService.shared.debugApply(activity: state.activity, notice: nil)
+                let popup = PopupWindow(
+                    frame: NSRect(x: 0, y: 0, width: 470, height: 300),
+                    streamURL: "", soundEnabled: false,
+                    thumbnailDataURI: placeholderDataURI(size: CGSize(width: 470, height: 300)),
+                    autoCloseSeconds: 0,
+                    actions: sample.door.actions,
+                    overlay: PopupOverlayContent(
+                        chipText: "Klingel · Haustür · 10:41", cameraName: "Haustür",
+                        muteOptions: sample.settings.muteOptions, onMute: { _ in },
+                        talk: PopupTalkContent(entryId: doorId)
+                    ),
+                    onClose: {}
+                )
+                if state.openMenu, let content = popup.contentView {
+                    func find(_ view: NSView) -> CircleIconButton? {
+                        if let button = view as? CircleIconButton, button.toolTip == "Ton abspielen" { return button }
+                        for sub in view.subviews { if let hit = find(sub) { return hit } }
+                        return nil
+                    }
+                    find(content)?.performClick(nil)
+                }
+                if let shown = state.notice {
+                    TalkbackService.shared.debugApply(activity: state.activity, notice: shown)
+                }
+                write(window: popup, appearance: appearance, includeFrame: false,
+                      to: directory.appendingPathComponent("9-popup-sprechen-\(state.name)-\(suffix).png"))
+                TalkbackService.shared.debugApply(activity: nil, notice: nil)
+            }
         }
     }
 

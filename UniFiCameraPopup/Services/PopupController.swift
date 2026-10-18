@@ -129,7 +129,8 @@ final class PopupController {
             muteOptions: settings.muteOptions,
             onMute: { [weak self] duration in
                 self?.settings.mute(entryId: entryId, for: duration)
-            }
+            },
+            talk: TalkbackService.shared.canTalk(mapping) ? PopupTalkContent(entryId: entryId) : nil
         )
         return PopupWindow(
             frame: NSRect(x: 0, y: 0, width: CGFloat(mapping.width), height: CGFloat(mapping.height)),

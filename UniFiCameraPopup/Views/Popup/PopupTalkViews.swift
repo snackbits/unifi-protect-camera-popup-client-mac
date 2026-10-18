@@ -1,0 +1,469 @@
+import AppCore
+import AppKit
+import Combine
+
+/// Popup of a camera that can talk (Protect camera with speaker).
+struct PopupTalkContent {
+    let entryId: UUID
+}
+
+/// "Leertaste halten": capsule 40 high, padding 0/18, radius 20, `accent`, 12 pt bold white,
+/// mic 16 + 6 + label. Pressing starts, releasing ends (hold); the service decides for toggle mode.
+final class TalkButtonView: NSView {
+    var onPress: (() -> Void)?
+    var onRelease: (() -> Void)?
+    var onAccessibilityPress: (() -> Void)?
+    private let icon = NSImageView()
+    private let label = NSTextField(labelWithString: "")
+
+    init(title: String) {
+        super.init(frame: .zero)
+        translatesAutoresizingMaskIntoConstraints = false
+        wantsLayer = true
+        layer?.cornerRadius = 20
+
+        icon.image = TemplateIcon.mic.nsImage(size: 16)
+        icon.contentTintColor = .white
+        icon.translatesAutoresizingMaskIntoConstraints = false
+        label.font = .systemFont(ofSize: 12, weight: .bold)
+        label.textColor = .white
+        label.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(icon)
+        addSubview(label)
+        NSLayoutConstraint.activate([
+            heightAnchor.constraint(equalToConstant: 40),
+            icon.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 18),
+            icon.centerYAnchor.constraint(equalTo: centerYAnchor),
+            icon.widthAnchor.constraint(equalToConstant: 16),
+            icon.heightAnchor.constraint(equalToConstant: 16),
+            label.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 6),
+            label.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -18),
+            label.centerYAnchor.constraint(equalTo: centerYAnchor),
+        ])
+        setAccessibilityElement(true)
+        setAccessibilityRole(.button)
+        update(title: title, busy: false)
+        applyColors()
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    /// `busy` while the talkback session is being opened (70 %).
+    func update(title: String, busy: Bool) {
+        label.stringValue = title
+        toolTip = title
+        setAccessibilityLabel(title)
+        alphaValue = busy ? 0.7 : 1
+    }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+    override func mouseDown(with event: NSEvent) { onPress?() }
+    override func mouseUp(with event: NSEvent) { onRelease?() }
+
+    override func accessibilityPerformPress() -> Bool {
+        onAccessibilityPress?()
+        return true
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        applyColors()
+    }
+
+    private func applyColors() {
+        layer?.backgroundColor = cgColor(Tokens.accent)
+    }
+}
+
+/// One announcement in the popup's sound menu: name left, tag (10 pt `muted`) right, gap 8,
+/// padding 5/8, radius 5; `accent` with white text under the mouse (like the mute menu).
+final class SoundMenuRow: NSView {
+    var onClick: (() -> Void)?
+    private let title = NSTextField(labelWithString: "")
+    private let tagLabel = NSTextField(labelWithString: "")
+    private let titleColor: ThemeColor
+    private var hovering = false {
+        didSet { applyColors() }
+    }
+
+    init(name: String, tag tagText: String?, color: ThemeColor = Tokens.fg) {
+        titleColor = color
+        super.init(frame: .zero)
+        translatesAutoresizingMaskIntoConstraints = false
+        wantsLayer = true
+        layer?.cornerRadius = 5
+
+        title.stringValue = name
+        title.font = .systemFont(ofSize: 12)
+        title.lineBreakMode = .byTruncatingTail
+        title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        title.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(title)
+        var constraints = [
+            title.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
+            title.topAnchor.constraint(equalTo: topAnchor, constant: 5),
+            title.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -5),
+        ]
+        if let tagText {
+            tagLabel.stringValue = tagText
+            tagLabel.font = .systemFont(ofSize: 10)
+            tagLabel.translatesAutoresizingMaskIntoConstraints = false
+            tagLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+            addSubview(tagLabel)
+            constraints += [
+                tagLabel.leadingAnchor.constraint(greaterThanOrEqualTo: title.trailingAnchor, constant: 8),
+                tagLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
+                tagLabel.firstBaselineAnchor.constraint(equalTo: title.firstBaselineAnchor),
+            ]
+        } else {
+            constraints.append(title.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -8))
+        }
+        NSLayoutConstraint.activate(constraints)
+        setAccessibilityElement(true)
+        setAccessibilityRole(.menuItem)
+        setAccessibilityLabel(tagText.map { "\(name), \($0)" } ?? name)
+        applyColors()
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach { removeTrackingArea($0) }
+        addTrackingArea(NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        ))
+    }
+
+    override func mouseEntered(with event: NSEvent) { hovering = true }
+    override func mouseExited(with event: NSEvent) { hovering = false }
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+    override func mouseDown(with event: NSEvent) {}
+
+    override func mouseUp(with event: NSEvent) {
+        if bounds.contains(convert(event.locationInWindow, from: nil)) { onClick?() }
+    }
+
+    override func accessibilityPerformPress() -> Bool {
+        onClick?()
+        return true
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        applyColors()
+    }
+
+    private func applyColors() {
+        layer?.backgroundColor = hovering ? cgColor(Tokens.accent) : NSColor.clear.cgColor
+        title.textColor = hovering ? .white : titleColor.nsColor
+        tagLabel.textColor = hovering ? NSColor.white.withAlphaComponent(0.85) : Tokens.muted.nsColor
+    }
+}
+
+/// Sound menu above "Ton abspielen": 180 + 2 × 5 wide, radius 9, `menu`, ring 1 `mainBorder`,
+/// shadow 0 10 24 rgba(0,0,0,.4); announcements, separator (1, margin 3/4), "MP3 hinzufügen …" `accText`.
+final class SoundMenuView: NSView {
+    var onPick: ((Announcement) -> Void)?
+    var onAdd: (() -> Void)?
+    private let stack = NSStackView()
+
+    init() {
+        super.init(frame: .zero)
+        translatesAutoresizingMaskIntoConstraints = false
+        wantsLayer = true
+        layer?.cornerRadius = 9
+        layer?.masksToBounds = false
+        layer?.borderWidth = 1
+        layer?.shadowColor = NSColor.black.cgColor
+        layer?.shadowOpacity = 0.4
+        layer?.shadowRadius = 12
+        layer?.shadowOffset = CGSize(width: 0, height: -10)
+
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 0
+        stack.edgeInsets = NSEdgeInsets(top: 5, left: 5, bottom: 5, right: 5)
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: trailingAnchor),
+            stack.topAnchor.constraint(equalTo: topAnchor),
+            stack.bottomAnchor.constraint(equalTo: bottomAnchor),
+        ])
+        setAccessibilityElement(true)
+        setAccessibilityRole(.menu)
+        setAccessibilityLabel("Ton abspielen")
+        applyColors()
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    /// Rebuilt on every opening, so new announcements appear at once.
+    func reload(_ announcements: [Announcement]) {
+        stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        for announcement in announcements {
+            let row = SoundMenuRow(name: announcement.name, tag: announcement.menuTag)
+            row.onClick = { [weak self] in self?.onPick?(announcement) }
+            add(row)
+        }
+        if !announcements.isEmpty {
+            let separator = SeparatorView()
+            stack.addArrangedSubview(separator)
+            stack.setCustomSpacing(0, after: separator)
+            NSLayoutConstraint.activate([separator.widthAnchor.constraint(equalToConstant: 180)])
+        }
+        let add = SoundMenuRow(name: "MP3 hinzufügen …", tag: nil, color: Tokens.accText)
+        add.onClick = { [weak self] in self?.onAdd?() }
+        self.add(add)
+    }
+
+    private func add(_ row: NSView) {
+        stack.addArrangedSubview(row)
+        row.widthAnchor.constraint(equalToConstant: 180).isActive = true
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        applyColors()
+    }
+
+    private func applyColors() {
+        layer?.backgroundColor = cgColor(Tokens.menu)
+        layer?.borderColor = cgColor(Tokens.mainBorder)
+    }
+}
+
+/// 1 pt `mainBorder` line with 3 pt above/below and 4 pt left/right (template `margin: 3px 4px`).
+private final class SeparatorView: NSView {
+    private let line = NSView()
+
+    init() {
+        super.init(frame: .zero)
+        translatesAutoresizingMaskIntoConstraints = false
+        line.wantsLayer = true
+        line.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(line)
+        NSLayoutConstraint.activate([
+            heightAnchor.constraint(equalToConstant: 7),
+            line.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
+            line.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
+            line.centerYAnchor.constraint(equalTo: centerYAnchor),
+            line.heightAnchor.constraint(equalToConstant: 1),
+        ])
+        applyColors()
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        applyColors()
+    }
+
+    private func applyColors() {
+        line.layer?.backgroundColor = cgColor(Tokens.mainBorder)
+    }
+}
+
+/// Error line above the pill: capsule `overlay`, padding 4/9, 11 pt semibold white, 6 s. Click-through.
+final class PopupNoticeView: NSView {
+    private let label = NSTextField(labelWithString: "")
+    private var hideWork: DispatchWorkItem?
+
+    init() {
+        super.init(frame: .zero)
+        translatesAutoresizingMaskIntoConstraints = false
+        wantsLayer = true
+        layer?.backgroundColor = Tokens.overlay.light.nsColor.cgColor
+        label.font = .systemFont(ofSize: 11, weight: .semibold)
+        label.textColor = .white
+        label.lineBreakMode = .byTruncatingTail
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        addSubview(label)
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 9),
+            label.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -9),
+            label.topAnchor.constraint(equalTo: topAnchor, constant: 4),
+            label.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -4),
+        ])
+        isHidden = true
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    override func layout() {
+        super.layout()
+        layer?.cornerRadius = bounds.height / 2
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    func show(_ text: String) {
+        label.stringValue = text
+        toolTip = text
+        setAccessibilityLabel(text)
+        isHidden = false
+        NSAccessibility.post(element: self, notification: .announcementRequested, userInfo: [.announcement: text])
+        hideWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.isHidden = true }
+        hideWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 6, execute: work)
+    }
+}
+
+/// "Ton abspielen" + "Leertaste halten" of one popup, wired to `TalkbackService`.
+@MainActor
+final class PopupTalkControls {
+    let soundButton: CircleIconButton
+    let talkButton: TalkButtonView
+    private let soundMenu = SoundMenuView()
+    private let notice = PopupNoticeView()
+    private let entryId: UUID
+    private var cancellables: Set<AnyCancellable> = []
+
+    init(content talk: PopupTalkContent) {
+        entryId = talk.entryId
+        soundButton = CircleIconButton(
+            icon: .soundPlay,
+            iconSize: 16,
+            diameter: 34,
+            fill: Tokens.pillBtn,
+            tint: Tokens.pillFg,
+            label: "Ton abspielen"
+        )
+        talkButton = TalkButtonView(title: Self.idleTitle)
+        soundMenu.isHidden = true
+
+        soundButton.target = self
+        soundButton.action = #selector(soundTapped)
+        let service = TalkbackService.shared
+        let entryId = talk.entryId
+        talkButton.onPress = { service.pressTalk(entryId: entryId) }
+        talkButton.onRelease = { service.releaseTalk() }
+        talkButton.onAccessibilityPress = { service.toggleTalk(entryId: entryId) }
+        soundMenu.onPick = { [weak self] announcement in
+            self?.soundMenu.isHidden = true
+            service.play(announcement, entryId: entryId)
+        }
+        soundMenu.onAdd = { [weak self] in
+            self?.soundMenu.isHidden = true
+            self?.addMP3()
+        }
+
+        service.$activity
+            .receive(on: RunLoop.main)
+            .sink { [weak self] activity in self?.render(activity) }
+            .store(in: &cancellables)
+        service.$notice
+            .dropFirst()
+            .compactMap { $0 }
+            .filter { $0.entryId == entryId }
+            .receive(on: RunLoop.main)
+            .sink { [weak self] notice in self?.notice.show(notice.text) }
+            .store(in: &cancellables)
+        SoundStore.shared.$settings
+            .map(\.talkMode)
+            .removeDuplicates()
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.render(TalkbackService.shared.activity) }
+            .store(in: &cancellables)
+    }
+
+    /// Talk button label when idle: hold mode "Leertaste halten", toggle mode "Sprechen".
+    private static var idleTitle: String {
+        SoundStore.shared.settings.talkMode == .hold ? "Leertaste halten" : "Sprechen"
+    }
+
+    /// Menu over the pill (bottom edge on the pill's top edge), 45 pt left of the sound button (template: left 70 in a 470 popup),
+    /// at least 10 from the popup edge; notice 8 above the pill, centered.
+    func install(in content: NSView, above pill: NSView) {
+        content.addSubview(notice)
+        content.addSubview(soundMenu)
+        let leading = soundMenu.leadingAnchor.constraint(equalTo: soundButton.leadingAnchor, constant: -45)
+        leading.priority = .defaultHigh
+        NSLayoutConstraint.activate([
+            leading,
+            soundMenu.leadingAnchor.constraint(greaterThanOrEqualTo: content.leadingAnchor, constant: 10),
+            soundMenu.bottomAnchor.constraint(equalTo: pill.topAnchor),
+            notice.centerXAnchor.constraint(equalTo: content.centerXAnchor),
+            notice.bottomAnchor.constraint(equalTo: pill.topAnchor, constant: -8),
+            notice.widthAnchor.constraint(lessThanOrEqualTo: content.widthAnchor, constant: -20),
+        ])
+    }
+
+    /// true when the click only closed the open menu.
+    func closeMenu() -> Bool {
+        guard !soundMenu.isHidden else { return false }
+        soundMenu.isHidden = true
+        return true
+    }
+
+    /// Keep the popup open while something is being sent from it.
+    var isBusy: Bool { TalkbackService.shared.isActive(entryId: entryId) }
+
+    func pointerInside(_ inside: Bool) {
+        if inside {
+            TalkbackService.shared.pointerEntered(entryId: entryId)
+        } else {
+            TalkbackService.shared.pointerExited(entryId: entryId)
+        }
+    }
+
+    func popupClosed() {
+        TalkbackService.shared.popupClosed(entryId: entryId)
+        cancellables.removeAll()
+    }
+
+    @objc private func soundTapped() {
+        // While an announcement plays from this popup, the button stops it.
+        if let activity = TalkbackService.shared.activity, activity.entryId == entryId,
+           case .announcement = activity.purpose {
+            TalkbackService.shared.stopPlayback()
+            return
+        }
+        if soundMenu.isHidden {
+            soundMenu.reload(SoundStore.shared.settings.announcements)
+        }
+        soundMenu.isHidden.toggle()
+    }
+
+    private func addMP3() {
+        guard let url = SoundFilePicker.chooseMP3() else { return }
+        do {
+            let added = try SoundStore.shared.addFile(from: url)
+            TalkbackService.shared.play(added, entryId: entryId)
+        } catch {
+            notice.show((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
+        }
+    }
+
+    private func render(_ activity: TalkbackActivity?) {
+        let mine = activity?.entryId == entryId ? activity : nil
+        switch mine?.purpose {
+        case .talk?:
+            let live = mine?.phase == .live
+            let liveTitle = SoundStore.shared.settings.talkMode == .hold ? "Spricht …" : "Beenden"
+            talkButton.update(title: live ? liveTitle : "Verbinde …", busy: !live)
+            setSoundActive(false)
+        case .announcement?:
+            talkButton.update(title: Self.idleTitle, busy: false)
+            setSoundActive(true)
+        case nil:
+            talkButton.update(title: Self.idleTitle, busy: false)
+            setSoundActive(false)
+        }
+    }
+
+    /// Playing: `accent` fill, white symbol (template has no playing state).
+    private func setSoundActive(_ active: Bool) {
+        soundButton.layer?.backgroundColor = soundButton.cgColor(active ? Tokens.accent : Tokens.pillBtn)
+        soundButton.contentTintColor = active ? .white : Tokens.pillFg.nsColor
+        soundButton.toolTip = active ? "Ansage stoppen" : "Ton abspielen"
+    }
+}
