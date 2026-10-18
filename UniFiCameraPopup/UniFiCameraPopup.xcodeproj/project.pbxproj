@@ -71,6 +71,7 @@
 		D41000000000000000000020 /* WireGuardImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = D42000000000000000000020 /* WireGuardImport.swift */; };
 		D41000000000000000000021 /* WireGuardGuideView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D42000000000000000000021 /* WireGuardGuideView.swift */; };
 		D41000000000000000000022 /* OnboardingTunnelStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = D42000000000000000000022 /* OnboardingTunnelStep.swift */; };
+		D41000000000000000000023 /* TunnelSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D42000000000000000000023 /* TunnelSettingsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -137,6 +138,7 @@
 		D42000000000000000000020 /* WireGuardImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WireGuardImport.swift; sourceTree = "<group>"; };
 		D42000000000000000000021 /* WireGuardGuideView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WireGuardGuideView.swift; sourceTree = "<group>"; };
 		D42000000000000000000022 /* OnboardingTunnelStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingTunnelStep.swift; sourceTree = "<group>"; };
+		D42000000000000000000023 /* TunnelSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TunnelSettingsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -326,6 +328,7 @@
 		D44000000000000000000002 /* Tunnel */ = {
 			isa = PBXGroup;
 			children = (
+				D42000000000000000000023 /* TunnelSettingsView.swift */,
 				D42000000000000000000022 /* OnboardingTunnelStep.swift */,
 				D42000000000000000000021 /* WireGuardGuideView.swift */,
 				D42000000000000000000020 /* WireGuardImport.swift */,
@@ -435,6 +438,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D41000000000000000000023 /* TunnelSettingsView.swift in Sources */,
 				D41000000000000000000022 /* OnboardingTunnelStep.swift in Sources */,
 				D41000000000000000000021 /* WireGuardGuideView.swift in Sources */,
 				D41000000000000000000020 /* WireGuardImport.swift in Sources */,

@@ -58,6 +58,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var protectStatus: ConnectionStatus = .disconnected
     /// Mirrors `ProtectSession.shared.client != nil`; webhook-only setups show no Protect status.
     private var isProtectConfigured = false
+    /// Mirrors `ConnectionRouter.shared.route == .tunnel` for the status line.
+    private var isViaTunnel = false
     /// Prevents retry loops when an automatic install fails.
     private var autoInstallAttemptedVersionId: String?
 
@@ -241,6 +243,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             await observeProtectClient()
         }
         Task {
+            await observeRoute()
+        }
+        Task {
             await observeUpdateState()
         }
         Task {
@@ -291,6 +296,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    private func observeRoute() async {
+        // `@Published` emits in `willSet`: use the emitted value, not the property.
+        for await route in ConnectionRouter.shared.$route.values {
+            isViaTunnel = route == .tunnel
+            updateStatusMenu()
+        }
+    }
+
     private func observeProtectClient() async {
         // `@Published` emits in `willSet`: use the emitted value, not the property.
         for await client in ProtectSession.shared.$client.values {
@@ -312,11 +325,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private var protectStatusLabel: String {
-        switch protectStatus {
+        let base = switch protectStatus {
         case .connected: "Protect: verbunden"
         case .connecting: "Protect: verbinde …"
         case .disconnected, .outdated: "Protect: getrennt"
         }
+        return isViaTunnel ? "\(base) · unterwegs" : base
     }
 
     /// The icon shows the worst of the connections in use (Protect once configured,

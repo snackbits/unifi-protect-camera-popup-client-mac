@@ -1,5 +1,6 @@
 import AppCore
 import AppKit
+import ProtectKit
 import SwiftUI
 
 /// Callbacks the panel needs from `AppDelegate`.
@@ -33,6 +34,7 @@ struct StatusPanelView: View {
     @ObservedObject var relay: WebSocketClient
     @ObservedObject var protect: ProtectSession
     @ObservedObject var clock: StatusPanelClock
+    @ObservedObject private var router = ConnectionRouter.shared
     let actions: StatusPanelActions
 
     var body: some View {
@@ -92,7 +94,7 @@ struct StatusPanelView: View {
             return ("Nicht eingerichtet", Tokens.muted, Tokens.btn2)
         }
         switch status {
-        case .connected: return ("Zu Hause", Tokens.ok, Tokens.okBg)
+        case .connected: return (TunnelText.connectedChip(viaTunnel: router.route == .tunnel), Tokens.ok, Tokens.okBg)
         case .connecting: return ("Verbinde …", Tokens.accText, Tokens.accSoft)
         case .disconnected, .outdated: return ("Getrennt", Tokens.muted, Tokens.btn2)
         }

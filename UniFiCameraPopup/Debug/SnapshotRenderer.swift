@@ -34,6 +34,8 @@ enum SnapshotRenderer {
     /// Read by `OnboardingTunnelStep` as its initial feedback line (Einrichtung step 6).
     /// Fixed sample strings only; no import runs and nothing touches the keychain in snapshot mode.
     nonisolated(unsafe) static var tunnelStepFeedback: ImportFeedback?
+    /// Read by `TunnelSettingsView` instead of the live router/tunnel state (S6 variants).
+    nonisolated(unsafe) static var tunnelPhase: TunnelPhase?
 
     /// Call first in `applicationDidFinishLaunching`; renders and terminates when requested.
     @MainActor
@@ -144,8 +146,26 @@ enum SnapshotRenderer {
                   to: directory.appendingPathComponent("S5-ton-leer-fehler-\(suffix).png"))
             SnapshotRenderer.soundTabError = nil
             SoundStore.shared.settings.announcements = savedSounds
-            write(window: settingsWindow(tab: .remote), appearance: appearance,
-                  to: directory.appendingPathComponent("S6-unterwegs-\(suffix).png"))
+            // S6: the real tab in its states (sample records only; nothing is persisted).
+            let sampleSummary = TunnelConfigSummary(endpoint: "vpn.example.net:51820")
+            let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()
+            let connected = TunnelRecord(fileName: "macbook-camera-popup.conf", summary: sampleSummary,
+                                         lastConnection: TunnelLastConnection(date: yesterday, via: .cellular))
+            let remoteStates: [(name: String, record: TunnelRecord, phase: TunnelPhase?)] = [
+                ("leer", TunnelRecord(), nil),
+                ("verbunden", connected, .connected),
+                ("zuhause", connected, .home),
+                ("fehler", connected, .failed("Die Gegenstelle konnte nicht aufgelöst werden.")),
+            ]
+            for state in remoteStates {
+                TunnelStore.shared.snapshotSeed(state.record)
+                SnapshotRenderer.tunnelPhase = state.phase
+                let name = state.name == "zuhause" ? "S6-unterwegs-\(suffix).png" : "S6-unterwegs-\(state.name)-\(suffix).png"
+                write(window: settingsWindow(tab: .remote), appearance: appearance,
+                      to: directory.appendingPathComponent(name))
+            }
+            SnapshotRenderer.tunnelPhase = nil
+            TunnelStore.shared.snapshotSeed(TunnelRecord())
 
             // Einrichtung step 6 "Unterwegs": empty drop zone, after import, warning, error.
             let tunnelStates: [(name: String, feedback: ImportFeedback?)] = [

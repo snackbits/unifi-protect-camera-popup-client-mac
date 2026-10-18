@@ -61,6 +61,14 @@ final class TunnelStore: ObservableObject {
         persist()
     }
 
+    #if DEBUG
+    /// Sample record for `--render-snapshots` (S6); never persisted.
+    func snapshotSeed(_ sample: TunnelRecord) {
+        guard SnapshotRenderer.isActive else { return }
+        record = sample
+    }
+    #endif
+
     private func persist() {
         #if DEBUG
         if SnapshotRenderer.isActive { return }
