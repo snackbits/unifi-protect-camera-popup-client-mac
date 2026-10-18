@@ -15,7 +15,7 @@ enum AppConfig {
     static let webhookToken = "71gri3ctroc73qzo8tttv58t7h784tqtzr76ctr"
 
     /// Display version shown in the menu bar; incremented by `scripts/build-release.sh`.
-    static let buildNumber = 27
+    static let buildNumber = 28
 
     /// Semantic app version (`MARKETING_VERSION`), raised manually per release.
     /// Used for the "Was ist neu" popup after an update.
