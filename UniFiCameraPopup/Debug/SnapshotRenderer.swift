@@ -163,6 +163,31 @@ enum SnapshotRenderer {
                   to: directory.appendingPathComponent("S5-ton-leer-fehler-\(suffix).png"))
             SnapshotRenderer.soundTabError = nil
             SoundStore.shared.settings.announcements = savedSounds
+            // Phase 6: a voice that is not downloaded yet, loading, next to an already downloaded one.
+            SnapshotRenderer.soundTabVoice = PiperVoiceRef(voiceId: "de_DE-kerstin-low")
+            PiperVoiceStore.shared.simulateDownloaded(["de_DE-thorsten-high"])
+            write(window: settingsWindow(tab: .sound), appearance: appearance,
+                  to: directory.appendingPathComponent("S5-ton-stimme-nicht-geladen-\(suffix).png"))
+            PiperVoiceStore.shared.simulateDownload("de_DE-kerstin-low", received: 23_400_000)
+            write(window: settingsWindow(tab: .sound), appearance: appearance,
+                  to: directory.appendingPathComponent("S5-ton-stimme-laedt-\(suffix).png"))
+            PiperVoiceStore.shared.simulateDownload("de_DE-kerstin-low", received: nil)
+            // Multi-speaker voice: second field with the speaker.
+            SnapshotRenderer.soundTabVoice = PiperVoiceRef(voiceId: "de_DE-thorsten_emotional-medium", speaker: 4)
+            write(window: settingsWindow(tab: .sound), appearance: appearance,
+                  to: directory.appendingPathComponent("S5-ton-sprecher-\(suffix).png"))
+            SnapshotRenderer.soundTabVoice = nil
+            PiperVoiceStore.shared.simulateDownloaded([])
+            // An announcement rendered by a macOS voice before Phase 6, with a Piper error line.
+            SoundStore.shared.settings.announcements = [
+                Announcement(name: "Bitte warten", kind: .speech, text: "Bitte einen Moment warten.",
+                             voiceIdentifier: "com.apple.voice.premium.de-DE.Anna", fileName: "alt.caf", duration: 2.1),
+            ] + savedSounds
+            SnapshotRenderer.soundTabError = PiperError.timeout(20).errorDescription
+            write(window: settingsWindow(tab: .sound), appearance: appearance,
+                  to: directory.appendingPathComponent("S5-ton-macos-alt-\(suffix).png"))
+            SnapshotRenderer.soundTabError = nil
+            SoundStore.shared.settings.announcements = savedSounds
             // S6: the real tab in its states (sample records only; nothing is persisted).
             let sampleSummary = TunnelConfigSummary(endpoint: "vpn.example.net:51820")
             let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()

@@ -38,3 +38,19 @@ Inhalt Innenabstand 14/40, Abstand 10, Schrift 13. Scrollt, wenn der Inhalt höh
   „Anna ist auf diesem Mac nicht installiert – es spricht „<Name>“. …“. „Thorsten · mitgeliefert“ wird nicht mehr angeboten.
 - Karte 3: „Mikrofon“ · „Lautstärke Sprechen“ · „Lautstärke Ansagen“ (beide Regler wie „Lautstärke an der Kamera“, 2/3 = unverändert);
   die Zeile „Sprechen“ (Leertaste halten · Umschalten) entfällt.
+
+## Phase 6 (Nutzerwunsch, gilt vor Vorlage und Phase 5)
+- Stimme: Auswahlfeld aktiv mit allen angebotenen Piper-Stimmen, Reihenfolge „Thorsten · mittel – mitgeliefert“, dann
+  Eva K. · sehr niedrig, Karlsson · niedrig, Kerstin · niedrig, MLS · mittel, Ramona · niedrig, Thorsten · niedrig,
+  Thorsten · hoch, Thorsten emotional · mittel; Zusatz „– geladen“ bzw. „– NN MB laden“. Pavoque wird nicht angeboten (CC BY-NC-SA).
+- Mehrsprecher-Stimme: zweites Auswahlfeld direkt rechts daneben (Thorsten emotional: amüsiert … flüsternd, Standard neutral;
+  MLS: Sprecher 1 … 236).
+- Unter der Zeile 11 `muted`: „Wird auf diesem Mac erzeugt – ohne Internet, ohne Konto.“ bzw. bei nicht geladener Stimme
+  „Wird beim ersten Anhören oder Übernehmen geladen (NN MB, einmalig) – danach auf diesem Mac erzeugt, ohne Internet.“;
+  während des Ladens stattdessen Zeile Abstand 8: Fortschrittsbalken 120 breit (`accent`) · „Lade „<Stimme>“ … 23 von 63 MB“
+  11 `muted` tabellarisch · Freiraum · Link „Abbrechen“.
+- Darunter 11 `muted` einzeilig: „Lizenz der Stimme: <Lizenz> · <Datensatz>“.
+- Alte macOS-Ansage: 11 System-Orange „macOS (alt) – mit „Übernehmen“ neu erzeugen“ (Feld zeigt die Zielstimme).
+- Neue Karte „Geladene Stimmen“ zwischen Editor und Mikrofon-Karte (nur mit mindestens einer geladenen Stimme):
+  Abschnittstitel wie „Ansagen …“, Zeilen Innenabstand 6/12: Name · Qualität füllt · Größe 11 `muted` · Link „Entfernen“
+  (Rückfrage nativ).

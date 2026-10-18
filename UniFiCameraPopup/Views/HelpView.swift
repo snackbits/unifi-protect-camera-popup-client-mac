@@ -156,7 +156,9 @@ struct HelpView: View {
                 + "Halte „Sprechen“ mit der Maus gedrückt und sprich; Loslassen beendet – auch wenn der Zeiger dabei das Popup verlässt. "
                 + "Die App gleicht dein Mikrofon automatisch an die Lautstärke der Ansagen an. Unter Einstellungen › Ton wählst du das Mikrofon, "
                 + "regelst „Lautstärke Sprechen“ und „Lautstärke Ansagen“ getrennt und verwaltest "
-                + "die Ansagen (MP3 oder Text, gesprochen von der macOS-Stimme Anna, erzeugt auf diesem Mac). Die mitgelieferten Ansagen "
+                + "die Ansagen (MP3 oder Text, gesprochen von einer Piper-Stimme und erzeugt auf diesem Mac). „Thorsten · mittel“ ist mitgeliefert; "
+                + "weitere deutsche Stimmen lädt die App beim ersten Anhören oder Übernehmen einmalig (Größe steht in der Auswahl) "
+                + "und du entfernst sie unter „Geladene Stimmen“ wieder. Die mitgelieferten Ansagen "
                 + "„Bin gleich da“ und „Paket bitte abstellen“ wurden mit Piper und der Stimme „Thorsten“ erzeugt "
                 + "(Datensatz CC0, gemeinfrei). Klappt etwas nicht, steht der Ablauf in "
                 + "~/Library/Logs/UniFi Camera Popup/talkback.log.")
