@@ -1,4 +1,4 @@
-# Manuelle Prüfungen vor dem Release 1.2.0
+# Manuelle Prüfungen vor dem Release 2.0.0
 
 Stand 2026-10-18. Diese Punkte konnten die Subagenten nicht prüfen (keine echte Konsole/Kamera, App nie normal gestartet). Vorher: installierte App beenden, `defaults export com.snackbits.UniFiCameraPopup ~/ucp-backup.plist`.
 

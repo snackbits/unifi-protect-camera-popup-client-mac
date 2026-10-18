@@ -22,7 +22,7 @@ struct WhatsNewInfo: Equatable {
 enum WhatsNewService {
     /// Newest version first.
     static let changelog: [ChangelogEntry] = [
-        ChangelogEntry(version: "1.2.0", items: [
+        ChangelogEntry(version: "2.0.0", items: [
             "Einrichtung in wenigen Schritten: Die Konsole wird im Netzwerk gefunden, ein API-Schlüssel genügt.",
             "Popups bei Klingel, Person, Tier, Fahrzeug, Sprache und mehr – direkt aus Protect.",
             "Stream-Adressen holt die App selbst. Webhooks gibt es weiterhin unter „Erweitert“.",

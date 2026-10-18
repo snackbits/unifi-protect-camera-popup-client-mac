@@ -50,4 +50,4 @@ Programm **im App-Paket** und wird per `Process` aufgerufen (kein Linken → GPL
    Standardstimme, Migration alter Ansagen, Piper-Aufrufparameter, WAV-Parsing) mit XCTest. Ein
    Integrationstest, der das gebündelte Piper mit Thorsten (medium) einen Satz erzeugen lässt (darf beim
    Build im Debug laufen, nicht beim normalen App-Start).
-10. **Manuelle Prüfpunkte** in `docs/superpowers/manual-checks-1.2.0.md` ergänzen.
+10. **Manuelle Prüfpunkte** in `docs/superpowers/manual-checks-2.0.0.md` ergänzen.
