@@ -1,6 +1,6 @@
 #!/bin/bash
 # Writes UniFiCameraPopup/ThirdPartyNotices.txt: license texts of the Go runtime and
-# of every module linked into libwgtunnel.a (shown in Hilfe › „Über“).
+# of every module linked into libwgtunnel.a, followed by piper/NOTICES.txt (shown in Hilfe › „Über“).
 # Re-run after every change to go.mod and commit the result.
 set -euo pipefail
 
@@ -33,6 +33,8 @@ trap 'rm -f "${OUT}.tmp"' EXIT
         fi
       done
     done
+  # Phase 6: the bundled Piper (piper/scripts/collect-notices.sh writes this part).
+  cat "${ROOT}/../piper/NOTICES.txt"
 } > "${OUT}.tmp"
 mv "${OUT}.tmp" "${OUT}"
 echo "collect-notices: ${OUT}"
