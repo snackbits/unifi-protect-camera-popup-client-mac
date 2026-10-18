@@ -87,6 +87,30 @@ public enum AnnouncementAudio {
         return output
     }
 
+    /// All channels averaged to one float channel (−1…1).
+    public static func monoSamples(_ buffer: AVAudioPCMBuffer) throws -> [Float] {
+        let float = try standardized(buffer)
+        guard let channels = float.floatChannelData else { return [] }
+        let count = Int(float.frameLength)
+        let channelCount = Int(float.format.channelCount)
+        guard count > 0, channelCount > 0 else { return [] }
+        var mono = [Float](repeating: 0, count: count)
+        for channel in 0..<channelCount {
+            let data = channels[channel]
+            for index in 0..<count { mono[index] += data[index] }
+        }
+        if channelCount > 1 {
+            let scale = 1 / Float(channelCount)
+            for index in 0..<count { mono[index] *= scale }
+        }
+        return mono
+    }
+
+    /// Factor for one loudness across all announcements (see `Loudness`).
+    public static func loudnessGain(of buffer: AVAudioPCMBuffer) throws -> Float {
+        Loudness.normalizationGain(try monoSamples(buffer), sampleRate: buffer.format.sampleRate)
+    }
+
     /// Writes a buffer as CAF (used to cache rendered speech).
     public static func write(_ buffer: AVAudioPCMBuffer, to url: URL) throws {
         do {

@@ -18,6 +18,7 @@ public final class TalkbackStreamer: @unchecked Sendable {
     private let connection: NWConnection
     private let encoder: TalkbackEncoder
     private let resampler: PCMResampler
+    private let level: AutomaticGainControl
     private var packetizer = RTPPacketizer()
     private var pacer: RealtimePacer
     private let onEvent: @Sendable (Event) -> Void
@@ -32,10 +33,12 @@ public final class TalkbackStreamer: @unchecked Sendable {
     private var sent = 0
     private var reportedFirstPacket = false
 
-    /// Throws for codecs or rates the encoder cannot produce.
+    /// Throws for codecs or rates the encoder cannot produce. `gain` is the user's volume;
+    /// `automaticGain` levels the microphone (see `AutomaticGainControl`). Peaks never exceed −1 dBFS.
     public init(
         target: TalkbackTarget,
         gain: Float = 1,
+        automaticGain: Bool = false,
         readyTimeout: TimeInterval = 2,
         log: @escaping @Sendable (String) -> Void = { _ in },
         onEvent: @escaping @Sendable (Event) -> Void
@@ -45,7 +48,8 @@ public final class TalkbackStreamer: @unchecked Sendable {
         }
         self.target = target
         encoder = try TalkbackEncoder(codec: target.codec, sampleRate: target.sampleRate)
-        resampler = PCMResampler(sampleRate: target.sampleRate, gain: gain)
+        resampler = PCMResampler(sampleRate: target.sampleRate)
+        level = AutomaticGainControl(sampleRate: target.sampleRate, outputGain: gain, adaptive: automaticGain)
         pacer = RealtimePacer(sampleRate: target.sampleRate)
         let host = target.host.trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
         connection = NWConnection(host: NWEndpoint.Host(host), port: port, using: .udp)
@@ -89,7 +93,7 @@ public final class TalkbackStreamer: @unchecked Sendable {
         queue.async { [weak self] in
             guard let self, !self.stopped, !self.finishing else { return }
             do {
-                let samples = try self.resampler.convert(copy)
+                let samples = self.level.process(try self.resampler.convert(copy))
                 self.schedule(try self.encoder.encode(samples))
             } catch {
                 self.fail(error.localizedDescription)
