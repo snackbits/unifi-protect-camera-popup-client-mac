@@ -34,6 +34,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         settings.reconcileLaunchAtLogin()
         setupStatusItem()
+        if !settings.isProtectConfigured && settings.mappings.isEmpty {
+            OnboardingWindow.show()
+        }
         setupWebSocket()
         setupHotkeys()
         syncRelayConnection(mappings: settings.mappings)
@@ -157,6 +160,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         camerasMenuItem.isHidden = true
         menu.addItem(camerasMenuItem)
         self.camerasMenuItem = camerasMenuItem
+
+        let setupItem = NSMenuItem(title: "Einrichtung …", action: #selector(openOnboarding), keyEquivalent: "")
+        setupItem.target = self
+        menu.addItem(setupItem)
 
         let settingsItem = NSMenuItem(title: "Einstellungen…", action: #selector(openSettings), keyEquivalent: "")
         settingsItem.target = self
@@ -447,6 +454,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         Task { await updateService.installUpdate() }
     }
+
+    @objc private func openOnboarding() { OnboardingWindow.show() }
 
     @objc private func openSettings() {
         if settingsWindow == nil {
