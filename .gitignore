@@ -13,3 +13,7 @@ UniFiCameraPopup/dist/
 # graphify knowledge graph (local artifact)
 graphify-out/
 .superpowers/
+
+# WireGuard tunnel: pinned Go toolchain, module cache and the built archive.
+wgtunnel/.toolchain/
+wgtunnel/build/
