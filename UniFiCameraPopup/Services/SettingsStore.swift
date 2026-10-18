@@ -17,7 +17,13 @@ final class SettingsStore: ObservableObject {
     }
 
     @Published var protectHost: String {
-        didSet { persist() }
+        didSet {
+            // A certificate pin never carries over to another console.
+            if Self.normalizedHost(oldValue) != Self.normalizedHost(protectHost) {
+                protectCertificateFingerprint = nil
+            }
+            persist()
+        }
     }
 
     @Published var protectCertificateFingerprint: String? {
@@ -36,6 +42,10 @@ final class SettingsStore: ObservableObject {
             }
             objectWillChange.send()
         }
+    }
+
+    private static func normalizedHost(_ host: String) -> String {
+        host.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 
     var isProtectConfigured: Bool {
@@ -251,7 +261,7 @@ final class SettingsStore: ObservableObject {
     }
 
     func addMapping() {
-        mappings.append(WebhookMapping())
+        mappings.append(WebhookMapping(webhookTriggerEnabled: true))
     }
 
     func removeMapping(id: UUID) {
@@ -413,7 +423,9 @@ final class SettingsStore: ObservableObject {
 
     /// Serializes the full configuration (including installation ID) for export.
     func exportedConfigurationData() throws -> Data {
-        let envelope = ConfigEnvelope(schemaVersion: Self.configSchemaVersion, settings: currentPersistedSettings())
+        var exported = currentPersistedSettings()
+        exported.protectCertificateFingerprint = nil
+        let envelope = ConfigEnvelope(schemaVersion: Self.configSchemaVersion, settings: exported)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         // Exports carry the tokens so an import on another Mac works as-is.
@@ -449,9 +461,13 @@ final class SettingsStore: ObservableObject {
         disableDuringDND = saved.disableDuringDND ?? disableDuringDND
         muteUntil = saved.muteUntil
         launchAtLogin = saved.launchAtLogin
-        if let host = saved.protectHost {
+        // Never trust a pin from a file. A different console means the stored
+        // API key must not be sent there: drop key and pin, setup must be re-run.
+        if let host = saved.protectHost,
+           Self.normalizedHost(host) != Self.normalizedHost(protectHost) {
+            protectAPIKey = ""
+            protectCertificateFingerprint = nil
             protectHost = host
-            protectCertificateFingerprint = saved.protectCertificateFingerprint
         }
     }
 }
