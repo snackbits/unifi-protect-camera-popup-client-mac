@@ -65,6 +65,7 @@ struct EventRulesSection: View {
                 kinds: kinds,
                 sounds: sounds.settings.announcements,
                 canPlaySound: TalkbackService.shared.canTalk(mapping),
+                knownWithoutSpeaker: camera.map { !$0.hasSpeaker } ?? false,
                 onSave: save,
                 onDelete: context.isNew ? nil : { delete(context.rule.id) }
             )
@@ -114,6 +115,9 @@ struct EventRuleEditorSheet: View {
     private let kinds: [TriggerKind]
     private let sounds: [Announcement]
     private let canPlaySound: Bool
+    /// Protect lists the camera and it has no speaker; only then is a kept sound dropped on save
+    /// (offline, away without tunnel or just after launch the sound is kept).
+    private let knownWithoutSpeaker: Bool
     private let onSave: (EventRule) -> Void
     private let onDelete: (() -> Void)?
     @Environment(\.dismiss) private var dismiss
@@ -124,6 +128,7 @@ struct EventRuleEditorSheet: View {
         kinds: [TriggerKind],
         sounds: [Announcement],
         canPlaySound: Bool,
+        knownWithoutSpeaker: Bool = false,
         onSave: @escaping (EventRule) -> Void,
         onDelete: (() -> Void)?
     ) {
@@ -135,6 +140,7 @@ struct EventRuleEditorSheet: View {
         self.kinds = kinds
         self.sounds = sounds
         self.canPlaySound = canPlaySound
+        self.knownWithoutSpeaker = knownWithoutSpeaker
         self.onSave = onSave
         self.onDelete = onDelete
     }
@@ -219,11 +225,11 @@ struct EventRuleEditorSheet: View {
         .font(.system(size: 13))
     }
 
-    /// The edited rule: empty address = no webhook, delay from the field (0…600). Without a speaker
-    /// the „Ton“ row is hidden, so a sound kept from before is dropped (it could never play here).
+    /// The edited rule: empty address = no webhook, delay from the field (0…600). On a camera known
+    /// to have no speaker the hidden „Ton“ is dropped (it could never play there).
     private var result: EventRule {
         var rule = draft
-        if !canPlaySound { rule.soundId = nil }
+        if knownWithoutSpeaker { rule.soundId = nil }
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         rule.webhook = trimmed.isEmpty ? nil : EventRuleWebhook(method: method.rawValue, url: trimmed)
         rule.delaySeconds = EventRule.delay(fromText: delayText)
