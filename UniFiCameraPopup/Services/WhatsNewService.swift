@@ -26,6 +26,9 @@ enum WhatsNewService {
             "Einrichtung in wenigen Schritten: Die Konsole wird im Netzwerk gefunden, ein API-Schlüssel genügt.",
             "Popups bei Klingel, Person, Tier, Fahrzeug, Sprache und mehr – direkt aus Protect.",
             "Stream-Adressen holt die App selbst. Webhooks gibt es weiterhin unter „Erweitert“.",
+            "Neue Einstellungen mit den Reitern Allgemein, Kameras, Ton und Unterwegs – hell, dunkel oder wie das System.",
+            "Stummschalten pro Kamera direkt im Popup und für alle Kameras im Menü; die Dauern legst du selbst fest, und eine Stummschaltung bleibt auch nach einem Neustart bestehen.",
+            "Das Popup zeigt Ereignis, Kamera und Uhrzeit, deine Buttons (z. B. „Tür öffnen“) haben jetzt Symbole.",
         ]),
         ChangelogEntry(version: "1.1.1", items: [
             "Mehr Sicherheit: Die Bearer-Tokens der Aktions-Buttons werden jetzt im macOS-Schlüsselbund "
