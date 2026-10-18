@@ -55,6 +55,9 @@
 		C31000000000000000000001 /* SoundStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C32000000000000000000001 /* SoundStore.swift */; };
 		C31000000000000000000002 /* PreviewPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C32000000000000000000002 /* PreviewPlayer.swift */; };
 		C31000000000000000000003 /* TalkbackLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = C32000000000000000000003 /* TalkbackLog.swift */; };
+		C31000000000000000000004 /* MicrophoneCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = C32000000000000000000004 /* MicrophoneCapture.swift */; };
+		C31000000000000000000005 /* PushToTalkKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = C32000000000000000000005 /* PushToTalkKey.swift */; };
+		C31000000000000000000006 /* TalkbackService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C32000000000000000000006 /* TalkbackService.swift */; };
 		C31000000000000000000009 /* bin-gleich-da.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = C32000000000000000000009 /* bin-gleich-da.mp3 */; };
 		C31000000000000000000010 /* paket-abstellen.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = C32000000000000000000010 /* paket-abstellen.mp3 */; };
 /* End PBXBuildFile section */
@@ -107,6 +110,9 @@
 		C32000000000000000000001 /* SoundStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundStore.swift; sourceTree = "<group>"; };
 		C32000000000000000000002 /* PreviewPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewPlayer.swift; sourceTree = "<group>"; };
 		C32000000000000000000003 /* TalkbackLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalkbackLog.swift; sourceTree = "<group>"; };
+		C32000000000000000000004 /* MicrophoneCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicrophoneCapture.swift; sourceTree = "<group>"; };
+		C32000000000000000000005 /* PushToTalkKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushToTalkKey.swift; sourceTree = "<group>"; };
+		C32000000000000000000006 /* TalkbackService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalkbackService.swift; sourceTree = "<group>"; };
 		C32000000000000000000009 /* bin-gleich-da.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = "bin-gleich-da.mp3"; sourceTree = "<group>"; };
 		C32000000000000000000010 /* paket-abstellen.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = "paket-abstellen.mp3"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -197,6 +203,9 @@
 				C32000000000000000000001 /* SoundStore.swift */,
 				C32000000000000000000002 /* PreviewPlayer.swift */,
 				C32000000000000000000003 /* TalkbackLog.swift */,
+				C32000000000000000000004 /* MicrophoneCapture.swift */,
+				C32000000000000000000005 /* PushToTalkKey.swift */,
+				C32000000000000000000006 /* TalkbackService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -400,6 +409,9 @@
 				C31000000000000000000001 /* SoundStore.swift in Sources */,
 				C31000000000000000000002 /* PreviewPlayer.swift in Sources */,
 				C31000000000000000000003 /* TalkbackLog.swift in Sources */,
+				C31000000000000000000004 /* MicrophoneCapture.swift in Sources */,
+				C31000000000000000000005 /* PushToTalkKey.swift in Sources */,
+				C31000000000000000000006 /* TalkbackService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

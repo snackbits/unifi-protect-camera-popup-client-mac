@@ -6,7 +6,7 @@ import Foundation
 final class GlobalHotkeyManager {
     static let shared = GlobalHotkeyManager()
 
-    private static let signature: OSType = 0x5543_504B // "UCPK"
+    nonisolated private static let signature: OSType = 0x5543_504B // "UCPK"
     private static let sequenceTimeout: TimeInterval = 2
 
     private struct SequenceBinding {
@@ -120,6 +120,8 @@ final class GlobalHotkeyManager {
                     &hotkeyID
                 )
                 guard error == noErr else { return error }
+                // The push-to-talk space bar (PushToTalkKey) has its own signature and handler.
+                guard hotkeyID.signature == GlobalHotkeyManager.signature else { return OSStatus(eventNotHandledErr) }
 
                 let manager = Unmanaged<GlobalHotkeyManager>
                     .fromOpaque(userData)
