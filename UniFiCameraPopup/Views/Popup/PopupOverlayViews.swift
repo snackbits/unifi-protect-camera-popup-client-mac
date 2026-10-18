@@ -116,9 +116,14 @@ final class CircleIconButton: FirstMouseButton {
         }
     }
 
+    /// Highlighted state (`accent` fill, white symbol); survives appearance changes.
+    var isAccented = false {
+        didSet { applyColors() }
+    }
+
     private func applyColors() {
-        layer?.backgroundColor = cgColor(fill)
-        contentTintColor = tint.nsColor
+        layer?.backgroundColor = cgColor(isAccented ? Tokens.accent : fill)
+        contentTintColor = isAccented ? .white : tint.nsColor
     }
 }
 

@@ -95,7 +95,11 @@ final class SoundMenuRow: NSView {
 
         title.stringValue = name
         title.font = .systemFont(ofSize: 12)
-        title.lineBreakMode = .byTruncatingTail
+        // Long names wrap (max 2 lines) like the template; the tag stays on the first line.
+        title.lineBreakMode = .byWordWrapping
+        title.maximumNumberOfLines = 2
+        title.cell?.wraps = true
+        title.cell?.truncatesLastVisibleLine = true
         title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         title.translatesAutoresizingMaskIntoConstraints = false
         addSubview(title)
@@ -110,12 +114,15 @@ final class SoundMenuRow: NSView {
             tagLabel.translatesAutoresizingMaskIntoConstraints = false
             tagLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
             addSubview(tagLabel)
+            tagLabel.sizeToFit()
+            title.preferredMaxLayoutWidth = 164 - 8 - tagLabel.frame.width
             constraints += [
                 tagLabel.leadingAnchor.constraint(greaterThanOrEqualTo: title.trailingAnchor, constant: 8),
                 tagLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
                 tagLabel.firstBaselineAnchor.constraint(equalTo: title.firstBaselineAnchor),
             ]
         } else {
+            title.preferredMaxLayoutWidth = 164
             constraints.append(title.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -8))
         }
         NSLayoutConstraint.activate(constraints)
@@ -325,6 +332,8 @@ final class PopupTalkControls {
     private let soundMenu = SoundMenuView()
     private let notice = PopupNoticeView()
     private let entryId: UUID
+    /// Called when the sound menu opens (the popup closes its mute menu).
+    var onMenuOpened: (() -> Void)?
     private var cancellables: Set<AnyCancellable> = []
 
     init(content talk: PopupTalkContent) {
@@ -431,6 +440,7 @@ final class PopupTalkControls {
             soundMenu.reload(SoundStore.shared.settings.announcements)
         }
         soundMenu.isHidden.toggle()
+        if !soundMenu.isHidden { onMenuOpened?() }
     }
 
     private func addMP3() {
@@ -462,8 +472,7 @@ final class PopupTalkControls {
 
     /// Playing: `accent` fill, white symbol (template has no playing state).
     private func setSoundActive(_ active: Bool) {
-        soundButton.layer?.backgroundColor = soundButton.cgColor(active ? Tokens.accent : Tokens.pillBtn)
-        soundButton.contentTintColor = active ? .white : Tokens.pillFg.nsColor
+        soundButton.isAccented = active
         soundButton.toolTip = active ? "Ansage stoppen" : "Ton abspielen"
     }
 }

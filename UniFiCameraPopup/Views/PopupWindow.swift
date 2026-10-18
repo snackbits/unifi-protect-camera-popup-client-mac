@@ -268,6 +268,7 @@ final class PopupWindow: NSPanel {
         if let talk = overlay.talk {
             let controls = PopupTalkControls(content: talk)
             leading = [controls.soundButton, controls.talkButton]
+            controls.onMenuOpened = { [weak self] in self?.muteMenu?.isHidden = true }
             talkControls = controls
         }
         if !actions.isEmpty || !leading.isEmpty {
@@ -298,6 +299,7 @@ final class PopupWindow: NSPanel {
 
     @objc private func muteTapped() {
         muteMenu?.isHidden.toggle()
+        if muteMenu?.isHidden == false { _ = talkControls?.closeMenu() }
     }
 
     /// Calls the button's webhook; the popup stays open. Optional confirmation first.

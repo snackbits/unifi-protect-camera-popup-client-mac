@@ -89,6 +89,8 @@ final class TalkbackService: ObservableObject {
     func releaseTalk() {
         guard SoundStore.shared.settings.talkMode == .hold else { return }
         stopTalking()
+        // Pointer left the popup while the mouse button was held: nothing else frees the space bar.
+        if disarmAfterRelease { disarmSpace() }
     }
 
     /// VoiceOver press: always toggles.
