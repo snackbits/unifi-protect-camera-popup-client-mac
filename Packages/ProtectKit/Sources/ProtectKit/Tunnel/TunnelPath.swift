@@ -39,7 +39,9 @@ public enum TunnelPath {
             return https && !isMDNS(name) ? .direct : .refuse
         case .address(let ip):
             if AllowedIPs.covers(host: ip, prefixes: allowedIPs) == true {
-                return .forward(ForwardTarget(host: ip, port: comps.port ?? (https ? 443 : 80)))
+                // A port outside 1…65535 is refused, never clamped.
+                guard let target = ForwardTarget(host: ip, port: comps.port ?? (https ? 443 : 80)) else { return .refuse }
+                return .forward(target)
             }
             if AllowedIPs.covers(host: ip, prefixes: privateRanges) == true { return .refuse }
             return https ? .direct : .refuse
@@ -113,7 +115,8 @@ public enum TunnelPath {
         case direct
         /// Away: UDP to a local forward that leads to `ip:port` through the tunnel.
         case forward(ip: String, port: Int)
-        /// Away, but the camera address is not inside AllowedIPs (or not an IP literal).
+        /// Away, but the camera address is not inside AllowedIPs (or not an IP literal),
+        /// or the port lies outside 1…65535.
         case notRouted
     }
 
@@ -121,7 +124,8 @@ public enum TunnelPath {
     public static func talkback(host: String, port: Int, route: ProtectRoute, allowedIPs: [String]) -> Talkback {
         guard route == .tunnel else { return .direct }
         let ip = unbracketed(host.trimmingCharacters(in: .whitespacesAndNewlines))
-        guard AllowedIPs.covers(host: ip, prefixes: allowedIPs) == true else { return .notRouted }
+        guard AllowedIPs.covers(host: ip, prefixes: allowedIPs) == true,
+              ForwardTarget.validPorts.contains(port) else { return .notRouted }
         return .forward(ip: ip, port: port)
     }
 

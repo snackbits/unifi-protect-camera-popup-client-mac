@@ -23,6 +23,32 @@ final class ForwardURLTests: XCTestCase {
         XCTAssertNil(ForwardURL.streamTarget("kein url"))
     }
 
+    func testForwardTargetRefusesPortsOutsideRange() {
+        for port in [0, -1, 65536, 5_000_000_000] {
+            XCTAssertNil(ForwardTarget(host: "192.168.1.1", port: port), "port \(port)")
+        }
+        XCTAssertEqual(ForwardTarget(host: "192.168.1.1", port: 1)?.port, 1)
+        XCTAssertEqual(ForwardTarget(host: "192.168.1.1", port: 65535)?.port, 65535)
+    }
+
+    func testForwardTargetRefusesZoneIDAndEmptyHost() {
+        XCTAssertNil(ForwardTarget(host: "fe80::1%en0", port: 443))
+        XCTAssertNil(ForwardTarget(host: "", port: 443))
+    }
+
+    func testAPITargetRefusesPortsOutsideRange() {
+        XCTAssertNil(ForwardURL.apiTarget(consoleHost: "192.168.1.1:0"))
+        XCTAssertNil(ForwardURL.apiTarget(consoleHost: "192.168.1.1:65536"))
+        XCTAssertNil(ForwardURL.apiTarget(consoleHost: "192.168.1.1:5000000000"))
+        XCTAssertNil(ForwardURL.apiTarget(consoleHost: "[fe80::1%25en0]:443"))
+    }
+
+    func testStreamTargetRefusesPortsOutsideRange() {
+        XCTAssertNil(ForwardURL.streamTarget("rtsp://192.168.1.1:0/x"))
+        XCTAssertNil(ForwardURL.streamTarget("rtsp://192.168.1.1:65536/x"))
+        XCTAssertNil(ForwardURL.streamTarget("rtsp://192.168.1.1:5000000000/x"))
+    }
+
     func testRewriteKeepsPathAndQuery() {
         XCTAssertEqual(ForwardURL.rewrite("rtsp://192.168.1.1:7447/AbCdEf?x=1", localPort: 50200),
                        "rtsp://127.0.0.1:50200/AbCdEf?x=1")

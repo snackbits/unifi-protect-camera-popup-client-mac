@@ -138,8 +138,7 @@ final class TunnelController: ObservableObject {
     /// Local UDP port on 127.0.0.1 that leads to `ip:port` (talkback). `ip` must be a
     /// literal inside AllowedIPs.
     func localUDPPort(ip: String, port: Int) async -> Int? {
-        guard isStarted else { return nil }
-        let target = ForwardTarget(host: ip, port: port)
+        guard isStarted, let target = ForwardTarget(host: ip, port: port) else { return nil }
         if let local = udpForwards[target] { return local }
         let attempt = generation
         let result: Result<Int, TunnelBridge.Failure> = await onBridge {
@@ -154,6 +153,22 @@ final class TunnelController: ObservableObject {
             NSLog("Tunnel: UDP-Weiterleitung \(ip):\(port) – \(failure.message)")
             return nil
         }
+    }
+
+    /// Frees the UDP forward on `localPort` for the next local sender. Called right before a
+    /// new talkback session starts on it: the previous session's socket may have sent less
+    /// than 3 s ago and would otherwise keep the forward (the start of the new one is lost).
+    func releaseUDPForward(localPort: Int) async {
+        guard isStarted else { return }
+        let failure: String? = await onBridge {
+            do {
+                try TunnelBridge.releaseUDPForward(localPort: localPort)
+                return nil
+            } catch {
+                return error.localizedDescription
+            }
+        }
+        if let failure { NSLog("Tunnel: UDP-Weiterleitung freigeben – \(failure)") }
     }
 
     /// Checks a config with the Go parser (no tunnel needed, nothing is started).
@@ -172,6 +187,17 @@ final class TunnelController: ObservableObject {
             NSLog("Tunnel: \(reason) – \(closed) Verbindung(en) neu aufbauen")
             NotificationCenter.default.post(name: Self.connectionsResetNotification, object: nil)
         }
+    }
+
+    /// Back from sleep: the receive counter stood still while the Mac slept, which the old
+    /// liveness would read as an outage (and later a recovery – a second reset). Starts it
+    /// afresh, then rebuilds the relayed connections once.
+    func didWake() {
+        guard isStarted else { return }
+        liveness = TunnelLiveness()
+        socketClosedAt = nil
+        if state == .down { state = .starting }  // the next sample with a handshake says .up
+        resetConnections(reason: "Ruhezustand beendet")
     }
 
     /// New network: re-resolve the endpoint and rebind the UDP socket.

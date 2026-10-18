@@ -17,16 +17,16 @@ final class TunnelPathTests: XCTestCase {
 
     func testWebhookInsideAllowedIPsGoesThroughForward() {
         XCTAssertEqual(webhook("http://192.168.1.20:8123/api/webhook/door?x=1"),
-                       .forward(ForwardTarget(host: "192.168.1.20", port: 8123)))
+                       .forward(ForwardTarget(host: "192.168.1.20", port: 8123)!))
     }
 
     func testWebhookDefaultPorts() {
-        XCTAssertEqual(webhook("http://192.168.1.20/a"), .forward(ForwardTarget(host: "192.168.1.20", port: 80)))
-        XCTAssertEqual(webhook("https://192.168.1.20/a"), .forward(ForwardTarget(host: "192.168.1.20", port: 443)))
+        XCTAssertEqual(webhook("http://192.168.1.20/a"), .forward(ForwardTarget(host: "192.168.1.20", port: 80)!))
+        XCTAssertEqual(webhook("https://192.168.1.20/a"), .forward(ForwardTarget(host: "192.168.1.20", port: 443)!))
     }
 
     func testWebhookIPv6Literal() {
-        XCTAssertEqual(webhook("https://[fd00::5]:8443/hook"), .forward(ForwardTarget(host: "fd00::5", port: 8443)))
+        XCTAssertEqual(webhook("https://[fd00::5]:8443/hook"), .forward(ForwardTarget(host: "fd00::5", port: 8443)!))
     }
 
     func testWebhookPrivateAddressOutsideAllowedIPsIsRefused() {
@@ -52,7 +52,7 @@ final class TunnelPathTests: XCTestCase {
         XCTAssertEqual(webhook("http://hooks.example.com/a"), .refuse)
         XCTAssertEqual(webhook("http://8.8.8.8/a"), .refuse)
         XCTAssertEqual(webhook("http://[2001:db8::1]/a"), .refuse)
-        XCTAssertEqual(webhook("http://192.168.1.20:8123/a"), .forward(ForwardTarget(host: "192.168.1.20", port: 8123)))
+        XCTAssertEqual(webhook("http://192.168.1.20:8123/a"), .forward(ForwardTarget(host: "192.168.1.20", port: 8123)!))
         XCTAssertEqual(webhook("http://hooks.example.com/a", route: .direct), .direct)
     }
 
@@ -72,32 +72,39 @@ final class TunnelPathTests: XCTestCase {
         XCTAssertEqual(TunnelPath.classify(host: "fe80::1%en0"), .invalid)
     }
 
+    func testWebhookPortOutsideRangeIsRefusedAway() {
+        XCTAssertEqual(webhook("http://192.168.1.20:0/a"), .refuse)
+        XCTAssertEqual(webhook("http://192.168.1.20:65536/a"), .refuse)
+        XCTAssertEqual(webhook("http://192.168.1.20:5000000000/a"), .refuse)
+        XCTAssertEqual(webhook("http://192.168.1.20:65535/a"), .forward(ForwardTarget(host: "192.168.1.20", port: 65535)!))
+    }
+
     func testWebhookIPv4CompatibleUsesEmbeddedAddress() {
         XCTAssertEqual(webhook("https://[::10.0.0.5]/a"), .refuse)
-        XCTAssertEqual(webhook("http://[::192.168.1.20]/a"), .forward(ForwardTarget(host: "192.168.1.20", port: 80)))
+        XCTAssertEqual(webhook("http://[::192.168.1.20]/a"), .forward(ForwardTarget(host: "192.168.1.20", port: 80)!))
         XCTAssertEqual(TunnelPath.classify(host: "::1"), .address("::1"))
         XCTAssertEqual(TunnelPath.classify(host: "::"), .address("::"))
     }
 
     func testWebhook6to4UsesEmbeddedAddress() {
         XCTAssertEqual(webhook("https://[2002:0a00:0005::]/a"), .refuse)
-        XCTAssertEqual(webhook("http://[2002:c0a8:0114::1]/a"), .forward(ForwardTarget(host: "192.168.1.20", port: 80)))
+        XCTAssertEqual(webhook("http://[2002:c0a8:0114::1]/a"), .forward(ForwardTarget(host: "192.168.1.20", port: 80)!))
         XCTAssertEqual(webhook("https://[2002:0808:0808::]/a"), .direct)
     }
 
     func testWebhookIPv4MappedIPv6UsesEmbeddedAddress() {
         XCTAssertEqual(webhook("http://[::ffff:192.168.1.20]:8123/a"),
-                       .forward(ForwardTarget(host: "192.168.1.20", port: 8123)))
+                       .forward(ForwardTarget(host: "192.168.1.20", port: 8123)!))
         XCTAssertEqual(webhook("http://[::ffff:10.0.0.5]/a"), .refuse)
         // Hex spelling of the same mapped addresses.
-        XCTAssertEqual(webhook("http://[::ffff:c0a8:0114]/a"), .forward(ForwardTarget(host: "192.168.1.20", port: 80)))
+        XCTAssertEqual(webhook("http://[::ffff:c0a8:0114]/a"), .forward(ForwardTarget(host: "192.168.1.20", port: 80)!))
         XCTAssertEqual(webhook("http://[::ffff:c0a8:0214]/a"), .refuse)
         XCTAssertEqual(webhook("https://[::ffff:8.8.8.8]/a"), .direct)
     }
 
     func testWebhookNAT64UsesEmbeddedAddress() {
         XCTAssertEqual(webhook("http://[64:ff9b::192.168.1.20]/a"),
-                       .forward(ForwardTarget(host: "192.168.1.20", port: 80)))
+                       .forward(ForwardTarget(host: "192.168.1.20", port: 80)!))
         XCTAssertEqual(webhook("http://[64:ff9b::10.0.0.5]/a"), .refuse)
         XCTAssertEqual(webhook("https://[64:ff9b::8.8.8.8]/a"), .direct)
     }
@@ -149,6 +156,15 @@ final class TunnelPathTests: XCTestCase {
     func testTalkbackAwayOutsideAllowedIPsOrNameIsNotRouted() {
         XCTAssertEqual(TunnelPath.talkback(host: "10.9.9.9", port: 7004, route: .tunnel, allowedIPs: lan), .notRouted)
         XCTAssertEqual(TunnelPath.talkback(host: "cam.local", port: 7004, route: .tunnel, allowedIPs: ["0.0.0.0/0"]), .notRouted)
+    }
+
+    func testTalkbackAwayPortOutsideRangeIsNotRouted() {
+        XCTAssertEqual(TunnelPath.talkback(host: "192.168.1.30", port: 0, route: .tunnel, allowedIPs: lan), .notRouted)
+        XCTAssertEqual(TunnelPath.talkback(host: "192.168.1.30", port: 65536, route: .tunnel, allowedIPs: lan), .notRouted)
+    }
+
+    func testTalkbackAwayZoneIDIsNotRouted() {
+        XCTAssertEqual(TunnelPath.talkback(host: "fd00::30%en0", port: 7004, route: .tunnel, allowedIPs: lan), .notRouted)
     }
 
     func testTalkbackNotRoutedText() {

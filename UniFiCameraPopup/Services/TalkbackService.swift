@@ -259,6 +259,10 @@ final class TalkbackService: ObservableObject {
             sampleRate: session.samplingRate
         )
         TalkbackLog.write("Talkback: Ziel \(target.host):\(target.port), \(target.codec.rawValue), \(target.sampleRate) Hz, \(session.bitsPerSample) Bit")
+        // Away, every session shares one UDP forward per camera, which the router frees for this
+        // one. A talk still flushing its last 0.3 s would take it straight back (and keep it
+        // until 3 s of silence): it is superseded, so it ends now.
+        if ConnectionRouter.shared.isViaTunnel { stopDraining() }
         // Away: through a UDP forward of the tunnel (camera IP inside AllowedIPs), else a notice.
         let routed = try await ConnectionRouter.shared.talkbackTarget(target)
         if routed != target { TalkbackLog.write("Talkback: über den Tunnel (\(routed.host):\(routed.port))") }
@@ -298,6 +302,12 @@ final class TalkbackService: ObservableObject {
             guard current === streamer else { return }
             report(TalkbackError.network(message), entryId: entryId)
         }
+    }
+
+    /// Ends the talks that are still sending their closing silence, at once.
+    private func stopDraining() {
+        draining.values.forEach { $0.stop() }
+        draining = [:]
     }
 
     /// Ends whatever runs now, at once.

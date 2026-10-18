@@ -20,6 +20,12 @@ final class AllowedIPsTests: XCTestCase {
         XCTAssertNil(AllowedIPs.covers(host: "konsole.local", prefixes: ["0.0.0.0/0"]))
     }
 
+    func testZoneIDIsNeverCovered() {
+        XCTAssertEqual(AllowedIPs.covers(host: "fe80::1%en0", prefixes: ["::/0", "fe80::/10"]), false)
+        XCTAssertEqual(AllowedIPs.covers(host: "fd00::1%lo0", prefixes: ["fd00::/64"]), false)
+        XCTAssertEqual(AllowedIPs.covers(host: "fe80::1", prefixes: ["fe80::%en0/10"]), false)
+    }
+
     func testBrokenPrefixIsIgnored() {
         XCTAssertEqual(AllowedIPs.covers(host: "192.168.1.1", prefixes: ["192.168.1.0/99", "x/8"]), false)
     }

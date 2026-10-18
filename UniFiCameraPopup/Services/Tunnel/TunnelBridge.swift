@@ -25,16 +25,27 @@ enum TunnelBridge {
 
     /// Local TCP port on 127.0.0.1 that leads to `target` through the tunnel.
     static func addForward(_ target: ForwardTarget) throws -> Int {
-        let port = WgAddForward(0, target.host, Int32(target.port))
+        guard let remote = cPort(target.port) else { throw invalidPort(target.port) }
+        let port = WgAddForward(0, target.host, remote)
         guard port > 0 else { throw Failure(message: take(WgLastError()) ?? "Weiterleitung fehlgeschlagen") }
         return Int(port)
     }
 
     /// Local UDP port on 127.0.0.1 that leads to `ip:port` through the tunnel (talkback).
     static func addUDPForward(ip: String, port: Int) throws -> Int {
-        let local = WgAddUDPForward(0, ip, Int32(port))
+        guard let remote = cPort(port) else { throw invalidPort(port) }
+        let local = WgAddUDPForward(0, ip, remote)
         guard local > 0 else { throw Failure(message: take(WgLastError()) ?? "Weiterleitung fehlgeschlagen") }
         return Int(local)
+    }
+
+    /// Unlocks the UDP forward on 127.0.0.1:`localPort` for the next local sender:
+    /// a new talkback session takes it over at once (else only after 3 s of silence).
+    static func releaseUDPForward(localPort: Int) throws {
+        guard let local = cPort(localPort) else { throw invalidPort(localPort) }
+        guard WgReleaseUDPForward(local) == 0 else {
+            throw Failure(message: take(WgLastError()) ?? "Weiterleitung nicht freigegeben")
+        }
     }
 
     /// Closes all relayed TCP connections; the local ports stay valid.
@@ -49,6 +60,15 @@ enum TunnelBridge {
 
     static func status() -> TunnelStatus {
         TunnelStatus.decode(take(WgStatus()) ?? "")
+    }
+
+    /// A port for the C API; nil outside 1…65535 (`Int32(_:)` would trap on overflow).
+    private static func cPort(_ port: Int) -> Int32? {
+        ForwardTarget.validPorts.contains(port) ? Int32(port) : nil
+    }
+
+    private static func invalidPort(_ port: Int) -> Failure {
+        Failure(message: "Ungültiger Port \(port)")
     }
 
     private static func take(_ pointer: UnsafeMutablePointer<CChar>?) -> String? {

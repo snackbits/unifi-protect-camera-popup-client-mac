@@ -3,11 +3,14 @@ import Foundation
 public enum AllowedIPs {
     /// Whether `host` lies inside one of the CIDR `prefixes` (e.g. "192.168.1.0/24", "::/0").
     /// nil when `host` is a name: whether it is routed only shows once it resolves.
+    /// An address with a zone ID ("fe80::1%en0", accepted by Darwin's inet_pton) is never
+    /// covered: it names an interface of this Mac, not a host behind the tunnel.
     public static func covers(host: String, prefixes: [String]) -> Bool? {
+        if host.contains("%") { return false }
         guard let address = bytes(of: host) else { return nil }
         for prefix in prefixes {
             let parts = prefix.split(separator: "/", maxSplits: 1).map(String.init)
-            guard let net = bytes(of: parts[0]), net.count == address.count else { continue }
+            guard let first = parts.first, !first.contains("%"), let net = bytes(of: first), net.count == address.count else { continue }
             let bits = parts.count == 2 ? Int(parts[1]) ?? -1 : net.count * 8
             guard bits >= 0, bits <= net.count * 8 else { continue }
             if matches(address, net, bits: bits) { return true }

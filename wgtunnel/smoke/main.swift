@@ -51,6 +51,11 @@ check(cameras == 2, "HTTPS über den Tunnel: \(cameras) Kameras")
 
 let status = take(WgStatus()) ?? ""
 check(status.contains("\"up\":true") && !status.contains("\"lastHandshakeUnix\":0"), "Handshake im Status")
+let udpPort = WgAddUDPForward(0, "192.168.1.1", 7449)
+check(udpPort > 0, "WgAddUDPForward -> 127.0.0.1:\(udpPort)")
+check(WgReleaseUDPForward(udpPort) == 0, "WgReleaseUDPForward")
+check(WgReleaseUDPForward(udpPort == 1 ? 2 : 1) == -1 && take(WgLastError()) != nil,
+      "WgReleaseUDPForward ohne Weiterleitung -> -1")
 check(WgResetConnections() >= 0, "WgResetConnections")
 check(take(WgRebind()) == nil, "WgRebind")
 WgStop()

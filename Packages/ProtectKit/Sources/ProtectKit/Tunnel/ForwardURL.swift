@@ -1,14 +1,19 @@
 import Foundation
 
-/// A TCP destination behind the tunnel.
+/// A TCP or UDP destination behind the tunnel.
 public struct ForwardTarget: Hashable, Sendable {
     public let host: String
     public let port: Int
 
-    public init(host: String, port: Int) {
+    /// nil for a port outside 1…65535 (refused, never clamped: the C API takes an `Int32`)
+    /// and for a host with a zone ID ("fe80::1%en0" names an interface of this Mac).
+    public init?(host: String, port: Int) {
+        guard Self.validPorts.contains(port), !host.isEmpty, !host.contains("%") else { return nil }
         self.host = host
         self.port = port
     }
+
+    public static let validPorts = 1...65535
 }
 
 /// Maps console and camera addresses onto local forwards (127.0.0.1:<port>).
@@ -20,7 +25,7 @@ public enum ForwardURL {
         guard let url = ProtectClient.baseURL(for: consoleHost),
               let comps = URLComponents(url: url, resolvingAgainstBaseURL: false),
               let host = comps.host.map(unbracketed), !host.isEmpty else { return nil }
-        return ForwardTarget(host: host, port: comps.port ?? 443)
+        return ForwardTarget(host: host, port: comps.port ?? 443)  // nil for a port outside 1…65535
     }
 
     /// The host string handed to `ProtectClient` for a forward.
@@ -33,7 +38,7 @@ public enum ForwardURL {
         guard let comps = URLComponents(string: url),
               comps.scheme?.lowercased() == "rtsp",
               let host = comps.host.map(unbracketed), !host.isEmpty else { return nil }
-        return ForwardTarget(host: host, port: comps.port ?? 554)
+        return ForwardTarget(host: host, port: comps.port ?? 554)  // nil for a port outside 1…65535
     }
 
     /// Same URL with host and port replaced by 127.0.0.1:<localPort>; path and query stay.

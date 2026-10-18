@@ -25,6 +25,11 @@ final class ConnectionRouter: ObservableObject {
     @Published private(set) var testOutcome: TunnelTestOutcome?
     /// Set while neither the direct path nor the tunnel reaches the console.
     @Published private(set) var problem: String?
+    /// False until an evaluation has applied a route, and again while a new one is pending
+    /// (start, network change, wake, setting changed, a route change awaiting confirmation)
+    /// or both paths failed. Until then a certificate error may come from a foreign device
+    /// on the current network (192.168.1.1 in a hotel): no re-trust offer for it.
+    @Published private(set) var isRouteSettled = false
 
     private let settings = SettingsStore.shared
     private let store = TunnelStore.shared
@@ -64,7 +69,8 @@ final class ConnectionRouter: ObservableObject {
             forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
         ) { [weak self] _ in
             Task { @MainActor in
-                self?.tunnel.resetConnections(reason: "Ruhezustand beendet")
+                self?.tunnel.didWake()
+                self?.isRouteSettled = false
                 self?.scheduleEvaluation(reason: "Aufwachen", delay: 2)
             }
         }
@@ -139,6 +145,8 @@ final class ConnectionRouter: ObservableObject {
                   let localPort = UInt16(exactly: local) else {
                 throw TalkbackError.network("Weiterleitung durch den Tunnel fehlgeschlagen")
             }
+            // A new session: the forward may still be locked to the previous session's socket.
+            await tunnel.releaseUDPForward(localPort: local)
             return TalkbackTarget(host: "127.0.0.1", port: localPort, codec: target.codec, sampleRate: target.sampleRate)
         }
     }
@@ -156,6 +164,7 @@ final class ConnectionRouter: ObservableObject {
 
     /// Tunnel imported, replaced or removed, or „Tunnel verwenden“ changed.
     func configurationChanged() {
+        isRouteSettled = false
         hysteresis.reset()
         failureBackoff.reset()
         scheduleEvaluation(reason: "Einstellung geändert", delay: 0)
@@ -178,6 +187,8 @@ final class ConnectionRouter: ObservableObject {
     func removeTunnel() {
         store.remove()
         testOutcome = nil
+        // Down at once, like the import paths: the evaluation only follows after a probe.
+        tunnel.stop()
         configurationChanged()
     }
 
@@ -236,6 +247,7 @@ final class ConnectionRouter: ObservableObject {
         lastPathSignature = signature
         guard !first else { return }  // start() evaluates already
         Task { await tunnel.networkChanged() }
+        isRouteSettled = false
         // A new network is a fresh start for the route: no half-confirmed candidate, no backoff.
         hysteresis.reset()
         failureBackoff.reset()
@@ -290,6 +302,7 @@ final class ConnectionRouter: ObservableObject {
             await apply(confirmed)
         } else {
             NSLog("Route: \(wanted) erst nach zweiter Prüfung")
+            isRouteSettled = false
             scheduleEvaluation(reason: "Bestätigung", delay: confirmDelay)
         }
     }
@@ -300,6 +313,7 @@ final class ConnectionRouter: ObservableObject {
             failureBackoff.reset()
             if route != .direct { setRoute(.direct) }
             if !isTesting { tunnel.stop() }
+            isRouteSettled = true
             scheduleRecheck()
             return
         }
@@ -329,6 +343,7 @@ final class ConnectionRouter: ObservableObject {
         failureBackoff.reset()
         // A (re)started tunnel or a new forward means new local ports: the client must reconnect.
         if route != .tunnel || !wasRunning || !hadForward { setRoute(.tunnel) }
+        isRouteSettled = true
         scheduleRecheck()
     }
 
@@ -337,6 +352,7 @@ final class ConnectionRouter: ObservableObject {
     private func bothPathsFailed(_ reason: String) {
         let delay = failureBackoff.next()
         problem = "Konsole weder direkt noch über den Tunnel erreichbar (\(reason))."
+        isRouteSettled = false
         NSLog("Route: kein Weg zur Konsole – \(reason); neuer Versuch in \(Int(delay)) s")
         hysteresis.reset()
         recheck?.cancel()
