@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A10000000000000000000081 /* StatusPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000081 /* StatusPanel.swift */; };
 		A10000000000000000000075 /* CamerasTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000075 /* CamerasTab.swift */; };
 		A10000000000000000000076 /* CameraAdvancedSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000076 /* CameraAdvancedSection.swift */; };
 		A10000000000000000000077 /* ActionEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000077 /* ActionEditorSheet.swift */; };
@@ -53,6 +54,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		A20000000000000000000081 /* StatusPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusPanel.swift; sourceTree = "<group>"; };
 		A20000000000000000000075 /* CamerasTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CamerasTab.swift; sourceTree = "<group>"; };
 		A20000000000000000000076 /* CameraAdvancedSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraAdvancedSection.swift; sourceTree = "<group>"; };
 		A20000000000000000000077 /* ActionEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionEditorSheet.swift; sourceTree = "<group>"; };
@@ -111,6 +113,14 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		A40000000000000000000073 /* StatusPanel */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000081 /* StatusPanel.swift */,
+			);
+			path = StatusPanel;
+			sourceTree = "<group>";
+		};
 		A40000000000000000000001 = {
 			isa = PBXGroup;
 			children = (
@@ -226,6 +236,7 @@
 				A40000000000000000000070 /* Design */,
 				A40000000000000000000071 /* Settings */,
 				A40000000000000000000072 /* Popup */,
+				A40000000000000000000073 /* StatusPanel */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -328,6 +339,7 @@
 				A10000000000000000000045 /* ProtectEventService.swift in Sources */,
 				A10000000000000000000010 /* VLCPlayerView.swift in Sources */,
 				A10000000000000000000011 /* PopupWindow.swift in Sources */,
+				A10000000000000000000081 /* StatusPanel.swift in Sources */,
 				A10000000000000000000018 /* HelpView.swift in Sources */,
 				A10000000000000000000042 /* WhatsNewView.swift in Sources */,
 				A10000000000000000000060 /* OnboardingView.swift in Sources */,

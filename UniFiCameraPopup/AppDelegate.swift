@@ -19,6 +19,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var updateMenuItem: NSMenuItem?
     private var unmuteMenuItem: NSMenuItem?
     private var camerasMenuItem: NSMenuItem?
+    /// The former status menu; shown on right-click / ⌃-click.
+    private var classicMenu: NSMenu?
+    private lazy var statusPanel: StatusPanelController = StatusPanelController { [unowned self] clock in
+        AnyView(StatusPanelView(
+            settings: settings,
+            events: EventLog.shared,
+            protectEvents: protectEvents,
+            relay: webSocketClient,
+            protect: ProtectSession.shared,
+            clock: clock,
+            actions: StatusPanelActions(
+                openSettings: { [weak self] in
+                    self?.statusPanel.close()
+                    self?.openSettings()
+                },
+                openHelp: { [weak self] in
+                    self?.statusPanel.close()
+                    self?.openHelp()
+                },
+                quit: { NSApp.terminate(nil) },
+                openCamera: { [weak self] id in
+                    self?.statusPanel.close()
+                    self?.openCamera(entryId: id)
+                },
+                close: { [weak self] in self?.statusPanel.close() },
+                resize: { [weak self] size in self?.statusPanel.resize(to: size) }
+            )
+        ))
+    }
     private var updateCheckTimer: Timer?
     private var muteExpiryTimer: Timer?
     private var dndCheckTimer: Timer?
@@ -188,7 +217,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         quitItem.target = self
         menu.addItem(quitItem)
 
-        statusItem?.menu = menu
+        classicMenu = menu
+        if let button = statusItem?.button {
+            button.target = self
+            button.action = #selector(statusItemClicked(_:))
+            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+        }
 
         Task {
             await observeConnectionStatus()
@@ -472,6 +506,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func openOnboarding() { OnboardingWindow.show() }
+
+    /// Left click: template panel. Right click or ⌃-click: the former menu (version, update, cameras …).
+    @objc private func statusItemClicked(_ sender: NSStatusBarButton) {
+        let event = NSApp.currentEvent
+        let wantsClassicMenu = event?.type == .rightMouseUp || event?.modifierFlags.contains(.control) == true
+        if wantsClassicMenu {
+            statusPanel.close()
+            statusItem?.menu = classicMenu
+            sender.performClick(nil)
+            statusItem?.menu = nil
+        } else {
+            statusPanel.toggle(from: sender)
+        }
+    }
+
+    private func openCamera(entryId: UUID) {
+        guard let mapping = settings.mappings.first(where: { $0.entryId == entryId }) else { return }
+        PopupController.shared.showHotkeyPopup(for: mapping)
+    }
 
     @objc private func openSettings() {
         SettingsWindowController.shared.show(webSocketClient: webSocketClient, protectEvents: protectEvents)
