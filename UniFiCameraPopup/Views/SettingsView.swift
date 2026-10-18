@@ -437,6 +437,8 @@ struct SettingsView: View {
         pendingImportData = nil
         do {
             try settings.importConfiguration(from: data)
+            // Host, key or pin may have changed; rebuild the client (and with it the event socket).
+            ProtectSession.shared.reconnect()
         } catch {
             transferError = error.localizedDescription
         }

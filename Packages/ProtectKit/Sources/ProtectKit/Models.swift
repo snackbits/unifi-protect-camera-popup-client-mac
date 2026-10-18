@@ -43,7 +43,9 @@ public struct ProtectCamera: Decodable, Equatable, Identifiable, Sendable {
         hasSpeaker = flags?.hasSpeaker ?? false
         hasMic = flags?.hasMic ?? false
 
-        let isDoorbell = c.contains(.lcdMessage)
+        // Only doorbells carry an LCD message; `"lcdMessage": null` on other models is not one.
+        let hasLcdMessage = c.contains(.lcdMessage) && (try? c.decodeNil(forKey: .lcdMessage)) == false
+        let isDoorbell = hasLcdMessage
             || (modelName?.localizedCaseInsensitiveContains("doorbell") ?? false)
         let smart = ((flags?.smartDetectTypes ?? []) + (flags?.smartDetectAudioTypes ?? []))
             .compactMap(TriggerKind.init(wireValue:))

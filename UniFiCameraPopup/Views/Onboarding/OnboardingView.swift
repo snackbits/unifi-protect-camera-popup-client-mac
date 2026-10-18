@@ -21,27 +21,52 @@ final class OnboardingModel: ObservableObject {
 
     @Published var certificateChanged = false
     private var capturedFingerprint: String?
-    /// Fingerprint the user explicitly confirmed after a certificate change; the key is only sent pinned to it.
+    /// Fingerprint the user explicitly confirmed (certificate change or a different console);
+    /// the key is only sent pinned to it, and only to the canonical host it was confirmed for.
     private var confirmedFingerprint: String?
+    private var confirmedHost: String?
     @Published var pendingFingerprint: String?
+    /// Why the trust alert is shown: the known console's certificate changed, or the address
+    /// points at another console than the one whose certificate is pinned.
+    @Published var pendingIsDifferentConsole = false
     @Published var probing = false
+    /// Bumped by every `checkKey()`/probe so a late answer for an earlier attempt is dropped.
+    private var generation = 0
 
     var host: String {
         let manual = manualHost.trimmingCharacters(in: .whitespacesAndNewlines)
         return manual.isEmpty ? selectedHost.trimmingCharacters(in: .whitespacesAndNewlines) : manual
     }
 
-    func resetTrust() { confirmedFingerprint = nil; pendingFingerprint = nil; certificateChanged = false }
+    /// One spelling per console (`https://H/`, `H:443` and `h` are the same console).
+    var canonicalHost: String? { ProtectClient.canonicalHost(host) }
+
+    func resetTrust() {
+        confirmedFingerprint = nil
+        confirmedHost = nil
+        pendingFingerprint = nil
+        pendingIsDifferentConsole = false
+        certificateChanged = false
+    }
 
     /// Phase 1 of re-trust: read the presented fingerprint without sending the API key.
-    func probeNewCertificate() {
+    func probeNewCertificate(differentConsole: Bool = false) {
+        generation += 1
+        let attempt = generation
+        let probeHost = canonicalHost
         probing = true
         keyError = nil
         Task {
-            defer { probing = false }
-            do {
-                pendingFingerprint = try await ProtectClient.probeFingerprint(host: host)
-            } catch {
+            let result: Result<String, Error>
+            do { result = .success(try await ProtectClient.probeFingerprint(host: host)) } catch { result = .failure(error) }
+            guard attempt == generation else { return }  // a newer attempt owns the state
+            probing = false
+            guard canonicalHost == probeHost else { return }
+            switch result {
+            case .success(let fingerprint):
+                pendingIsDifferentConsole = differentConsole
+                pendingFingerprint = fingerprint
+            case .failure(let error):
                 keyError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
             }
         }
@@ -52,6 +77,7 @@ final class OnboardingModel: ObservableObject {
         guard let pending = pendingFingerprint else { return }
         pendingFingerprint = nil
         confirmedFingerprint = pending
+        confirmedHost = canonicalHost
         checkKey()
     }
 
@@ -66,21 +92,41 @@ final class OnboardingModel: ObservableObject {
     }
 
     func checkKey() {
+        let settings = SettingsStore.shared
+        let requestHost = canonicalHost
+        let confirmed = confirmedHost != nil && confirmedHost == requestHost ? confirmedFingerprint : nil
+        let samePinnedHost = requestHost != nil && requestHost == ProtectClient.canonicalHost(settings.protectHost)
+        // While any console is pinned, a different address is never trusted on first use:
+        // confirm the other console's fingerprint first (same alert as a certificate change).
+        if confirmed == nil, settings.protectCertificateFingerprint != nil, !samePinnedHost, requestHost != nil {
+            certificateChanged = false
+            probeNewCertificate(differentConsole: true)
+            return
+        }
+        generation += 1
+        let attempt = generation
         checking = true
         keyError = nil
         certificateChanged = false
-        capturedFingerprint = confirmedFingerprint
-        let settings = SettingsStore.shared
-        let samePinnedHost = host.caseInsensitiveCompare(settings.protectHost.trimmingCharacters(in: .whitespacesAndNewlines)) == .orderedSame
-        let pin = confirmedFingerprint ?? (samePinnedHost ? settings.protectCertificateFingerprint : nil)
+        capturedFingerprint = confirmed
+        let pin = confirmed ?? (samePinnedHost ? settings.protectCertificateFingerprint : nil)
         let client = ProtectClient(host: host, apiKey: apiKey, pinnedFingerprint: pin, onNewFingerprint: { [weak self] fp in
-            Task { @MainActor in self?.capturedFingerprint = fp }
+            Task { @MainActor in
+                guard let self, self.generation == attempt else { return }
+                self.capturedFingerprint = fp
+            }
         })
         Task {
-            defer { client.invalidate() }
+            defer {
+                client.invalidate()
+                // A newer attempt owns `checking`; otherwise this attempt is over on every path.
+                if attempt == generation { checking = false }
+            }
             do {
                 _ = try await client.metaInfo()
                 let cams = try await client.cameras()
+                // Drop the answer if a newer attempt started or the address changed meanwhile.
+                guard attempt == generation, canonicalHost == requestHost else { return }
                 cameras = cams
                 let existing = settings.mappings
                 let configured = Set(existing.filter { $0.protectCameraId != nil && !$0.triggers.isEmpty }.compactMap(\.protectCameraId))
@@ -100,22 +146,35 @@ final class OnboardingModel: ObservableObject {
                 triggerTab = cams.first(where: { selectedCameraIds.contains($0.id) })?.id ?? ""
                 step = .cameras
             } catch {
+                guard attempt == generation, canonicalHost == requestHost else { return }
                 if case ProtectError.certificateChanged = error { certificateChanged = true }
                 keyError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
             }
-            checking = false
         }
+    }
+
+    private static func sameLabel(_ a: String, _ b: String) -> Bool {
+        a.trimmingCharacters(in: .whitespacesAndNewlines)
+            .caseInsensitiveCompare(b.trimmingCharacters(in: .whitespacesAndNewlines)) == .orderedSame
     }
 
     func finish() {
         let settings = SettingsStore.shared
         // Order matters: setting a different host clears the pinned fingerprint.
-        settings.protectHost = host
+        settings.protectHost = canonicalHost ?? host
         if let capturedFingerprint { settings.protectCertificateFingerprint = capturedFingerprint }
         settings.protectAPIKey = apiKey
         for cam in cameras where selectedCameraIds.contains(cam.id) {
             if let index = settings.mappings.firstIndex(where: { $0.protectCameraId == cam.id }) {
                 settings.mappings[index].triggers = triggers[cam.id] ?? []
+            } else if let index = settings.mappings.firstIndex(where: {
+                $0.protectCameraId == nil && Self.sameLabel($0.label, cam.name)
+            }) {
+                // Adopt the existing webhook entry for this camera instead of adding a second
+                // one: popups are keyed by entry, so webhook and Protect events then share one
+                // popup. Everything else (webhook trigger, hotkey, zoom, actions) stays as is.
+                settings.mappings[index].protectCameraId = cam.id
+                settings.mappings[index].triggers = triggers[cam.id] ?? [.ring, .person]
             } else {
                 var mapping = WebhookMapping(rtspsURL: "", label: cam.name)
                 mapping.protectCameraId = cam.id
@@ -158,7 +217,11 @@ struct OnboardingView: View {
             Button("Vertrauen") { model.confirmPendingFingerprint() }
             Button("Abbrechen", role: .cancel) { model.pendingFingerprint = nil }
         } message: {
-            Text("Das Zertifikat deiner Konsole hat sich geändert. Bestätige nur, wenn du es selbst geändert hast (z. B. nach einem Konsolen-Update). Neuer Fingerabdruck:\n\n\(model.pendingFingerprint ?? "")")
+            if model.pendingIsDifferentConsole {
+                Text("„\(model.host)“ ist eine andere Konsole als die bisher eingerichtete. Bestätige nur, wenn das wirklich deine Konsole ist – erst dann wird dein API-Schlüssel dorthin gesendet. Fingerabdruck der neuen Konsole:\n\n\(model.pendingFingerprint ?? "")")
+            } else {
+                Text("Das Zertifikat deiner Konsole hat sich geändert. Bestätige nur, wenn du es selbst geändert hast (z. B. nach einem Konsolen-Update). Neuer Fingerabdruck:\n\n\(model.pendingFingerprint ?? "")")
+            }
         }
     }
 
@@ -265,8 +328,11 @@ struct OnboardingView: View {
             }
             Spacer()
             HStack {
-                Button("Zurück") { model.step = .console }.controlSize(.large)
-                primary(model.checking ? "Prüfe …" : "Verbinden", disabled: model.apiKey.isEmpty || model.checking) { model.checkKey() }
+                Button("Zurück") { model.step = .console }
+                    .controlSize(.large)
+                    .disabled(model.checking || model.probing)
+                primary(model.checking || model.probing ? "Prüfe …" : "Verbinden",
+                        disabled: model.apiKey.isEmpty || model.checking || model.probing) { model.checkKey() }
             }
         }
     }

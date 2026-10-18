@@ -1,5 +1,6 @@
 import Combine
 import Foundation
+import ProtectKit
 import ServiceManagement
 
 @MainActor
@@ -44,8 +45,10 @@ final class SettingsStore: ObservableObject {
         }
     }
 
-    private static func normalizedHost(_ host: String) -> String {
-        host.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    /// Comparison/storage form of a console address (see `ProtectClient.canonicalHost`).
+    /// Unparseable input falls back to its trimmed, lowercased spelling.
+    static func normalizedHost(_ host: String) -> String {
+        ProtectClient.canonicalHost(host) ?? host.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 
     var isProtectConfigured: Bool {
@@ -169,7 +172,7 @@ final class SettingsStore: ObservableObject {
             autoUpdate = saved.autoUpdate ?? true
             disableDuringDND = saved.disableDuringDND ?? false
             muteUntil = saved.muteUntil
-            protectHost = saved.protectHost ?? ""
+            protectHost = saved.protectHost.map { ProtectClient.canonicalHost($0) ?? $0 } ?? ""
             protectCertificateFingerprint = saved.protectCertificateFingerprint
 
             // Decode succeeded: rewrite the (possibly migrated/normalized) payload.
@@ -467,7 +470,7 @@ final class SettingsStore: ObservableObject {
            Self.normalizedHost(host) != Self.normalizedHost(protectHost) {
             protectAPIKey = ""
             protectCertificateFingerprint = nil
-            protectHost = host
+            protectHost = ProtectClient.canonicalHost(host) ?? host
         }
     }
 }

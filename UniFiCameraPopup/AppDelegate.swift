@@ -25,6 +25,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var focusMonitor: FocusMonitor?
     private var connectionStatus: ConnectionStatus = .disconnected
     private var protectStatus: ConnectionStatus = .disconnected
+    /// Mirrors `ProtectSession.shared.client != nil`; webhook-only setups show no Protect status.
+    private var isProtectConfigured = false
     /// Prevents retry loops when an automatic install fails.
     private var autoInstallAttemptedVersionId: String?
 
@@ -192,6 +194,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             await observeProtectStatus()
         }
         Task {
+            await observeProtectClient()
+        }
+        Task {
             await observeUpdateState()
         }
         Task {
@@ -225,12 +230,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    private func observeProtectClient() async {
+        // `@Published` emits in `willSet`: use the emitted value, not the property.
+        for await client in ProtectSession.shared.$client.values {
+            isProtectConfigured = client != nil
+            updateStatusMenu()
+        }
+    }
+
     private func updateStatusMenu() {
-        var parts = [protectStatusLabel]
+        var parts: [String] = []
+        if isProtectConfigured {
+            parts.append(protectStatusLabel)
+        }
         if isRelayRunning {
             parts.append("Status: \(connectionStatus.menuLabel)")
         }
-        statusMenuItem?.title = parts.joined(separator: " · ")
+        statusMenuItem?.title = parts.isEmpty ? "Nicht eingerichtet" : parts.joined(separator: " · ")
         updateStatusBarIcon()
     }
 

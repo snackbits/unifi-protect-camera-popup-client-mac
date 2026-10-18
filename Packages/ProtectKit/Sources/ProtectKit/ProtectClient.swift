@@ -21,7 +21,7 @@ public enum ProtectError: Error, Equatable, LocalizedError {
     }
 }
 
-public final class ProtectClient: NSObject, URLSessionDelegate, @unchecked Sendable {
+public final class ProtectClient: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
     public let baseURL: URL
     private let apiKey: String
     private let lock = NSLock()
@@ -80,6 +80,18 @@ public final class ProtectClient: NSObject, URLSessionDelegate, @unchecked Senda
         comps.path = "/proxy/protect/integration"
         comps.query = nil
         return comps.url
+    }
+
+    /// One spelling per console, so pins and host comparisons cannot be bypassed by
+    /// writing the same address differently ("https://H/", "h:443", " h "):
+    /// lowercased host, plus ":port" only for a non-default port. nil = not a valid host.
+    public static func canonicalHost(_ raw: String) -> String? {
+        guard let url = baseURL(for: raw),
+              let comps = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              let host = comps.host?.lowercased(), !host.isEmpty else { return nil }
+        let name = host.contains(":") && !host.hasPrefix("[") ? "[\(host)]" : host
+        guard let port = comps.port, port != 443 else { return name }
+        return "\(name):\(port)"
     }
 
     // MARK: API
@@ -170,6 +182,19 @@ public final class ProtectClient: NSObject, URLSessionDelegate, @unchecked Senda
         }
         let (disposition, credential) = evaluate(trust: trust)
         completionHandler(disposition, credential)
+    }
+
+    /// Redirects are refused: URLSession would copy the X-API-KEY header onto the new
+    /// request, handing the key to whatever host the console (or an impostor) names.
+    /// The 3xx response itself is returned and surfaces as `ProtectError.http`.
+    public func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        willPerformHTTPRedirection response: HTTPURLResponse,
+        newRequest request: URLRequest,
+        completionHandler: @escaping (URLRequest?) -> Void
+    ) {
+        completionHandler(nil)
     }
 
     /// Pin check for a presented server trust (trust on first use).

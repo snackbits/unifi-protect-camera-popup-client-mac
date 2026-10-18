@@ -31,6 +31,13 @@ final class ModelsTests: XCTestCase {
         XCTAssertEqual(old.supportedTriggers, [.motion])
     }
 
+    func testNullLcdMessageIsNotADoorbell() throws {
+        let json = #"[{"id":"cam-bullet","name":"Garten","type":"G4 Bullet","state":"CONNECTED","lcdMessage":null,"featureFlags":{}}]"#
+        let cam = try XCTUnwrap(try JSONDecoder().decode([ProtectCamera].self, from: Data(json.utf8)).first)
+        XCTAssertFalse(cam.supportedTriggers.contains(.ring))
+        XCTAssertFalse(cam.enabledTriggers.contains(.ring))
+    }
+
     func testDecodesStreamsAndPrefersHigh() throws {
         let s = try JSONDecoder().decode(RTSPSStreams.self, from: fixture("rtsps-stream"))
         XCTAssertEqual(s.preferred, "rtsps://192.168.1.1:7441/HighAlias?enableSrtp")

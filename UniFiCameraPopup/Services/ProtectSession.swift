@@ -34,7 +34,8 @@ final class ProtectSession: ObservableObject {
             onNewFingerprint: { fp in
                 Task { @MainActor in
                     // A late handshake of a replaced client must not pin another console.
-                    guard SettingsStore.shared.protectHost == host else { return }
+                    guard SettingsStore.normalizedHost(SettingsStore.shared.protectHost)
+                            == SettingsStore.normalizedHost(host) else { return }
                     SettingsStore.shared.protectCertificateFingerprint = fp
                 }
             }
