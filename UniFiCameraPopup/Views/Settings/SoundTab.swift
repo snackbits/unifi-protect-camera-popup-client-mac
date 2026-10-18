@@ -55,6 +55,9 @@ struct SoundTab: View {
             if selected == nil {
                 select(store.settings.announcements.first)
             }
+            #if DEBUG
+            if let sample = SnapshotRenderer.soundTabError { errorText = sample }
+            #endif
         }
         .onChange(of: draftText) { _ in
             // The bundled voice can only say the bundled wording.
@@ -80,6 +83,13 @@ struct SoundTab: View {
                 }
                 .padding(.vertical, 6)
                 .padding(.horizontal, 12)
+            }
+            // Without a selection there is no editor card to show the error in.
+            if selected == nil, let errorText {
+                Text(errorText)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color(nsColor: .systemOrange))
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
@@ -170,7 +180,7 @@ struct SoundTab: View {
                     .font(.system(size: 11))
                     .foregroundStyle(Tokens.muted.color)
             }
-            if let errorText {
+            if let errorText, selected != nil {
                 Text(errorText)
                     .font(.system(size: 11))
                     .foregroundStyle(Color(nsColor: .systemOrange))
@@ -282,9 +292,9 @@ struct SoundTab: View {
         Task { @MainActor in
             do {
                 try await store.applySpeech(id: sound.id, text: text, voiceIdentifier: voice)
-                select(store.settings.announcement(id: sound.id))
+                if selectedId == sound.id { select(store.settings.announcement(id: sound.id)) }
             } catch {
-                errorText = message(error)
+                if selectedId == sound.id { errorText = message(error) }
             }
             busy = false
         }
@@ -300,7 +310,7 @@ struct SoundTab: View {
                 let buffer = try await store.previewBuffer(for: sound, text: text, voiceIdentifier: voice)
                 preview.play(buffer, id: sound.id)
             } catch {
-                errorText = message(error)
+                if selectedId == sound.id { errorText = message(error) }
             }
             busy = false
         }

@@ -29,6 +29,8 @@ enum SnapshotRenderer {
 
     /// Read by `CameraDetail` so the "Erweitert" section starts expanded (S3).
     nonisolated(unsafe) static var expandCameraAdvanced = false
+    /// Read by `SoundTab` to show an error line (S5 empty-list variant).
+    nonisolated(unsafe) static var soundTabError: String?
 
     /// Call first in `applicationDidFinishLaunching`; renders and terminates when requested.
     @MainActor
@@ -131,6 +133,14 @@ enum SnapshotRenderer {
             expandCameraAdvanced = false
             write(window: settingsWindow(tab: .sound), appearance: appearance,
                   to: directory.appendingPathComponent("S5-ton-\(suffix).png"))
+            // S5 variant: empty list with an error line below the links.
+            let savedSounds = SoundStore.shared.settings.announcements
+            SoundStore.shared.settings.announcements = []
+            SnapshotRenderer.soundTabError = "Die Datei ist länger als 5 Minuten."
+            write(window: settingsWindow(tab: .sound), appearance: appearance,
+                  to: directory.appendingPathComponent("S5-ton-leer-fehler-\(suffix).png"))
+            SnapshotRenderer.soundTabError = nil
+            SoundStore.shared.settings.announcements = savedSounds
             write(window: settingsWindow(tab: .remote), appearance: appearance,
                   to: directory.appendingPathComponent("S6-unterwegs-\(suffix).png"))
 
