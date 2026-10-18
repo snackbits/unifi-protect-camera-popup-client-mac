@@ -40,17 +40,25 @@ Inhalt Innenabstand 14/40, Abstand 10, Schrift 13. Scrollt, wenn der Inhalt höh
   die Zeile „Sprechen“ (Leertaste halten · Umschalten) entfällt.
 
 ## Phase 6 (Nutzerwunsch, gilt vor Vorlage und Phase 5)
-- Stimme: Auswahlfeld aktiv mit allen angebotenen Piper-Stimmen, Reihenfolge „Thorsten · mittel – mitgeliefert“, dann
+- Stimme: Auswahlfeld aktiv mit allen angebotenen Piper-Stimmen, Reihenfolge „Thorsten · mittel“ (Standard), dann
   Eva K. · sehr niedrig, Karlsson · niedrig, Kerstin · niedrig, MLS · mittel, Ramona · niedrig, Thorsten · niedrig,
-  Thorsten · hoch, Thorsten emotional · mittel; Zusatz „– geladen“ bzw. „– NN MB laden“. Pavoque wird nicht angeboten (CC BY-NC-SA).
+  Thorsten · hoch, Thorsten emotional · mittel; Zusatz „– geladen“ bzw. „– NN MB laden“ (auch bei Thorsten · mittel: keine
+  Stimme ist mitgeliefert, Entscheidung C1 der Schlussprüfung – app.zip bleibt unter GitHubs 100-MB-Grenze). Pavoque wird
+  nicht angeboten (CC BY-NC-SA).
 - Mehrsprecher-Stimme: zweites Auswahlfeld direkt rechts daneben (Thorsten emotional: amüsiert … flüsternd, Standard neutral;
   MLS: Sprecher 1 … 236).
 - Unter der Zeile 11 `muted`: „Wird auf diesem Mac erzeugt – ohne Internet, ohne Konto.“ bzw. bei nicht geladener Stimme
-  „Wird beim ersten Anhören oder Übernehmen geladen (NN MB, einmalig) – danach auf diesem Mac erzeugt, ohne Internet.“;
-  während des Ladens stattdessen Zeile Abstand 8: Fortschrittsbalken 120 breit (`accent`) · „Lade „<Stimme>“ … 23 von 63 MB“
+  „Wird beim ersten Anhören oder Übernehmen geladen (NN MB, einmalig, braucht Internet) – danach auf diesem Mac erzeugt,
+  ohne Internet.“ (bei Thorsten · mittel beginnt sie mit „Die Standardstimme wird …“), rechts daneben Link „Jetzt laden“;
+  während des Ladens stattdessen Zeile Abstand 8: Fortschrittsbalken 120 × 5, Kapsel, Spur `btn2`, Füllung `accent` · „Lade „<Stimme>“ … 23 von 63 MB“
   11 `muted` tabellarisch · Freiraum · Link „Abbrechen“.
 - Darunter 11 `muted` einzeilig: „Lizenz der Stimme: <Lizenz> · <Datensatz>“.
 - Alte macOS-Ansage: 11 System-Orange „macOS (alt) – mit „Übernehmen“ neu erzeugen“ (Feld zeigt die Zielstimme).
 - Neue Karte „Geladene Stimmen“ zwischen Editor und Mikrofon-Karte (nur mit mindestens einer geladenen Stimme):
   Abschnittstitel wie „Ansagen …“, Zeilen Innenabstand 6/12: Name · Qualität füllt · Größe 11 `muted` · Link „Entfernen“
   (Rückfrage nativ).
+- Textfeld: direkt darunter rechtsbündig 11 `muted` tabellarisch „NN von höchstens 1000 Zeichen“; über 1000 Zeichen
+  System-Orange „NNNN Zeichen – höchstens 1000 Zeichen. Kürze den Text oder teile ihn auf zwei Ansagen auf.“ und
+  „Anhören“/„Übernehmen“ deaktiviert (Entscheidung I3 der Schlussprüfung).
+- „Entfernen“ in „Geladene Stimmen“ ist deaktiviert, solange Piper mit dieser Stimme spricht. Thorsten · mittel steht nach
+  dem Laden ebenfalls in der Karte und ist entfernbar (wird beim nächsten Gebrauch wieder geladen).

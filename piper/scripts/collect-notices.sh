@@ -55,7 +55,7 @@ section() {
   echo
   echo "Stimmen (rhasspy/piper-voices, Stand c10ece1aade47bb51c153c893d14e5bf8e5b7117, Modelle MIT):"
   echo "  Thorsten (niedrig, mittel, hoch), Thorsten emotional – Datensatz Thorsten-Voice, CC0 1.0"
-  echo "    https://github.com/thorstenMueller/Thorsten-Voice  (Thorsten mittel ist mitgeliefert)"
+  echo "    https://github.com/thorstenMueller/Thorsten-Voice  (alle Stimmen lädt die App beim ersten Gebrauch)"
   echo "  Kerstin – dataset-voice-kerstin, CC0 1.0  https://github.com/rhasspy/dataset-voice-kerstin"
   echo "  Eva K., Karlsson, Ramona – M-AILABS Speech Dataset (Sprachmodell von rhasspy/piper-voices aus diesem"
   echo "  Datensatz trainiert; Lizenztext des Datensatzes, wörtlich nach https://www.caito.de/2019/01/03/the-m-ailabs-speech-dataset/):"
