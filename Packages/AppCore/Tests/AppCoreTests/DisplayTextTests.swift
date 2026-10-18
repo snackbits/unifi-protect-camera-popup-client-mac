@@ -48,7 +48,10 @@ final class DisplayTextTests: XCTestCase {
         XCTAssertEqual(DisplayText.cameraState(triggerLabels: [], webhook: false, mutedUntil: nil, timeZone: tz), "aus")
         XCTAssertEqual(DisplayText.cameraState(triggerLabels: [], webhook: true, mutedUntil: nil, timeZone: tz), "Webhook")
         XCTAssertEqual(DisplayText.cameraState(triggerLabels: ["Fahrzeug"], webhook: true, mutedUntil: nil, timeZone: tz), "Fahrzeug, Webhook")
-        XCTAssertEqual(DisplayText.cameraState(triggerLabels: ["Person"], webhook: false, mutedUntil: muted, timeZone: tz), "stumm bis 10:56")
+        let now = date("2026-10-18T10:41:00+02:00")
+        XCTAssertEqual(DisplayText.cameraState(triggerLabels: ["Person"], webhook: false, mutedUntil: muted, now: now, timeZone: tz), "stumm bis 10:56")
+        XCTAssertEqual(DisplayText.cameraState(triggerLabels: ["Person"], webhook: false, mutedUntil: date("2026-10-19T09:00:00+02:00"), now: now, timeZone: tz), "stumm bis morgen, 09:00")
+        XCTAssertEqual(DisplayText.cameraState(triggerLabels: ["Person"], webhook: false, mutedUntil: date("2026-10-20T09:00:00+02:00"), now: now, timeZone: tz), "stumm bis 20.10., 09:00")
     }
 
     func testActionAddress() {

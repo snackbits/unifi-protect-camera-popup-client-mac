@@ -76,9 +76,10 @@ public enum DisplayText {
         triggerLabels: [String],
         webhook: Bool,
         mutedUntil: Date?,
+        now: Date = Date(),
         timeZone: TimeZone = .current
     ) -> String {
-        if let mutedUntil { return "stumm bis \(time(mutedUntil, timeZone: timeZone))" }
+        if let mutedUntil { return "stumm " + until(mutedUntil, now: now, timeZone: timeZone) }
         var parts = triggerLabels
         if webhook { parts.append("Webhook") }
         return parts.isEmpty ? "aus" : parts.joined(separator: ", ")
