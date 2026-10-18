@@ -27,6 +27,7 @@ public final class ProtectClient: NSObject, URLSessionDelegate, @unchecked Senda
     private let lock = NSLock()
     private var pinnedFingerprint: String?
     private var sawChangedCertificate = false
+    private var isInvalidated = false
     private let onNewFingerprint: @Sendable (String) -> Void
     private var session: URLSession!
 
@@ -104,6 +105,9 @@ public final class ProtectClient: NSObject, URLSessionDelegate, @unchecked Senda
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         }
 
+        // Creating a task on an invalidated session raises an NSException, so fail early.
+        if lock.withLock({ isInvalidated }) { throw ProtectError.unreachable("Verbindung beendet") }
+
         let data: Data
         let response: URLResponse
         do {
@@ -121,6 +125,15 @@ public final class ProtectClient: NSObject, URLSessionDelegate, @unchecked Senda
         do { return try JSONDecoder().decode(T.self, from: data) } catch { throw ProtectError.decoding }
     }
 
+    // MARK: Lifecycle
+
+    /// Cancels in-flight requests and open WebSockets and releases the session.
+    /// URLSession retains its delegate, so owners must call this when replacing or discarding the client.
+    public func invalidate() {
+        lock.withLock { isInvalidated = true }
+        session.invalidateAndCancel()
+    }
+
     // MARK: URLSessionDelegate (TOFU pinning)
 
     public func urlSession(
@@ -129,24 +142,38 @@ public final class ProtectClient: NSObject, URLSessionDelegate, @unchecked Senda
         completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
     ) {
         guard challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust,
-              let trust = challenge.protectionSpace.serverTrust,
-              let chain = SecTrustCopyCertificateChain(trust) as? [SecCertificate],
-              let leaf = chain.first else {
+              let trust = challenge.protectionSpace.serverTrust else {
             completionHandler(.performDefaultHandling, nil)
             return
         }
+        let (disposition, credential) = evaluate(trust: trust)
+        completionHandler(disposition, credential)
+    }
+
+    /// Pin check for a presented server trust (trust on first use).
+    func evaluate(trust: SecTrust) -> (URLSession.AuthChallengeDisposition, URLCredential?) {
+        guard let chain = SecTrustCopyCertificateChain(trust) as? [SecCertificate],
+              let leaf = chain.first else {
+            return (.performDefaultHandling, nil)
+        }
         let presented = CertificatePinning.fingerprint(of: SecCertificateCopyData(leaf) as Data)
-        let decision = lock.withLock { CertificatePinning.decide(presented: presented, pinned: pinnedFingerprint) }
+        let decision = lock.withLock { () -> PinDecision in
+            let d = CertificatePinning.decide(presented: presented, pinned: pinnedFingerprint)
+            switch d {
+            case .trustAndRemember(let fp): pinnedFingerprint = fp
+            case .trust: break
+            case .reject: sawChangedCertificate = true
+            }
+            return d
+        }
         switch decision {
         case .trustAndRemember(let fp):
-            lock.withLock { pinnedFingerprint = fp }
             onNewFingerprint(fp)
-            completionHandler(.useCredential, URLCredential(trust: trust))
+            return (.useCredential, URLCredential(trust: trust))
         case .trust:
-            completionHandler(.useCredential, URLCredential(trust: trust))
+            return (.useCredential, URLCredential(trust: trust))
         case .reject:
-            lock.withLock { sawChangedCertificate = true }
-            completionHandler(.cancelAuthenticationChallenge, nil)
+            return (.cancelAuthenticationChallenge, nil)
         }
     }
 }
