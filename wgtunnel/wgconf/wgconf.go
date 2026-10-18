@@ -77,6 +77,29 @@ func errAt(line int, format string, a ...any) error {
 	return &ParseError{Line: line, Msg: fmt.Sprintf(format, a...)}
 }
 
+// unknownKey describes a key that is not understood. Only plain names are
+// quoted: a stray line of key material ("base64…=") parses as a "key" too,
+// and an error message must never echo it.
+func unknownKey(key, section string) string {
+	if isPlainName(key) {
+		return fmt.Sprintf("unbekannter Schlüssel %q in %s", key, section)
+	}
+	return "unbekannte Zeile in " + section
+}
+
+// isPlainName reports whether key consists of ASCII letters only (^[A-Za-z]+$).
+func isPlainName(key string) bool {
+	if key == "" {
+		return false
+	}
+	for _, r := range key {
+		if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') {
+			return false
+		}
+	}
+	return true
+}
+
 // Keys only meaningful for wg-quick on a real interface. They are accepted and ignored.
 var ignoredInterfaceKeys = map[string]bool{
 	"table": true, "preup": true, "postup": true, "predown": true, "postdown": true,
@@ -193,6 +216,9 @@ func Parse(text string) (*Config, error) {
 			return nil, errAt(ln, "Schlüsselname fehlt")
 		}
 		if section == "" {
+			if !isPlainName(key) {
+				return nil, errAt(ln, "unbekannte Zeile vor dem ersten Abschnitt")
+			}
 			return nil, errAt(ln, "%q steht vor dem ersten Abschnitt", key)
 		}
 		// Keys that may legitimately appear multiple times (values are merged).
@@ -201,7 +227,7 @@ func Parse(text string) (*Config, error) {
 		if section == "peer" {
 			seen = seenPeer
 		}
-		if prev, ok := seen[key]; ok && !multi {
+		if prev, ok := seen[key]; ok && !multi && isPlainName(key) {
 			return nil, errAt(ln, "%q doppelt (zuerst in Zeile %d)", key, prev)
 		}
 		seen[key] = ln
@@ -248,7 +274,7 @@ func Parse(text string) (*Config, error) {
 					cfg.Warnings = append(cfg.Warnings, fmt.Sprintf("Zeile %d: %q wird ignoriert", ln, key))
 					continue
 				}
-				return nil, errAt(ln, "unbekannter Schlüssel %q in [Interface]", key)
+				return nil, errAt(ln, "%s", unknownKey(key, "[Interface]"))
 			}
 		} else {
 			switch key {
@@ -289,7 +315,7 @@ func Parse(text string) (*Config, error) {
 				}
 				peer.PersistentKeepalive = int(n)
 			default:
-				return nil, errAt(ln, "unbekannter Schlüssel %q in [Peer]", key)
+				return nil, errAt(ln, "%s", unknownKey(key, "[Peer]"))
 			}
 		}
 	}

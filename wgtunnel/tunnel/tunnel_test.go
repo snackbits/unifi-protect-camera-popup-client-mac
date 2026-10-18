@@ -479,6 +479,35 @@ func TestResetConnectionsClearsUDPLock(t *testing.T) {
 	}
 }
 
+func TestReleaseUDPForwardHandsOverAtOnce(t *testing.T) {
+	tun, _, port, first := startUDP(t)
+	if err := tun.ReleaseUDPForward(port); err != nil {
+		t.Fatal(err)
+	}
+	next := udpSender(t, port) // clock unchanged: only the release frees the lock
+	if !udpRoundTrip(t, next, "next-session", 5*time.Second) {
+		t.Fatal("new sender not accepted right after ReleaseUDPForward")
+	}
+	// The new session holds the lock again: the old sender is now foreign.
+	if udpRoundTrip(t, first, "stale", time.Second) {
+		t.Fatal("old sender still answered after the release")
+	}
+	if got := tun.UDPForeignDropped.Load(); got != 1 {
+		t.Fatalf("dropped %d foreign datagrams, want 1", got)
+	}
+}
+
+func TestReleaseUDPForwardRejectsUnknownPortAndClosedTunnel(t *testing.T) {
+	tun, _, port, _ := startUDP(t)
+	if err := tun.ReleaseUDPForward(port + 1); err == nil {
+		t.Fatal("release of a port without UDP forward succeeded")
+	}
+	tun.Close()
+	if err := tun.ReleaseUDPForward(port); err == nil {
+		t.Fatal("release after Close succeeded")
+	}
+}
+
 func TestIPv4MappedTargetsFollowAllowedIPs(t *testing.T) {
 	tun := startApp(t, startHome(t, ""))
 	if _, err := tun.AddForward(0, "::ffff:10.0.0.1", 7448); err == nil {

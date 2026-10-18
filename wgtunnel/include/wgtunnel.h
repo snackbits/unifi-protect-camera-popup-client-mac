@@ -18,8 +18,11 @@ void WgStop(void);
 /// remoteHost must be (or resolve to) an address inside the peer's AllowedIPs.
 int WgAddForward(int localPort, const char *remoteHost, int remotePort);
 /// UDP; remoteHost must be an IP literal inside AllowedIPs. One local sender at
-/// a time: others are dropped until it was silent for 3 s or a reset ran.
+/// a time: others are dropped until it was silent for 3 s, a reset or a release ran.
 int WgAddUDPForward(int localPort, const char *remoteHost, int remotePort);
+/// Unlocks the UDP forward on 127.0.0.1:localPort for the next local sender
+/// (right before a new talkback session). 0, or -1 (see WgLastError).
+int WgReleaseUDPForward(int localPort);
 /// Number of relayed TCP connections closed (listeners stay open); also
 /// unlocks every UDP forward for the next local sender.
 int WgResetConnections(void);
@@ -27,7 +30,7 @@ int WgResetConnections(void);
 char *WgRebind(void);
 /// JSON status, {"up":false} when stopped.
 char *WgStatus(void);
-/// Last error of WgAddForward/WgAddUDPForward, or NULL.
+/// Last error of WgAddForward/WgAddUDPForward/WgReleaseUDPForward, or NULL.
 char *WgLastError(void);
 void WgFree(char *p);
 

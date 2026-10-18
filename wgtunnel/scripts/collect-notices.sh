@@ -8,6 +8,8 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="${ROOT}/../UniFiCameraPopup/ThirdPartyNotices.txt"
 GOROOT_DIR="$("${ROOT}/scripts/fetch-go.sh")"
 GO="${ROOT}/scripts/go.sh"
+# A failed run must not leave a half-written file behind (set -e stops before mv).
+trap 'rm -f "${OUT}.tmp"' EXIT
 
 "${GO}" mod download
 {
@@ -19,7 +21,7 @@ GO="${ROOT}/scripts/go.sh"
   cat "${GOROOT_DIR}/LICENSE"
   "${GO}" GOOS=darwin CGO_ENABLED=1 list -deps \
     -f '{{if and .Module (not .Module.Main)}}{{.Module.Path}}	{{.Module.Version}}	{{.Module.Dir}}{{end}}' ./capi \
-    | sort -u | while IFS=$'\t' read -r path version dir; do
+    | LC_ALL=C sort -u | while IFS=$'\t' read -r path version dir; do
       echo
       echo "--- ${path} ${version} ---"
       echo
@@ -31,5 +33,6 @@ GO="${ROOT}/scripts/go.sh"
         fi
       done
     done
-} > "${OUT}"
+} > "${OUT}.tmp"
+mv "${OUT}.tmp" "${OUT}"
 echo "collect-notices: ${OUT}"

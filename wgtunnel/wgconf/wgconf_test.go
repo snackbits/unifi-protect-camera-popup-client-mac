@@ -165,6 +165,38 @@ func TestErrors(t *testing.T) {
 	}
 }
 
+// A stray key line (e.g. a pasted private key with its "=" padding) parses as
+// an unknown "key": the error must never echo it.
+func TestUnknownLineNeverQuotesKeyMaterial(t *testing.T) {
+	iface := "[Interface]\nPrivateKey = " + k1 + "\nAddress = 10.0.0.2/32\n"
+	peer := "[Peer]\nPublicKey = " + k2 + "\nAllowedIPs = 10.0.0.0/24\nEndpoint = 1.2.3.4:51820\n"
+	cases := []struct{ name, txt string }{
+		{"interface", iface + k2 + "\n" + peer},
+		{"peer", iface + peer + k2 + "\n"},
+		{"before section", k2 + "\n" + iface + peer},
+		{"duplicate", iface + k2 + "\n" + k2 + "\n" + peer},
+	}
+	stem := strings.TrimRight(k2, "=")
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := Parse(tc.txt)
+			if err == nil {
+				t.Fatal("expected an error")
+			}
+			if strings.Contains(err.Error(), stem) || strings.Contains(strings.ToLower(err.Error()), strings.ToLower(stem)) {
+				t.Fatalf("error quotes key material: %q", err)
+			}
+			if !strings.Contains(err.Error(), "unbekannte") && !strings.Contains(err.Error(), "Zeile") {
+				t.Fatalf("unexpected error %q", err)
+			}
+		})
+	}
+	// Plain key names are still quoted, they help finding the typo.
+	if _, err := Parse(iface + "Foo = bar\n" + peer); err == nil || !strings.Contains(err.Error(), `"foo"`) {
+		t.Fatalf("got %v, want the key name quoted", err)
+	}
+}
+
 func TestKeyFormattingIsRedacted(t *testing.T) {
 	c, err := Parse(unifiExport)
 	if err != nil {

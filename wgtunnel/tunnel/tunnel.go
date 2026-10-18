@@ -48,7 +48,7 @@ type Tunnel struct {
 	listeners []io.Closer
 	byRemote  map[string]int      // "tcp/host:port" or "udp/ip:port" -> local port
 	active    map[*relay]struct{} // relayed TCP connections currently open
-	udpLocks  []*udpLock          // one per UDP forward
+	udpLocks  map[int]*udpLock    // local port -> sender lock of that UDP forward
 	closed    bool
 
 	// Replaceable in tests: clock for UDP sender locks, DNS through the tunnel.
@@ -75,7 +75,7 @@ func (r *relay) close() {
 
 // udpLock is the local sender a UDP forward serves. The first sender takes
 // the lock; another sender gets it only after the locked one has sent nothing
-// for idle, or after clear (ResetConnections).
+// for idle, or after clear (ResetConnections, ReleaseUDPForward).
 type udpLock struct {
 	idle time.Duration
 	now  func() time.Time
@@ -111,9 +111,15 @@ func (l *udpLock) clear() {
 	l.mu.Unlock()
 }
 
+// ResolveTimeout bounds one endpoint lookup (Start, Rebind): a stuck resolver
+// must not keep the bridge queue busy for good.
+const ResolveTimeout = 10 * time.Second
+
 // Resolver maps an endpoint host name to an IP (outside the tunnel).
 var Resolver = func(host string) (netip.Addr, error) {
-	ips, err := net.DefaultResolver.LookupNetIP(context.Background(), "ip", host)
+	ctx, cancel := context.WithTimeout(context.Background(), ResolveTimeout)
+	defer cancel()
+	ips, err := net.DefaultResolver.LookupNetIP(ctx, "ip", host)
 	if err != nil {
 		return netip.Addr{}, err
 	}
@@ -168,7 +174,7 @@ func StartConfig(cfg *wgconf.Config, logLevel int) (*Tunnel, error) {
 	}
 	return &Tunnel{
 		Config: cfg, Net: tnet, dev: dev,
-		byRemote: map[string]int{}, active: map[*relay]struct{}{},
+		byRemote: map[string]int{}, active: map[*relay]struct{}{}, udpLocks: map[int]*udpLock{},
 		now: time.Now, lookupHost: tnet.LookupContextHost,
 	}, nil
 }
@@ -369,7 +375,10 @@ func (t *Tunnel) ResetConnections() int {
 	t.mu.Lock()
 	rs := t.active
 	t.active = map[*relay]struct{}{}
-	locks := t.udpLocks
+	locks := make([]*udpLock, 0, len(t.udpLocks))
+	for _, l := range t.udpLocks {
+		locks = append(locks, l)
+	}
 	t.mu.Unlock()
 	for r := range rs {
 		r.close()
@@ -378,6 +387,25 @@ func (t *Tunnel) ResetConnections() int {
 		l.clear()
 	}
 	return len(rs)
+}
+
+// ReleaseUDPForward unlocks the UDP forward on 127.0.0.1:localPort, so the
+// next local sender takes it over at once instead of after UDPRelockIdle.
+// Call it right before a new talkback session starts on that forward; the
+// lock then holds again for the whole session.
+func (t *Tunnel) ReleaseUDPForward(localPort int) error {
+	t.mu.Lock()
+	lock, ok := t.udpLocks[localPort]
+	closed := t.closed
+	t.mu.Unlock()
+	if closed {
+		return errors.New("Tunnel geschlossen")
+	}
+	if !ok {
+		return fmt.Errorf("keine UDP-Weiterleitung auf Port %d", localPort)
+	}
+	lock.clear()
+	return nil
 }
 
 // Rebind re-resolves endpoint host names and rebinds the UDP socket. Call after
@@ -406,7 +434,7 @@ func (t *Tunnel) Rebind() error {
 // forward serves one local sender at a time: the first one locks it, replies
 // go only to it, and datagrams from other local addresses are dropped (counted
 // in UDPForeignDropped) until the locked sender has been silent for
-// UDPRelockIdle or ResetConnections ran. Enough for talkback (one sender per
+// UDPRelockIdle, or ResetConnections or ReleaseUDPForward ran. Enough for talkback (one sender per
 // session, a new source port each session).
 func (t *Tunnel) AddUDPForward(localPort int, remoteHost string, remotePort int) (int, error) {
 	raddr, err := netip.ParseAddrPort(net.JoinHostPort(remoteHost, strconv.Itoa(remotePort)))
@@ -429,7 +457,7 @@ func (t *Tunnel) AddUDPForward(localPort int, remoteHost string, remotePort int)
 		}
 		localPort := lc.LocalAddr().(*net.UDPAddr).Port
 		lock := &udpLock{idle: UDPRelockIdle, now: t.now}
-		t.udpLocks = append(t.udpLocks, lock) // lookup holds mu while open runs
+		t.udpLocks[localPort] = lock // lookup holds mu while open runs
 		go func() {
 			buf := make([]byte, 65535)
 			for {

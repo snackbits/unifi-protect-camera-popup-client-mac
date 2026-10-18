@@ -110,12 +110,22 @@ func WgAddForward(localPort C.int, remoteHost *C.char, remotePort C.int) C.int {
 
 // WgAddUDPForward: same for UDP (remoteHost must be an IP literal inside
 // AllowedIPs). One local sender at a time: others are dropped until it has been
-// silent for 3 s or WgResetConnections ran.
+// silent for 3 s, or WgResetConnections or WgReleaseUDPForward ran.
 //
 //export WgAddUDPForward
 func WgAddUDPForward(localPort C.int, remoteHost *C.char, remotePort C.int) C.int {
 	h := C.GoString(remoteHost)
 	return withTunnel(func(t *tunnel.Tunnel) (int, error) { return t.AddUDPForward(int(localPort), h, int(remotePort)) })
+}
+
+// WgReleaseUDPForward unlocks the UDP forward on 127.0.0.1:localPort for the
+// next local sender (call right before a new talkback session starts on it).
+// Returns 0, or -1 when the tunnel is not running or has no such forward
+// (see WgLastError).
+//
+//export WgReleaseUDPForward
+func WgReleaseUDPForward(localPort C.int) C.int {
+	return withTunnel(func(t *tunnel.Tunnel) (int, error) { return 0, t.ReleaseUDPForward(int(localPort)) })
 }
 
 // WgResetConnections closes all relayed TCP connections (listeners stay) and
