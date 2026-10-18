@@ -226,8 +226,12 @@ struct SoundTab: View {
                 )
             }
             CardDivider()
-            CardRow(title: "Lautstärke an der Kamera") {
-                VolumeSlider(value: $store.settings.cameraVolume, label: "Lautstärke an der Kamera")
+            CardRow(title: "Lautstärke Sprechen") {
+                VolumeSlider(value: $store.settings.talkVolume, label: "Lautstärke Sprechen")
+            }
+            CardDivider()
+            CardRow(title: "Lautstärke Ansagen") {
+                VolumeSlider(value: $store.settings.announcementVolume, label: "Lautstärke Ansagen")
             }
         }
     }

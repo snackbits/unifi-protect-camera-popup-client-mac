@@ -3,7 +3,7 @@ import AVFoundation
 import Combine
 import Foundation
 
-/// Einstellungen › Ton: announcements, microphone, talk mode, camera volume.
+/// Einstellungen › Ton: announcements, microphone, talk mode, the two volumes.
 /// Own UserDefaults key and files in Application Support – not part of the configuration export.
 @MainActor
 final class SoundStore: ObservableObject {
@@ -50,7 +50,43 @@ final class SoundStore: ObservableObject {
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         guard !loadFailed, defaults.data(forKey: Self.storageKey + ".corrupt-backup") == nil else { return }
         removeUnreferencedFiles()
-        if !Self.isSnapshot { seedGongIfNeeded() }
+        if !Self.isSnapshot {
+            seedGongIfNeeded()
+            measureMissingLoudness()
+        }
+    }
+
+    // MARK: Loudness
+
+    /// Measures the common-loudness factor of `buffer`, stores it on the entry and returns it.
+    @discardableResult
+    func storeLoudness(of buffer: AVAudioPCMBuffer, for id: UUID) -> Float {
+        let gain = (try? AnnouncementAudio.loudnessGain(of: buffer)) ?? 1
+        if var entry = settings.announcement(id: id), entry.loudnessGain == nil {
+            entry.loudnessGain = Double(gain)
+            settings.update(entry)
+        }
+        return gain
+    }
+
+    /// Entries from before Phase 5 (and the bundled recordings): measured once in the background.
+    private func measureMissingLoudness() {
+        let pending = settings.announcements.compactMap { entry -> (UUID, URL)? in
+            guard entry.loudnessGain == nil, let url = audioURL(for: entry) else { return nil }
+            return (entry.id, url)
+        }
+        guard !pending.isEmpty else { return }
+        Task.detached(priority: .utility) {
+            for (id, url) in pending {
+                guard let buffer = try? AnnouncementAudio.load(url),
+                      let gain = try? AnnouncementAudio.loudnessGain(of: buffer) else { continue }
+                await MainActor.run {
+                    guard var entry = SoundStore.shared.settings.announcement(id: id), entry.loudnessGain == nil else { return }
+                    entry.loudnessGain = Double(gain)
+                    SoundStore.shared.settings.update(entry)
+                }
+            }
+        }
     }
 
     // MARK: Audio
@@ -100,7 +136,8 @@ final class SoundStore: ObservableObject {
         let name = "\(UUID().uuidString).aiff"
         guard let target = resolve(name),
               (try? FileManager.default.copyItem(at: Self.systemGong, to: target)) != nil else { return }
-        settings.add(Announcement(name: "Gong", kind: .file, fileName: name, duration: duration))
+        let level = (try? AnnouncementAudio.load(target)).flatMap { try? AnnouncementAudio.loudnessGain(of: $0) }
+        settings.add(Announcement(name: "Gong", kind: .file, fileName: name, duration: duration, loudnessGain: level.map(Double.init)))
         save()
     }
 
@@ -157,6 +194,7 @@ final class SoundStore: ObservableObject {
             entry.voiceIdentifier = nil
             entry.fileName = nil
             entry.duration = original.duration
+            entry.loudnessGain = nil
         } else {
             let voice = voiceIdentifier ?? AnnouncementAudio.voices().first?.identifier
             let buffer = try await AnnouncementAudio.render(text: trimmed, voiceIdentifier: voice)
@@ -166,6 +204,7 @@ final class SoundStore: ObservableObject {
             entry.voiceIdentifier = voice
             entry.fileName = name
             entry.duration = Double(buffer.frameLength) / buffer.format.sampleRate
+            entry.loudnessGain = (try? AnnouncementAudio.loudnessGain(of: buffer)).map(Double.init)
         }
         // Deleted while rendering: drop the new file.
         guard var latest = settings.announcement(id: id) else {
@@ -179,6 +218,7 @@ final class SoundStore: ObservableObject {
         latest.voiceIdentifier = entry.voiceIdentifier
         latest.fileName = entry.fileName
         latest.duration = entry.duration
+        latest.loudnessGain = entry.loudnessGain
         if latest.hasAutomaticName {
             latest.name = Announcement.suggestedName(forText: trimmed)
         }
@@ -217,6 +257,10 @@ final class SoundStore: ObservableObject {
         var updated = entry
         updated.fileName = name
         updated.duration = duration
+        // Measured once here (a 5-minute MP3 decodes in well under a second).
+        updated.loudnessGain = (try? AnnouncementAudio.load(target))
+            .flatMap { try? AnnouncementAudio.loudnessGain(of: $0) }
+            .map(Double.init)
         return updated
     }
 

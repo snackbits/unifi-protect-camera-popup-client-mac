@@ -20,6 +20,8 @@ public struct Announcement: Codable, Equatable, Identifiable, Sendable {
     public var bundledResource: String?
     /// Seconds; 0 = unknown.
     public var duration: TimeInterval
+    /// Factor to the common loudness (`Loudness`), measured on import/rendering; nil = not yet.
+    public var loudnessGain: Double?
 
     public init(
         id: UUID = UUID(),
@@ -29,7 +31,8 @@ public struct Announcement: Codable, Equatable, Identifiable, Sendable {
         voiceIdentifier: String? = nil,
         fileName: String? = nil,
         bundledResource: String? = nil,
-        duration: TimeInterval = 0
+        duration: TimeInterval = 0,
+        loudnessGain: Double? = nil
     ) {
         self.id = id
         self.name = name
@@ -39,10 +42,16 @@ public struct Announcement: Codable, Equatable, Identifiable, Sendable {
         self.fileName = fileName
         self.bundledResource = bundledResource
         self.duration = duration
+        self.loudnessGain = Self.validGain(loudnessGain)
+    }
+
+    private static func validGain(_ gain: Double?) -> Double? {
+        guard let gain, gain.isFinite, gain > 0, gain < 100 else { return nil }
+        return gain
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, kind, text, voiceIdentifier, fileName, bundledResource, duration
+        case id, name, kind, text, voiceIdentifier, fileName, bundledResource, duration, loudnessGain
     }
 
     /// Lenient: missing text/duration/optional fields keep the entry; id, name and kind are required.
@@ -57,6 +66,7 @@ public struct Announcement: Codable, Equatable, Identifiable, Sendable {
         bundledResource = (try? c.decodeIfPresent(String.self, forKey: .bundledResource)) ?? nil
         let seconds = (try? c.decodeIfPresent(Double.self, forKey: .duration)) ?? 0
         duration = seconds.isFinite && seconds > 0 ? seconds : 0
+        loudnessGain = Self.validGain((try? c.decodeIfPresent(Double.self, forKey: .loudnessGain)) ?? nil)
     }
 
     /// Only a plain file name may point into the sound folder (no paths, no "." / "..").

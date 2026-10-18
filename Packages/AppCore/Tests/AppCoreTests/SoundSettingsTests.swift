@@ -10,7 +10,8 @@ final class SoundSettingsTests: XCTestCase {
         XCTAssertEqual(settings.announcements.map(\.menuTag), ["KI-Stimme", "KI-Stimme"])
         XCTAssertTrue(settings.announcements.allSatisfy(\.usesBundledRecording))
         XCTAssertEqual(settings.talkMode, .hold)
-        XCTAssertEqual(settings.gain, 1, accuracy: 0.0001)
+        XCTAssertEqual(settings.talkGain, 1, accuracy: 0.0001)
+        XCTAssertEqual(settings.announcementGain, 1, accuracy: 0.0001)
     }
 
     func testLenientDecoding() throws {
@@ -18,10 +19,32 @@ final class SoundSettingsTests: XCTestCase {
         let settings = try JSONDecoder().decode(SoundSettings.self, from: Data(json.utf8))
         XCTAssertEqual(settings.announcements.map(\.name), ["Gong"])
         XCTAssertEqual(settings.talkMode, .hold)
-        XCTAssertEqual(settings.cameraVolume, 1)
+        XCTAssertEqual(settings.talkVolume, 1)
+        XCTAssertEqual(settings.announcementVolume, 1)
         XCTAssertEqual(settings.referencedFiles, ["gong.mp3"])
         let empty = try JSONDecoder().decode(SoundSettings.self, from: Data("{}".utf8))
         XCTAssertEqual(empty, SoundSettings())
+    }
+
+    func testOldSingleVolumeGoesIntoBoth() throws {
+        let old = try JSONDecoder().decode(SoundSettings.self, from: Data(#"{"talkMode":"toggle","cameraVolume":0.4}"#.utf8))
+        XCTAssertEqual(old.talkVolume, 0.4)
+        XCTAssertEqual(old.announcementVolume, 0.4)
+        var changed = old
+        changed.talkVolume = 0.9
+        let json = String(decoding: try JSONEncoder().encode(changed), as: UTF8.self)
+        XCTAssertFalse(json.contains("cameraVolume"))
+        let again = try JSONDecoder().decode(SoundSettings.self, from: Data(json.utf8))
+        XCTAssertEqual(again.talkVolume, 0.9)
+        XCTAssertEqual(again.announcementVolume, 0.4)
+    }
+
+    func testLoudnessGainIsLenient() throws {
+        let json = #"{"id":"6F0C6A52-4C4B-4E58-9B1E-2F3C1C0A0009","name":"Gong","kind":"file","loudnessGain":"laut"}"#
+        XCTAssertNil(try JSONDecoder().decode(Announcement.self, from: Data(json.utf8)).loudnessGain)
+        let measured = Announcement(name: "Gong", kind: .file, loudnessGain: 0.5)
+        XCTAssertEqual(try JSONDecoder().decode(Announcement.self, from: JSONEncoder().encode(measured)).loudnessGain, 0.5)
+        XCTAssertNil(Announcement(name: "x", kind: .file, loudnessGain: .infinity).loudnessGain)
     }
 
     func testRoundTripAndEditing() throws {
