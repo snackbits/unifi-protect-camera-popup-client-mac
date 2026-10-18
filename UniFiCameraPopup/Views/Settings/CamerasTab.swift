@@ -156,7 +156,11 @@ struct CameraDetail: View {
     @EnvironmentObject private var settings: SettingsStore
     @ObservedObject private var protect = ProtectSession.shared
     @ObservedObject private var events = EventLog.shared
+    #if DEBUG
+    @State private var advancedExpanded = SnapshotRenderer.expandCameraAdvanced
+    #else
     @State private var advancedExpanded = false
+    #endif
     @State private var editor: ActionEditorContext?
     @State private var confirmRemoval = false
 

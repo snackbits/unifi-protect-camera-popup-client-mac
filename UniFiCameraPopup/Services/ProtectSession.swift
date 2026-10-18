@@ -18,6 +18,13 @@ final class ProtectSession: ObservableObject {
 
     private init() {}
 
+    #if DEBUG
+    /// `--render-snapshots` only: sample cameras without a console connection.
+    func setSnapshotCameras(_ cameras: [ProtectCamera]) {
+        self.cameras = cameras
+    }
+    #endif
+
     /// Rebuilds the client from current settings (after onboarding or settings changes).
     func reconnect() {
         streamCache = [:]

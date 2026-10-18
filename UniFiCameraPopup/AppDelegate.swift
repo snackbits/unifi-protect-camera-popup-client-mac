@@ -63,6 +63,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let updateCheckInterval: TimeInterval = 6 * 60 * 60
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        #if DEBUG
+        SnapshotRenderer.runIfRequested()
+        #endif
         settings.pruneMutes()
         AppActions.openHelp = { [weak self] in self?.openHelp() }
         settings.reconcileLaunchAtLogin()

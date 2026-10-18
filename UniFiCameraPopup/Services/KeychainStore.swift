@@ -9,6 +9,10 @@ enum KeychainStore {
     static let protectAPIKeyService = "com.snackbits.UniFiCameraPopup.protect-api-key"
 
     static func string(service: String, account: String) -> String? {
+        #if DEBUG
+        // `--render-snapshots` never touches the real keychain (a prompt would block the run).
+        if SnapshotRenderer.isActive { return service == protectAPIKeyService ? "snapshot-sample-key" : nil }
+        #endif
         var query = baseQuery(service: service, account: account)
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne

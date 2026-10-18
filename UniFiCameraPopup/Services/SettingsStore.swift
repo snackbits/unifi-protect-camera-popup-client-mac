@@ -173,7 +173,12 @@ final class SettingsStore: ObservableObject {
         }
     }
 
+    #if DEBUG
+    // `--render-snapshots` runs against a throwaway suite so nothing reaches the real settings.
+    private let defaults = SnapshotRenderer.isActive ? SnapshotRenderer.isolatedDefaults : UserDefaults.standard
+    #else
     private let defaults = UserDefaults.standard
+    #endif
     private let storageKey = "unifi.camera.popup.settings"
     /// Where raw, undecodable settings are preserved instead of being overwritten.
     private static let backupKey = "unifi.camera.popup.settings.corrupted-backup"

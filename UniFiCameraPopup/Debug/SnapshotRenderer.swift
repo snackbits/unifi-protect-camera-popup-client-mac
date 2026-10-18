@@ -1,0 +1,230 @@
+#if DEBUG
+import AppCore
+import AppKit
+import ProtectKit
+import SwiftUI
+
+/// Debug-only: `--render-snapshots <dir>` renders the template screens with sample data to PNG
+/// (2×, light and dark) and exits. All settings go to a throwaway `UserDefaults` suite
+/// (see `SettingsStore` / `EventLog`), never to the real defaults domain.
+enum SnapshotRenderer {
+    static let argument = "--render-snapshots"
+    static let suiteName = "com.snackbits.UniFiCameraPopup.snapshots"
+
+    static var isActive: Bool { CommandLine.arguments.contains(argument) }
+
+    static let isolatedDefaults: UserDefaults = {
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        return defaults
+    }()
+
+    /// Read by `CameraDetail` so the "Erweitert" section starts expanded (S3).
+    nonisolated(unsafe) static var expandCameraAdvanced = false
+
+    /// Call first in `applicationDidFinishLaunching`; renders and terminates when requested.
+    @MainActor
+    static func runIfRequested() {
+        let args = CommandLine.arguments
+        guard let index = args.firstIndex(of: argument), args.indices.contains(index + 1) else { return }
+        let directory = URL(fileURLWithPath: args[index + 1], isDirectory: true)
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        NSApp.setActivationPolicy(.accessory)
+        renderAll(into: directory)
+        isolatedDefaults.removePersistentDomain(forName: suiteName)
+        exit(0)
+    }
+
+    // MARK: Sample data
+
+    private struct Sample {
+        let settings: SettingsStore
+        let door: WebhookMapping
+        let garage: WebhookMapping
+    }
+
+    @MainActor
+    private static func seed() -> Sample {
+        let settings = SettingsStore.shared
+        settings.protectHost = "192.168.1.1"
+        settings.protectConsoleName = "UDM Pro"
+        let actions = [
+            CameraAction(id: UUID(), title: "Tür öffnen", url: "https://home.example/open", method: .post,
+                         bearerToken: "", icon: .door, confirmBeforeRun: true),
+            CameraAction(id: UUID(), title: "Flurlicht", url: "https://home.example/light", method: .get,
+                         bearerToken: "", icon: .bulb, confirmBeforeRun: false),
+        ]
+        let door = WebhookMapping(label: "Haustür", actions: actions, protectCameraId: "cam-door",
+                                  triggers: [.ring, .person], chimeOnOpen: true)
+        let garage = WebhookMapping(label: "Garage", protectCameraId: "cam-garage", triggers: [.vehicle, .motion])
+        let garden = WebhookMapping(label: "Garten", protectCameraId: "cam-garden", triggers: [.person, .animal])
+        settings.mappings = [door, garage, garden]
+        let cameraJSON = """
+        [{"id":"cam-door","name":"Haustür","type":"UVC G4 Doorbell Pro","state":"CONNECTED","mac":"A1",
+          "lcdMessage":{"type":"LEAVE_PACKAGE"},
+          "featureFlags":{"hasSpeaker":true,"hasMic":true,"smartDetectTypes":["person","vehicle","package","animal"],"smartDetectAudioTypes":["alrmSpeak","alrmGlassBreak"]},
+          "smartDetectSettings":{"objectTypes":["person","package"],"audioTypes":[]}},
+         {"id":"cam-garage","name":"Garage","type":"UVC G5 Bullet","state":"CONNECTED","mac":"A2",
+          "featureFlags":{"hasSpeaker":false,"hasMic":true,"smartDetectTypes":["person","vehicle"],"smartDetectAudioTypes":[]},
+          "smartDetectSettings":{"objectTypes":["vehicle"],"audioTypes":[]}},
+         {"id":"cam-garden","name":"Garten","type":"UVC G5 Flex","state":"CONNECTED","mac":"A3",
+          "featureFlags":{"hasSpeaker":false,"hasMic":false,"smartDetectTypes":["person","animal"],"smartDetectAudioTypes":[]},
+          "smartDetectSettings":{"objectTypes":["person","animal"],"audioTypes":[]}}]
+        """
+        if let cameras = try? JSONDecoder().decode([ProtectCamera].self, from: Data(cameraJSON.utf8)) {
+            ProtectSession.shared.setSnapshotCameras(cameras)
+        }
+        settings.mute(entryId: garage.entryId, for: settings.muteShort)
+        let now = Date()
+        EventLog.shared.record(mapping: door, kindLabel: "Klingel", date: now.addingTimeInterval(-120))
+        EventLog.shared.record(mapping: garden, kindLabel: "Person", date: now.addingTimeInterval(-3600))
+        EventLog.shared.record(mapping: garage, kindLabel: "Fahrzeug", date: now.addingTimeInterval(-7200))
+        return Sample(settings: settings, door: door, garage: garage)
+    }
+
+    // MARK: Rendering
+
+    private static let appearances: [(name: String, appearance: NSAppearance.Name)] = [
+        ("light", .aqua), ("dark", .darkAqua),
+    ]
+
+    @MainActor
+    private static func renderAll(into directory: URL) {
+        let sample = seed()
+        let protectEvents = ProtectEventService()
+        let relay = WebSocketClient()
+
+        for (suffix, appearanceName) in appearances {
+            let appearance = NSAppearance(named: appearanceName)!
+
+            // S1 – S3, S5, S6: settings window (title bar included).
+            func settingsWindow(tab: SettingsTab, entry: UUID? = nil) -> NSWindow {
+                let navigation = SettingsNavigation()
+                navigation.tab = tab
+                navigation.selectedEntry = entry
+                let root = SettingsRootView(navigation: navigation)
+                    .environmentObject(sample.settings)
+                    .environmentObject(relay)
+                    .environmentObject(protectEvents)
+                let window = NSWindow(
+                    contentRect: NSRect(x: 0, y: 0, width: 760, height: 540),
+                    styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
+                    backing: .buffered, defer: false
+                )
+                window.titlebarAppearsTransparent = true
+                window.title = tab.windowTitle
+                window.contentView = NSHostingView(rootView: root)
+                return window
+            }
+            write(window: settingsWindow(tab: .general), appearance: appearance,
+                  to: directory.appendingPathComponent("S1-allgemein-\(suffix).png"))
+            write(window: settingsWindow(tab: .cameras, entry: sample.door.entryId), appearance: appearance,
+                  to: directory.appendingPathComponent("S2-kameras-\(suffix).png"))
+            expandCameraAdvanced = true
+            write(window: settingsWindow(tab: .cameras, entry: sample.door.entryId), appearance: appearance,
+                  to: directory.appendingPathComponent("S3-kameras-erweitert-\(suffix).png"))
+            expandCameraAdvanced = false
+            write(window: settingsWindow(tab: .sound), appearance: appearance,
+                  to: directory.appendingPathComponent("S5-ton-\(suffix).png"))
+            write(window: settingsWindow(tab: .remote), appearance: appearance,
+                  to: directory.appendingPathComponent("S6-unterwegs-\(suffix).png"))
+
+            // S4 – button sheet. A sheet needs an on-screen window, so it is composed over a dimmed Kameras tab.
+            let navigation = SettingsNavigation()
+            navigation.tab = .cameras
+            navigation.selectedEntry = sample.door.entryId
+            let sheetRoot = ZStack {
+                SettingsRootView(navigation: navigation)
+                Color.black.opacity(0.3).frame(width: 760, height: 540)
+                ActionEditorSheet(action: sample.door.actions[0], isNew: false, onSave: { _ in }, onDelete: {})
+                    .background(Tokens.win.color)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+            }
+            .environmentObject(sample.settings)
+            .environmentObject(relay)
+            .environmentObject(protectEvents)
+            let sheetWindow = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 760, height: 540),
+                                       styleMask: [.titled, .fullSizeContentView], backing: .buffered, defer: false)
+            sheetWindow.titlebarAppearsTransparent = true
+            sheetWindow.title = "Kameras"
+            sheetWindow.contentView = NSHostingView(rootView: sheetRoot)
+            write(window: sheetWindow, appearance: appearance,
+                  to: directory.appendingPathComponent("S4-button-sheet-\(suffix).png"))
+
+            // 7 – menu panel.
+            let panel = StatusPanelView(
+                settings: sample.settings, events: EventLog.shared, protectEvents: protectEvents,
+                relay: relay, protect: ProtectSession.shared, clock: StatusPanelClock(),
+                actions: StatusPanelActions(openSettings: {}, openHelp: {}, quit: {}, openCamera: { _ in },
+                                            close: {}, resize: { _ in })
+            )
+            let panelHost = NSHostingView(rootView: panel)
+            let panelSize = panelHost.fittingSize
+            panelHost.frame = NSRect(origin: .zero, size: CGSize(width: 338, height: panelSize.height))
+            let panelWindow = NSWindow(contentRect: panelHost.frame, styleMask: [.borderless],
+                                       backing: .buffered, defer: false)
+            panelWindow.backgroundColor = .clear
+            panelWindow.contentView = panelHost
+            write(window: panelWindow, appearance: appearance, includeFrame: false,
+                  to: directory.appendingPathComponent("7-panel-\(suffix).png"))
+
+            // 8 – popup chrome, mute menu closed and open.
+            for menuOpen in [false, true] {
+                let popup = PopupWindow(
+                    frame: NSRect(x: 0, y: 0, width: 470, height: 300),
+                    streamURL: "", soundEnabled: false,
+                    thumbnailDataURI: placeholderDataURI(size: CGSize(width: 470, height: 300)),
+                    autoCloseSeconds: 0,
+                    actions: sample.door.actions,
+                    overlay: PopupOverlayContent(
+                        chipText: "Klingel · Haustür · 10:41", cameraName: "Haustür",
+                        muteOptions: sample.settings.muteOptions, onMute: { _ in }
+                    ),
+                    onClose: {}
+                )
+                if menuOpen { popup.perform(NSSelectorFromString("muteTapped")) }
+                write(window: popup, appearance: appearance, includeFrame: false,
+                      to: directory.appendingPathComponent("8-popup\(menuOpen ? "-menue" : "")-\(suffix).png"))
+            }
+        }
+    }
+
+    /// Renders the window's frame view (title bar included) or just its content at 2× into a PNG.
+    @MainActor
+    private static func write(window: NSWindow, appearance: NSAppearance, includeFrame: Bool = true, to url: URL) {
+        window.appearance = appearance
+        window.setFrameOrigin(NSPoint(x: -20000, y: -20000))
+        window.contentView?.layoutSubtreeIfNeeded()
+        // Let SwiftUI resolve @State, .task and preference updates.
+        RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+        guard let content = window.contentView else { return }
+        let view: NSView = includeFrame ? (content.superview ?? content) : content
+        view.layoutSubtreeIfNeeded()
+        let size = view.bounds.size
+        guard let rep = NSBitmapImageRep(
+            bitmapDataPlanes: nil, pixelsWide: Int(size.width * 2), pixelsHigh: Int(size.height * 2),
+            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+            colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0
+        ) else { return }
+        rep.size = size
+        view.cacheDisplay(in: view.bounds, to: rep)
+        if let data = rep.representation(using: .png, properties: [:]) {
+            try? data.write(to: url)
+        }
+    }
+
+    /// Gradient stand-in for the camera picture.
+    @MainActor
+    private static func placeholderDataURI(size: CGSize) -> String? {
+        let image = NSImage(size: size, flipped: false) { rect in
+            NSGradient(colors: [NSColor(calibratedRed: 0.35, green: 0.45, blue: 0.40, alpha: 1),
+                                NSColor(calibratedRed: 0.10, green: 0.14, blue: 0.20, alpha: 1)])?
+                .draw(in: rect, angle: 60)
+            return true
+        }
+        guard let tiff = image.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff),
+              let png = rep.representation(using: .png, properties: [:]) else { return nil }
+        return "data:image/png;base64," + png.base64EncodedString()
+    }
+}
+#endif

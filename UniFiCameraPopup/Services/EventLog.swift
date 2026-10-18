@@ -12,7 +12,12 @@ final class EventLog: ObservableObject {
     /// Snapshot taken when the event arrived, keyed by `EventRecord.id`.
     @Published private(set) var thumbnails: [UUID: NSImage] = [:]
 
+    #if DEBUG
+    // `--render-snapshots` runs against a throwaway suite so nothing reaches the real settings.
+    private let defaults = SnapshotRenderer.isActive ? SnapshotRenderer.isolatedDefaults : UserDefaults.standard
+    #else
     private let defaults = UserDefaults.standard
+    #endif
     private static let storageKey = "unifi.camera.popup.events"
 
     private init() {

@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A10000000000000000000090 /* SnapshotRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000090 /* SnapshotRenderer.swift */; };
 		A10000000000000000000081 /* StatusPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000081 /* StatusPanel.swift */; };
 		A10000000000000000000075 /* CamerasTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000075 /* CamerasTab.swift */; };
 		A10000000000000000000076 /* CameraAdvancedSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000076 /* CameraAdvancedSection.swift */; };
@@ -54,6 +55,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		A20000000000000000000090 /* SnapshotRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotRenderer.swift; sourceTree = "<group>"; };
 		A20000000000000000000081 /* StatusPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusPanel.swift; sourceTree = "<group>"; };
 		A20000000000000000000075 /* CamerasTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CamerasTab.swift; sourceTree = "<group>"; };
 		A20000000000000000000076 /* CameraAdvancedSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraAdvancedSection.swift; sourceTree = "<group>"; };
@@ -138,6 +140,7 @@
 				A40000000000000000000004 /* Models */,
 				A40000000000000000000005 /* Services */,
 				A40000000000000000000006 /* Views */,
+				A40000000000000000000074 /* Debug */,
 				A20000000000000000000013 /* Assets.xcassets */,
 				A20000000000000000000014 /* Info.plist */,
 			);
@@ -200,6 +203,14 @@
 				A20000000000000000000072 /* PopUpField.swift */,
 			);
 			path = Design;
+			sourceTree = "<group>";
+		};
+		A40000000000000000000074 /* Debug */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000090 /* SnapshotRenderer.swift */,
+			);
+			path = Debug;
 			sourceTree = "<group>";
 		};
 		A40000000000000000000072 /* Popup */ = {
@@ -360,6 +371,7 @@
 				A10000000000000000000077 /* ActionEditorSheet.swift in Sources */,
 				A10000000000000000000078 /* SoundAndRemoteTabs.swift in Sources */,
 				A10000000000000000000080 /* PopupOverlayViews.swift in Sources */,
+				A10000000000000000000090 /* SnapshotRenderer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
