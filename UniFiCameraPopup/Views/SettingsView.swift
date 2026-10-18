@@ -6,6 +6,7 @@ import UniformTypeIdentifiers
 struct SettingsView: View {
     @EnvironmentObject private var settings: SettingsStore
     @EnvironmentObject private var webSocketClient: WebSocketClient
+    @ObservedObject private var protect = ProtectSession.shared
 
     @State private var showRegenerateConfirm = false
     @State private var mappingPendingRemoval: WebhookMapping?
@@ -18,6 +19,29 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
+            Section("UniFi Protect") {
+                LabeledContent("Konsole") {
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(protect.lastError == nil && settings.isProtectConfigured ? Color.green : Color.orange)
+                            .frame(width: 8, height: 8)
+                        Text(settings.protectHost.isEmpty ? "nicht eingerichtet" : settings.protectHost)
+                            .foregroundStyle(.secondary)
+                        Button("Einrichtung …") { OnboardingWindow.show() }
+                    }
+                }
+                if let error = protect.lastError {
+                    Label(error, systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                    if error == ProtectError.certificateChanged.errorDescription {
+                        Button("Neuem Zertifikat vertrauen") {
+                            settings.protectCertificateFingerprint = nil
+                            ProtectSession.shared.reconnect()
+                        }
+                    }
+                }
+            }
+
             Section("Verbindung") {
                 HStack {
                     Circle()
@@ -136,22 +160,7 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         TextField("Beschreibung (z. B. Eingang)", text: $mapping.label)
                             .textFieldStyle(.roundedBorder)
-                        TextField("Webhook-Slug (z. B. front-door)", text: $mapping.webhookId)
-                            .textFieldStyle(.roundedBorder)
-                        TextField("RTSP URL", text: $mapping.rtspsURL, prompt: Text("rtsp://user:pass@host:7447/…"))
-                            .textFieldStyle(.roundedBorder)
-                            .onChange(of: mapping.rtspsURL) { newValue in
-                                let normalized = StreamURL.normalizedRTSP(newValue)
-                                if normalized != newValue {
-                                    mapping.rtspsURL = normalized
-                                }
-                            }
-
-                        if let warning = streamURLWarning(for: mapping.rtspsURL) {
-                            Label(warning, systemImage: "exclamationmark.triangle.fill")
-                                .font(.caption)
-                                .foregroundStyle(.orange)
-                        }
+                        protectControls($mapping)
 
                         Toggle("Ton", isOn: $mapping.soundEnabled)
                         Toggle("Zoom merken", isOn: $mapping.rememberZoom)
@@ -279,6 +288,7 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
+        .task { await ProtectSession.shared.refreshCameras() }
         .padding()
         .onAppear {
             refreshDNDPermission()
@@ -436,6 +446,64 @@ struct SettingsView: View {
 
     private func canTestPopup(_ mapping: WebhookMapping) -> Bool {
         mapping.hasStreamSource
+    }
+
+    @ViewBuilder
+    private func protectControls(_ mapping: Binding<WebhookMapping>) -> some View {
+        cameraPicker(mapping)
+        if let id = mapping.wrappedValue.protectCameraId,
+           let cam = protect.cameras.first(where: { $0.id == id }) {
+            LabeledContent("Auslöser") {
+                TriggerChips(camera: cam, selection: mapping.triggers)
+            }
+        }
+        advancedOptions(mapping)
+    }
+
+    private func cameraPicker(_ mapping: Binding<WebhookMapping>) -> some View {
+        let selectedId = mapping.wrappedValue.protectCameraId
+        let isUnknown = selectedId != nil && !protect.cameras.contains(where: { $0.id == selectedId })
+        return Picker("Kamera", selection: mapping.protectCameraId) {
+            Text("Keine (nur Webhook)").tag(String?.none)
+            ForEach(protect.cameras) { cam in
+                Text(cam.name).tag(Optional(cam.id))
+            }
+            if isUnknown {
+                Text("Unbekannte Kamera").tag(selectedId)
+            }
+        }
+        .onChange(of: selectedId) { newId in
+            guard mapping.wrappedValue.triggers.isEmpty,
+                  let newId,
+                  let cam = protect.cameras.first(where: { $0.id == newId }) else { return }
+            let defaults: Set<TriggerKind> = [.ring, .person]
+            mapping.wrappedValue.triggers = defaults.intersection(cam.supportedTriggers)
+        }
+    }
+
+    private func advancedOptions(_ mapping: Binding<WebhookMapping>) -> some View {
+        DisclosureGroup("Erweitert") {
+            VStack(alignment: .leading, spacing: 8) {
+                Toggle("Zusätzlich per Webhook auslösen", isOn: mapping.webhookTriggerEnabled)
+                if mapping.wrappedValue.webhookTriggerEnabled {
+                    TextField("Webhook-Slug (z. B. front-door)", text: mapping.webhookId)
+                        .textFieldStyle(.roundedBorder)
+                }
+                TextField("RTSP URL", text: mapping.rtspsURL, prompt: Text("automatisch aus Protect"))
+                    .textFieldStyle(.roundedBorder)
+                    .onChange(of: mapping.wrappedValue.rtspsURL) { newValue in
+                        let normalized = StreamURL.normalizedRTSP(newValue)
+                        if normalized != newValue {
+                            mapping.wrappedValue.rtspsURL = normalized
+                        }
+                    }
+                if let warning = streamURLWarning(for: mapping.wrappedValue.rtspsURL) {
+                    Label(warning, systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
+            }
+        }
     }
 
     private func hotkeyConflictMessage(for mapping: WebhookMapping) -> String? {
