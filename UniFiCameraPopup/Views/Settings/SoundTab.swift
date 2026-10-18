@@ -25,7 +25,8 @@ struct SoundTab: View {
     @State private var selectedId: UUID?
     @State private var draftKind: Announcement.Kind = .speech
     @State private var draftText = ""
-    @State private var draftVoice: String?
+    /// Anna (else the best German voice); read once per appearance of the tab.
+    @State private var voice: VoiceChoice.Candidate? = AnnouncementAudio.preferredVoice().map(AnnouncementAudio.candidate)
     @State private var busy = false
     @State private var errorText: String?
     @State private var devices: [AudioInputDevice] = []
@@ -52,18 +53,13 @@ struct SoundTab: View {
         }
         .onAppear {
             devices = MicrophoneCapture.inputDevices()
+            voice = AnnouncementAudio.preferredVoice().map(AnnouncementAudio.candidate)
             if selected == nil {
                 select(store.settings.announcements.first)
             }
             #if DEBUG
             if let sample = SnapshotRenderer.soundTabError { errorText = sample }
             #endif
-        }
-        .onChange(of: draftText) { _ in
-            // The bundled voice can only say the bundled wording.
-            if draftVoice == nil, let selected, !SoundSettings.offersBundledVoice(for: selected, text: draftText) {
-                draftVoice = AnnouncementAudio.voices().first?.identifier
-            }
         }
     }
 
@@ -152,7 +148,10 @@ struct SoundTab: View {
                     .accessibilityLabel("Text der Ansage")
                 HStack(spacing: 8) {
                     Text("Stimme").font(.system(size: 12)).foregroundStyle(Tokens.muted.color)
-                    PopUpField(selection: $draftVoice, options: voiceOptions(for: sound))
+                    // Only Anna is offered (Phase 5): the field shows the voice and cannot be changed.
+                    PopUpField(selection: .constant(0), options: [(value: 0, title: VoiceChoice.fieldLabel(voice))])
+                        .disabled(true)
+                        .accessibilityLabel("Stimme")
                     Spacer()
                     Button("Anhören") { listen(sound) }
                         .buttonStyle(FieldButtonStyle())
@@ -164,6 +163,12 @@ struct SoundTab: View {
                 Text("Wird auf diesem Mac erzeugt – ohne Internet, ohne Konto.")
                     .font(.system(size: 11))
                     .foregroundStyle(Tokens.muted.color)
+                if let hint = VoiceChoice.hint(voice) {
+                    Text(hint)
+                        .font(.system(size: 11))
+                        .foregroundStyle(Color(nsColor: .systemOrange))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             } else {
                 HStack(spacing: 8) {
                     Text(sound.kind == .file ? "MP3-Datei · \(Announcement.lengthText(sound.duration))" : "Noch keine Datei gewählt.")
@@ -193,22 +198,10 @@ struct SoundTab: View {
         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Tokens.accent.color, lineWidth: 1))
     }
 
-    private func voiceOptions(for sound: Announcement) -> [(value: String?, title: String)] {
-        var options: [(value: String?, title: String)] = []
-        if SoundSettings.offersBundledVoice(for: sound, text: draftText) {
-            options.append((value: nil, title: SoundSettings.bundledVoiceLabel))
-        }
-        options += AnnouncementAudio.voices().map { (value: Optional($0.identifier), title: AnnouncementAudio.label(for: $0)) }
-        if options.isEmpty {
-            options.append((value: nil, title: "Keine deutsche Stimme installiert"))
-        }
-        return options
-    }
-
+    /// New text, or an entry still in another voice (also the bundled recordings): render with Anna.
     private func canApply(_ sound: Announcement) -> Bool {
-        guard !trimmedDraft.isEmpty else { return false }
-        guard draftVoice != nil || SoundSettings.offersBundledVoice(for: sound, text: draftText) else { return false }
-        return sound.kind != .speech || trimmedDraft != sound.text || draftVoice != sound.voiceIdentifier
+        guard !trimmedDraft.isEmpty, let voice else { return false }
+        return sound.kind != .speech || trimmedDraft != sound.text || sound.voiceIdentifier != voice.identifier
     }
 
     // MARK: Microphone, mode, volume
@@ -258,11 +251,6 @@ struct SoundTab: View {
         errorText = nil
         draftKind = sound?.kind ?? .speech
         draftText = sound?.text ?? ""
-        draftVoice = sound?.voiceIdentifier
-        if let sound, sound.kind == .speech, sound.voiceIdentifier == nil,
-           !SoundSettings.offersBundledVoice(for: sound, text: sound.text) {
-            draftVoice = AnnouncementAudio.voices().first?.identifier
-        }
     }
 
     private func addFile() {
@@ -292,10 +280,9 @@ struct SoundTab: View {
         busy = true
         errorText = nil
         let text = draftText
-        let voice = draftVoice
         Task { @MainActor in
             do {
-                try await store.applySpeech(id: sound.id, text: text, voiceIdentifier: voice)
+                try await store.applySpeech(id: sound.id, text: text)
                 if selectedId == sound.id { select(store.settings.announcement(id: sound.id)) }
             } catch {
                 if selectedId == sound.id { errorText = message(error) }
@@ -308,10 +295,9 @@ struct SoundTab: View {
         busy = true
         errorText = nil
         let text = trimmedDraft
-        let voice = draftVoice
         Task { @MainActor in
             do {
-                let buffer = try await store.previewBuffer(for: sound, text: text, voiceIdentifier: voice)
+                let buffer = try await store.previewBuffer(text: text)
                 preview.play(buffer, id: sound.id)
             } catch {
                 if selectedId == sound.id { errorText = message(error) }

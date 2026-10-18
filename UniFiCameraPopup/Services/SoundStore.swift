@@ -103,15 +103,9 @@ final class SoundStore: ObservableObject {
         return nil
     }
 
-    /// Audio for "Anhören": the bundled recording for its own wording, else the text rendered now.
-    func previewBuffer(for entry: Announcement, text: String, voiceIdentifier: String?) async throws -> AVAudioPCMBuffer {
-        if voiceIdentifier == nil,
-           SoundSettings.offersBundledVoice(for: entry, text: text),
-           let original = SoundSettings.bundledOriginal(for: entry),
-           let url = audioURL(for: original) {
-            return try AnnouncementAudio.load(url)
-        }
-        return try await AnnouncementAudio.render(text: text, voiceIdentifier: voiceIdentifier)
+    /// Audio for "Anhören": the text as „Übernehmen“ would render it (Anna).
+    func previewBuffer(text: String) async throws -> AVAudioPCMBuffer {
+        try await AnnouncementAudio.render(text: text, voiceIdentifier: AnnouncementAudio.preferredVoice()?.identifier)
     }
 
     /// Maps a stored file name to a URL inside the sound folder: only the last path component
@@ -152,13 +146,13 @@ final class SoundStore: ObservableObject {
         return entry
     }
 
-    /// "Ansage aus Text …": new empty text entry with the best German macOS voice.
+    /// "Ansage aus Text …": new empty text entry for Anna (else the best German voice).
     @discardableResult
     func addText() -> Announcement {
         let entry = Announcement(
             name: Announcement.newName,
             kind: .speech,
-            voiceIdentifier: AnnouncementAudio.voices().first?.identifier
+            voiceIdentifier: AnnouncementAudio.preferredVoice()?.identifier
         )
         settings.add(entry)
         return entry
@@ -179,33 +173,24 @@ final class SoundStore: ObservableObject {
         deleteFile(current.fileName)
     }
 
-    /// "Übernehmen": text + voice become the entry's audio. The bundled voice (nil) only
-    /// for the bundled wording – then the bundled recording is used again.
-    func applySpeech(id: UUID, text: String, voiceIdentifier: String?) async throws {
+    /// "Übernehmen": the text becomes the entry's audio, always spoken by Anna (Phase 5; entries in
+    /// another voice – the bundled recordings too – change to Anna on their next rendering).
+    func applySpeech(id: UUID, text: String) async throws {
         guard let current = settings.announcement(id: id) else { return }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         var entry = current
         entry.kind = .speech
         entry.text = trimmed
-        if voiceIdentifier == nil,
-           SoundSettings.offersBundledVoice(for: current, text: trimmed),
-           let original = SoundSettings.bundledOriginal(for: current) {
-            entry.voiceIdentifier = nil
-            entry.fileName = nil
-            entry.duration = original.duration
-            entry.loudnessGain = nil
-        } else {
-            let voice = voiceIdentifier ?? AnnouncementAudio.voices().first?.identifier
-            let buffer = try await AnnouncementAudio.render(text: trimmed, voiceIdentifier: voice)
-            let name = "\(UUID().uuidString).caf"
-            guard let target = resolve(name) else { throw TalkbackError.audioFile("Ablage") }
-            try AnnouncementAudio.write(buffer, to: target)
-            entry.voiceIdentifier = voice
-            entry.fileName = name
-            entry.duration = Double(buffer.frameLength) / buffer.format.sampleRate
-            entry.loudnessGain = (try? AnnouncementAudio.loudnessGain(of: buffer)).map(Double.init)
-        }
+        let voice = AnnouncementAudio.preferredVoice()?.identifier
+        let buffer = try await AnnouncementAudio.render(text: trimmed, voiceIdentifier: voice)
+        let name = "\(UUID().uuidString).caf"
+        guard let target = resolve(name) else { throw TalkbackError.audioFile("Ablage") }
+        try AnnouncementAudio.write(buffer, to: target)
+        entry.voiceIdentifier = voice
+        entry.fileName = name
+        entry.duration = Double(buffer.frameLength) / buffer.format.sampleRate
+        entry.loudnessGain = (try? AnnouncementAudio.loudnessGain(of: buffer)).map(Double.init)
         // Deleted while rendering: drop the new file.
         guard var latest = settings.announcement(id: id) else {
             deleteFile(entry.fileName)
