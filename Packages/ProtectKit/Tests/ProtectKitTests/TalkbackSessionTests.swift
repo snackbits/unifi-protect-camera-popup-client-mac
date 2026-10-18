@@ -44,6 +44,43 @@ final class TalkbackSessionTests: XCTestCase {
         }
     }
 
+    func testRejectsUnsafeHostsAndSchemes() {
+        let bodies = [
+            #"{"url":"rtp://a%2Fb:7004"}"#,
+            #"{"url":"http://cam:7004"}"#,
+            #"{"url":"rtsp://cam:7004"}"#,
+            #"{"url":"rtp://cam name:7004"}"#,
+            #"{"url":"rtp://[fe80::1%25en0]:7004"}"#,
+            #"{"url":"rtp://cam:70000"}"#,
+            #"{"url":"rtp://cam:7004/path"}"#,
+            #"{"url":"rtp://user@cam:7004"}"#,
+            #"{"url":"rtp://cam..local:7004"}"#,
+            #"{"url":"rtp://cam.:7004"}"#,
+            #"{"url":"rtp://cam:"}"#,
+            #"{"url":"rtp://fe80::1:7004"}"#,
+        ]
+        for body in bodies {
+            XCTAssertThrowsError(try TalkbackSession.parse(Data(body.utf8)), body) {
+                XCTAssertEqual($0 as? ProtectError, .decoding)
+            }
+        }
+    }
+
+    func testAcceptsSchemeFreeAndIPv4Hosts() throws {
+        let bare = try TalkbackSession.parse(Data(#"{"url":"192.168.1.20:7005"}"#.utf8))
+        XCTAssertEqual(bare.host, "192.168.1.20")
+        XCTAssertEqual(bare.port, 7005)
+        let upper = try TalkbackSession.parse(Data(#"{"url":"UDP://Cam-1.local"}"#.utf8))
+        XCTAssertEqual(upper.host, "Cam-1.local")
+        XCTAssertEqual(upper.port, TalkbackSession.defaultPort)
+    }
+
+    func testOutOfRangeNumbersDoNotTrap() throws {
+        let session = try TalkbackSession.parse(Data(#"{"url":"rtp://cam:7004","samplingRate":1e300,"bitsPerSample":-1e300}"#.utf8))
+        XCTAssertEqual(session.samplingRate, 0)
+        XCTAssertEqual(session.bitsPerSample, 16)
+    }
+
     func testClientPostsWithKey() async throws {
         StubProtocol.responses["POST \(base)/cameras/cam1/talkback-session"] = (200, Data(#"{"url":"rtp://192.168.1.20:7004","codec":"opus","samplingRate":48000}"#.utf8))
         let client = ProtectClient(host: "192.168.1.1", apiKey: "KEY", pinnedFingerprint: nil, onNewFingerprint: { _ in }, protocolClasses: [StubProtocol.self])

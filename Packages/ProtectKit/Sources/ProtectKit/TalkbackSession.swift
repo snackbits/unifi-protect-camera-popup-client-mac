@@ -1,4 +1,5 @@
 import Foundation
+import Network
 
 /// Answer of `POST /v1/cameras/{id}/talkback-session`: where the camera expects audio.
 /// Not verified against real hardware yet, so parsing is tolerant (wrapped in "data",
@@ -47,17 +48,55 @@ public struct TalkbackSession: Equatable, Sendable {
         )
     }
 
-    /// "rtp://192.168.1.20:7004", "udp://[fe80::1]:7004", "192.168.1.20" → host + port (default 7004).
+    /// "rtp://192.168.1.20:7004", "udp://[fe80::1]:7004", "cam.local", "192.168.1.20" → host + port (default 7004).
+    /// Strict on purpose: the answer comes from an unverified camera. Only the schemes rtp and udp (or none),
+    /// and only ASCII letters, digits, dots, hyphens, colons and brackets. Escapes, zone suffixes, spaces and
+    /// control characters are rejected, and the host must be an IPv4/IPv6 literal or a plain hostname.
     static func endpoint(from url: String) -> (String, UInt16)? {
-        var trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return nil }
-        if !trimmed.contains("://") { trimmed = "udp://" + trimmed }
-        guard let comps = URLComponents(string: trimmed), let rawHost = comps.host else { return nil }
-        let host = rawHost.trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
-        guard !host.isEmpty else { return nil }
-        guard let port = comps.port else { return (host, defaultPort) }
-        guard (1...65_535).contains(port) else { return nil }
-        return (host, UInt16(port))
+        let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
+        var authority = Substring(trimmed)
+        if let range = trimmed.range(of: "://") {
+            let scheme = trimmed[..<range.lowerBound].lowercased()
+            guard scheme == "rtp" || scheme == "udp" else { return nil }
+            authority = trimmed[range.upperBound...]
+        }
+        guard !authority.isEmpty, authority.allSatisfy(allowedAuthorityCharacters.contains) else { return nil }
+
+        let host: Substring
+        let portText: Substring?
+        if authority.hasPrefix("[") {
+            guard let close = authority.firstIndex(of: "]") else { return nil }
+            host = authority[authority.index(after: authority.startIndex)..<close]
+            let rest = authority[authority.index(after: close)...]
+            if rest.isEmpty {
+                portText = nil
+            } else if rest.first == ":" {
+                portText = rest.dropFirst()
+            } else {
+                return nil
+            }
+            guard IPv6Address(String(host)) != nil else { return nil }
+        } else {
+            let parts = authority.split(separator: ":", omittingEmptySubsequences: false)
+            guard parts.count <= 2 else { return nil }
+            host = parts[0]
+            portText = parts.count == 2 ? parts[1] : nil
+            guard IPv4Address(String(host)) != nil || isPlainHostname(host) else { return nil }
+        }
+
+        guard let portText else { return (String(host), defaultPort) }
+        guard !portText.isEmpty, portText.allSatisfy({ $0.isASCII && $0.isNumber }),
+              let number = Int(portText), (1...65_535).contains(number) else { return nil }
+        return (String(host), UInt16(number))
+    }
+
+    private static let allowedAuthorityCharacters = Set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-:[]")
+
+    /// Dot-separated labels of ASCII letters, digits and hyphens; no empty label.
+    private static func isPlainHostname(_ text: Substring) -> Bool {
+        text.split(separator: ".", omittingEmptySubsequences: false).allSatisfy { label in
+            !label.isEmpty && label.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-") }
+        }
     }
 
     private static func string(_ object: [String: Any], _ keys: [String]) -> String? {
@@ -70,7 +109,8 @@ public struct TalkbackSession: Equatable, Sendable {
     private static func integer(_ object: [String: Any], _ keys: [String]) -> Int? {
         for key in keys {
             if let value = object[key] as? Int { return value }
-            if let value = object[key] as? Double, value.isFinite { return Int(value) }
+            // Int(exactly:) returns nil instead of trapping for values outside Int's range.
+            if let value = object[key] as? Double, let number = Int(exactly: value.rounded(.towardZero)) { return number }
             if let value = object[key] as? String, let number = Int(value.trimmingCharacters(in: .whitespaces)) { return number }
         }
         return nil
