@@ -332,6 +332,10 @@ final class SettingsStore: ObservableObject {
         mappings[index].crop = savedCrop
         mappings[index].width = max(pixelWidth, 40)
         mappings[index].height = max(pixelHeight, 40)
+        // A typed size becomes the crop's size (as before); automatic stays automatic with the crop's aspect.
+        if mappings[index].sizeOverride.width != nil, mappings[index].sizeOverride.height != nil {
+            mappings[index].sizeOverride = PopupSizeOverride(width: mappings[index].width, height: mappings[index].height)
+        }
     }
 
     func removeCrop(for entryId: UUID) {
@@ -341,6 +345,9 @@ final class SettingsStore: ObservableObject {
         mappings[index].width = crop.originalWidth
         mappings[index].height = crop.originalHeight
         mappings[index].crop = nil
+        if mappings[index].sizeOverride.width != nil, mappings[index].sizeOverride.height != nil {
+            mappings[index].sizeOverride = PopupSizeOverride(width: crop.originalWidth, height: crop.originalHeight)
+        }
     }
 
     func addMapping() {
@@ -427,6 +434,8 @@ final class SettingsStore: ObservableObject {
                 if let raw = m.triggers { mapping.triggers = Set(raw.compactMap(TriggerKind.init(rawValue:))) }
                 if let enabled = m.webhookTriggerEnabled { mapping.webhookTriggerEnabled = enabled }
                 if let chime = m.chimeOnOpen { mapping.chimeOnOpen = chime }
+                if let show = m.showNameAndTime { mapping.showNameAndTime = show }
+                if let size = m.size { mapping.sizeOverride = size }
             }
             mapping.actions = mapping.actions.map { action in
                 var action = action
@@ -448,7 +457,9 @@ final class SettingsStore: ObservableObject {
                 protectCameraId: mapping.protectCameraId,
                 triggers: TriggerKind.ordered.filter(mapping.triggers.contains).map(\.rawValue),
                 webhookTriggerEnabled: mapping.webhookTriggerEnabled,
-                chimeOnOpen: mapping.chimeOnOpen
+                chimeOnOpen: mapping.chimeOnOpen,
+                showNameAndTime: mapping.showNameAndTime,
+                size: mapping.sizeOverride
             )
             for action in mapping.actions {
                 actionValues[action.id.uuidString] = .init(

@@ -7,7 +7,6 @@ import SwiftUI
 struct CameraAdvancedSection: View {
     @Binding var mapping: WebhookMapping
     let lastTriggered: Date?
-    let onRemove: () -> Void
 
     @EnvironmentObject private var settings: SettingsStore
     @ObservedObject private var protect = ProtectSession.shared
@@ -27,8 +26,6 @@ struct CameraAdvancedSection: View {
                     .font(.system(size: 11))
                     .foregroundStyle(Tokens.muted.color)
             }
-            Button("Kamera entfernen …", action: onRemove)
-                .buttonStyle(LinkButtonStyle(color: Tokens.muted))
         }
     }
 
@@ -118,14 +115,19 @@ struct CameraAdvancedSection: View {
                 }
                 CardDivider()
                 FixedLabelRow(title: "Größe") {
-                    TokenTextField(placeholder: "480", text: dimensionBinding($mapping.width)).frame(width: 64)
+                    // Empty = automatic; the placeholders show what is used right now.
+                    let current = mapping.popupSize(
+                        on: WindowPositioner.targetScreen(for: settings.screenTarget),
+                        margin: CGFloat(settings.edgeMargin)
+                    )
+                    TokenTextField(placeholder: String(Int(current.width)), text: sizeBinding(\.width)).frame(width: 64)
                     Text("×").foregroundStyle(Tokens.muted.color)
-                    TokenTextField(placeholder: "270", text: dimensionBinding($mapping.height)).frame(width: 64)
+                    TokenTextField(placeholder: String(Int(current.height)), text: sizeBinding(\.height)).frame(width: 64)
                     Text("px").font(.system(size: 12)).foregroundStyle(Tokens.muted.color)
                     Spacer(minLength: 0)
                 }
                 CardDivider()
-                CardToggleRow(title: "Ton des Livebilds", isOn: $mapping.soundEnabled, vertical: 9, horizontal: 12)
+                CardToggleRow(title: "Name und Zeit einblenden", isOn: $mapping.showNameAndTime, vertical: 9, horizontal: 12)
                 CardDivider()
                 HStack(spacing: 8) {
                     if mapping.crop != nil {
@@ -175,14 +177,11 @@ struct CameraAdvancedSection: View {
         return nil
     }
 
-    private func dimensionBinding(_ value: Binding<Double>) -> Binding<String> {
+    /// One size field: digits, empty = automatic for this side.
+    private func sizeBinding(_ side: WritableKeyPath<PopupSizeOverride, Double?>) -> Binding<String> {
         Binding(
-            get: { String(Int(value.wrappedValue)) },
-            set: { newValue in
-                let digits = newValue.filter(\.isNumber)
-                guard !digits.isEmpty, let parsed = Double(digits) else { return }
-                value.wrappedValue = parsed
-            }
+            get: { mapping.sizeOverride[keyPath: side].map { String(Int($0)) } ?? "" },
+            set: { mapping.sizeOverride[keyPath: side] = PopupSizeOverride.value(fromText: $0) }
         )
     }
 

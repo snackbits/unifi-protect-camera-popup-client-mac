@@ -17,6 +17,8 @@ final class PopupController {
         let size: CGSize
         /// The position used when only a single popup is shown.
         let position: PopupPosition
+        /// Crop selection keeps its size; the stack never resizes it.
+        var fixedSize = false
     }
 
     private var activePopups: [ActivePopup] = []
@@ -86,12 +88,14 @@ final class PopupController {
                 dismiss()
             }
 
-            let window = makeAlarmWindow(event: event, mapping: mapping, streamURL: streamURL)
+            let screen = WindowPositioner.targetScreen(for: settings.screenTarget)
+            let size = mapping.popupSize(on: screen, margin: CGFloat(settings.edgeMargin))
+            let window = makeAlarmWindow(event: event, mapping: mapping, streamURL: streamURL, size: size)
             activePopups.append(
                 ActivePopup(
                     entryId: mapping.entryId,
                     window: window,
-                    size: CGSize(width: CGFloat(mapping.width), height: CGFloat(mapping.height)),
+                    size: size,
                     position: mapping.positionOverride ?? settings.defaultPosition
                 )
             )
@@ -115,16 +119,15 @@ final class PopupController {
     private func makeAlarmWindow(
         event: TriggerEvent,
         mapping: WebhookMapping,
-        streamURL: String
+        streamURL: String,
+        size: CGSize
     ) -> PopupWindow {
         let entryId = mapping.entryId
         let cameraName = CamerasTab.displayName(mapping)
         let overlay = PopupOverlayContent(
-            chipText: DisplayText.popupChip(
-                kind: Self.kindLabel(for: event, mapping: mapping),
-                camera: cameraName,
-                date: event.timestamp
-            ),
+            chipText: mapping.showNameAndTime
+                ? DisplayText.popupChip(kind: Self.kindLabel(for: event, mapping: mapping), camera: cameraName, date: event.timestamp)
+                : nil,
             cameraName: cameraName,
             muteOptions: settings.muteOptions,
             onMute: { [weak self] duration in
@@ -133,7 +136,7 @@ final class PopupController {
             talk: TalkbackService.shared.canTalk(mapping) ? PopupTalkContent(entryId: entryId) : nil
         )
         return PopupWindow(
-            frame: NSRect(x: 0, y: 0, width: CGFloat(mapping.width), height: CGFloat(mapping.height)),
+            frame: NSRect(origin: .zero, size: size),
             streamURL: streamURL,
             soundEnabled: mapping.soundEnabled,
             rememberZoom: mapping.rememberZoom,
@@ -151,35 +154,39 @@ final class PopupController {
         }
     }
 
-    /// Repositions every active popup. With "show all" enabled the popups are
-    /// stacked at the default position; otherwise the single popup uses its own
-    /// (possibly overridden) position.
+    /// Lays out every active popup (`PopupStackLayout`): all stay fully visible – with more popups
+    /// than room they shrink together, after a close they grow back towards their own size.
+    /// With "show all" the stack sits at the default position, otherwise the single popup at its own.
+    /// Size changes animate 300 ms ease-in-ease-out, without animation under "Bewegung reduzieren".
     private func relayout() {
-        guard !activePopups.isEmpty else { return }
+        let popups = activePopups.filter { !$0.fixedSize }
+        guard !popups.isEmpty else { return }
 
         let screen = WindowPositioner.targetScreen(for: settings.screenTarget)
         let margin = CGFloat(settings.edgeMargin)
-
-        if settings.showAllActiveCameras {
-            let frames = WindowPositioner.stackedFrames(
-                sizes: activePopups.map(\.size),
-                position: settings.defaultPosition,
-                margin: margin,
-                screen: screen
-            )
-            for (index, popup) in activePopups.enumerated() {
-                popup.window.setFrame(frames[index], display: true)
+        // Re-read the settings: a changed size or a learned aspect ratio applies on the next layout.
+        let sizes = popups.map { popup in
+            settings.mapping(forEntry: popup.entryId)?.popupSize(on: screen, margin: margin) ?? popup.size
+        }
+        let position = settings.showAllActiveCameras ? settings.defaultPosition : popups[0].position
+        let frames = PopupStackLayout.frames(
+            sizes: sizes,
+            anchor: position.anchor,
+            visible: screen.visibleFrame,
+            margin: margin
+        )
+        let animate = !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        for (popup, frame) in zip(popups, frames) {
+            let window = popup.window
+            // A popup not on screen yet appears in place; the others glide.
+            guard animate, window.isVisible, window.frame != frame else {
+                window.setFrame(frame, display: true)
+                continue
             }
-        } else {
-            for popup in activePopups {
-                let frame = WindowPositioner.frame(
-                    width: popup.size.width,
-                    height: popup.size.height,
-                    position: popup.position,
-                    margin: margin,
-                    screen: screen
-                )
-                popup.window.setFrame(frame, display: true)
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.3
+                context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                window.animator().setFrame(frame, display: true)
             }
         }
     }
@@ -208,20 +215,20 @@ final class PopupController {
         dismiss()
 
         let position = mapping.positionOverride ?? settings.defaultPosition
-        let width = CGFloat(mapping.width)
-        let height = CGFloat(mapping.height)
         let screen = WindowPositioner.targetScreen(for: settings.screenTarget)
-        let frame = WindowPositioner.frame(
-            width: width,
-            height: height,
-            position: position,
-            margin: CGFloat(settings.edgeMargin),
-            screen: screen
-        )
+        let margin = CGFloat(settings.edgeMargin)
+        // The popup's real size (automatic or typed); the crop is measured against it.
+        let size = mapping.popupSize(on: screen, margin: margin)
+        let frame = PopupStackLayout.frames(
+            sizes: [size],
+            anchor: position.anchor,
+            visible: screen.visibleFrame,
+            margin: margin
+        )[0]
 
         let entryId = mapping.entryId
-        let originalWidth = mapping.width
-        let originalHeight = mapping.height
+        let originalWidth = Double(frame.width)
+        let originalHeight = Double(frame.height)
 
         let window = PopupWindow(
             frame: frame,
@@ -249,8 +256,9 @@ final class PopupController {
             ActivePopup(
                 entryId: entryId,
                 window: window,
-                size: CGSize(width: width, height: height),
-                position: position
+                size: frame.size,
+                position: position,
+                fixedSize: true
             )
         )
         window.orderFrontRegardless()
@@ -281,5 +289,21 @@ final class PopupController {
         for popup in popups {
             popup.window.closePopup()
         }
+    }
+}
+
+extension WebhookMapping {
+    /// Width / height for the automatic size: the crop's, else the camera picture's (once seen),
+    /// else nil (16:9).
+    @MainActor
+    var popupAspectRatio: Double? {
+        if crop != nil, width > 0, height > 0 { return width / height }
+        return protectCameraId.flatMap(ProtectSession.shared.aspectRatio(cameraId:))
+    }
+
+    /// The size this camera's popup asks for on `screen` (before the stack shrinks it).
+    @MainActor
+    func popupSize(on screen: NSScreen, margin: CGFloat) -> CGSize {
+        PopupSizing.size(override: sizeOverride, aspect: popupAspectRatio, visible: screen.visibleFrame.size, margin: margin)
     }
 }

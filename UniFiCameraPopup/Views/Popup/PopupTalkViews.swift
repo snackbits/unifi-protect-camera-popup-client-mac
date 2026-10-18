@@ -7,16 +7,39 @@ struct PopupTalkContent {
     let entryId: UUID
 }
 
-/// "Leertaste halten": capsule 40 high, padding 0/18, radius 20, `accent`, 12 pt bold white,
-/// mic 16 + 6 + label. Pressing starts, releasing ends (hold); the service decides for toggle mode.
+/// Talk button (Phase 5, two lines): capsule 40 high, padding 0/18, radius 20, `accent`, mic 16 + 6 +
+/// state line 12 pt bold („Sprechen“ → „Verbinde …“ → „Loslassen zum Beenden“) over the fixed hint
+/// „Gedrückt halten zum Sprechen“ 10 pt, white 80 %. Talks only while the mouse button is held;
+/// releasing ends it, also outside the button or the popup. Width = widest text (never jumps).
+/// Compact (popup too narrow for the pill): a 40 pt circle with the microphone only, hint as tooltip.
 final class TalkButtonView: NSView {
+    static let idleTitle = "Sprechen"
+    static let connectingTitle = "Verbinde …"
+    static let liveTitle = "Loslassen zum Beenden"
+    static let hint = "Gedrückt halten zum Sprechen"
+
     var onPress: (() -> Void)?
     var onRelease: (() -> Void)?
     var onAccessibilityPress: (() -> Void)?
     private let icon = NSImageView()
     private let label = NSTextField(labelWithString: "")
+    private let hintLabel = NSTextField(labelWithString: TalkButtonView.hint)
+    private var isHeld = false
+    private let lines: NSStackView
+    private var fullConstraints: [NSLayoutConstraint] = []
+    private var compactConstraints: [NSLayoutConstraint] = []
+    /// Width of the two-line form.
+    let fullWidth: CGFloat
+    /// Mouse-up anywhere (other apps included) while held: the window may not see it.
+    private var releaseMonitors: [Any] = []
 
-    init(title: String) {
+    init() {
+        let titleFont = NSFont.systemFont(ofSize: 12, weight: .bold)
+        let hintFont = NSFont.systemFont(ofSize: 10)
+        let texts = [Self.idleTitle, Self.connectingTitle, Self.liveTitle].map { ($0, titleFont) } + [(Self.hint, hintFont)]
+        let textWidth = texts.map { NSAttributedString(string: $0.0, attributes: [.font: $0.1]).size().width }.max() ?? 0
+        fullWidth = 18 + 16 + 6 + textWidth.rounded(.up) + 18
+        lines = NSStackView(views: [label, hintLabel])
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         wantsLayer = true
@@ -25,40 +48,91 @@ final class TalkButtonView: NSView {
         icon.image = TemplateIcon.mic.nsImage(size: 16)
         icon.contentTintColor = .white
         icon.translatesAutoresizingMaskIntoConstraints = false
-        label.font = .systemFont(ofSize: 12, weight: .bold)
+        label.font = titleFont
         label.textColor = .white
-        label.translatesAutoresizingMaskIntoConstraints = false
+        hintLabel.font = hintFont
+        hintLabel.textColor = NSColor.white.withAlphaComponent(0.8)
+        lines.orientation = .vertical
+        lines.alignment = .leading
+        lines.spacing = 0
+        lines.translatesAutoresizingMaskIntoConstraints = false
         addSubview(icon)
-        addSubview(label)
+        addSubview(lines)
+
         NSLayoutConstraint.activate([
             heightAnchor.constraint(equalToConstant: 40),
-            icon.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 18),
             icon.centerYAnchor.constraint(equalTo: centerYAnchor),
             icon.widthAnchor.constraint(equalToConstant: 16),
             icon.heightAnchor.constraint(equalToConstant: 16),
-            label.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 6),
-            label.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -18),
-            label.centerYAnchor.constraint(equalTo: centerYAnchor),
+            lines.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 6),
+            lines.centerYAnchor.constraint(equalTo: centerYAnchor),
         ])
+        fullConstraints = [
+            widthAnchor.constraint(equalToConstant: fullWidth),
+            icon.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 18),
+        ]
+        compactConstraints = [
+            widthAnchor.constraint(equalToConstant: 40),
+            icon.centerXAnchor.constraint(equalTo: centerXAnchor),
+        ]
+        NSLayoutConstraint.activate(fullConstraints)
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
-        update(title: title, busy: false)
+        setAccessibilityHelp(Self.hint)
+        update(title: Self.idleTitle, busy: false)
         applyColors()
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
+    var isCompact = false {
+        didSet {
+            guard isCompact != oldValue else { return }
+            lines.isHidden = isCompact
+            NSLayoutConstraint.deactivate(isCompact ? fullConstraints : compactConstraints)
+            NSLayoutConstraint.activate(isCompact ? compactConstraints : fullConstraints)
+        }
+    }
+
     /// `busy` while the talkback session is being opened (70 %).
     func update(title: String, busy: Bool) {
         label.stringValue = title
-        toolTip = title
+        toolTip = Self.hint
         setAccessibilityLabel(title)
         alphaValue = busy ? 0.7 : 1
     }
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-    override func mouseDown(with event: NSEvent) { onPress?() }
-    override func mouseUp(with event: NSEvent) { onRelease?() }
+
+    override func mouseDown(with event: NSEvent) {
+        guard !isHeld else { return }
+        isHeld = true
+        onPress?()
+        let local = NSEvent.addLocalMonitorForEvents(matching: .leftMouseUp) { [weak self] event in
+            self?.release()
+            return event
+        }
+        let global = NSEvent.addGlobalMonitorForEvents(matching: .leftMouseUp) { [weak self] _ in
+            MainActor.assumeIsolated { self?.release() }
+        }
+        releaseMonitors = [local, global].compactMap { $0 }
+    }
+
+    override func mouseUp(with event: NSEvent) { release() }
+
+    /// The popup closes or the button leaves its window while held: end like a release.
+    override func viewWillMove(toWindow newWindow: NSWindow?) {
+        super.viewWillMove(toWindow: newWindow)
+        if newWindow == nil { release() }
+    }
+
+    private func release() {
+        guard isHeld else { return }
+        isHeld = false
+        releaseMonitors.forEach(NSEvent.removeMonitor)
+        releaseMonitors = []
+        onRelease?()
+    }
 
     override func accessibilityPerformPress() -> Bool {
         onAccessibilityPress?()
@@ -324,7 +398,7 @@ final class PopupNoticeView: NSView {
     }
 }
 
-/// "Ton abspielen" + "Leertaste halten" of one popup, wired to `TalkbackService`.
+/// "Ton abspielen" + talk button of one popup, wired to `TalkbackService`.
 @MainActor
 final class PopupTalkControls {
     let soundButton: CircleIconButton
@@ -347,15 +421,15 @@ final class PopupTalkControls {
             tint: Tokens.pillFg,
             label: "Ton abspielen"
         )
-        talkButton = TalkButtonView(title: Self.idleTitle)
+        talkButton = TalkButtonView()
         soundMenu.isHidden = true
 
         soundButton.target = self
         soundButton.action = #selector(soundTapped)
         let service = TalkbackService.shared
         let entryId = talk.entryId
-        talkButton.onPress = { service.pressTalk(entryId: entryId) }
-        talkButton.onRelease = { service.releaseTalk() }
+        talkButton.onPress = { service.startTalking(entryId: entryId) }
+        talkButton.onRelease = { service.stopTalking() }
         talkButton.onAccessibilityPress = { service.toggleTalk(entryId: entryId) }
         soundMenu.onPick = { [weak self] announcement in
             self?.soundMenu.isHidden = true
@@ -377,17 +451,6 @@ final class PopupTalkControls {
             .receive(on: RunLoop.main)
             .sink { [weak self] notice in self?.notice.show(notice.text) }
             .store(in: &cancellables)
-        SoundStore.shared.$settings
-            .map(\.talkMode)
-            .removeDuplicates()
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in self?.render(TalkbackService.shared.activity) }
-            .store(in: &cancellables)
-    }
-
-    /// Talk button label when idle: hold mode "Leertaste halten", toggle mode "Sprechen".
-    private static var idleTitle: String {
-        SoundStore.shared.settings.talkMode == .hold ? "Leertaste halten" : "Sprechen"
     }
 
     /// Menu over the pill (bottom edge on the pill's top edge), 45 pt left of the sound button (template: left 70 in a 470 popup),
@@ -396,7 +459,8 @@ final class PopupTalkControls {
         content.addSubview(notice)
         content.addSubview(soundMenu)
         let leading = soundMenu.leadingAnchor.constraint(equalTo: soundButton.leadingAnchor, constant: -45)
-        leading.priority = .defaultHigh
+        // Below the window's own size (500): a hidden menu must never widen the popup.
+        leading.priority = NSLayoutConstraint.Priority(490)
         NSLayoutConstraint.activate([
             leading,
             soundMenu.leadingAnchor.constraint(greaterThanOrEqualTo: content.leadingAnchor, constant: 10),
@@ -405,6 +469,11 @@ final class PopupTalkControls {
             notice.bottomAnchor.constraint(equalTo: pill.topAnchor, constant: -8),
             notice.widthAnchor.constraint(lessThanOrEqualTo: content.widthAnchor, constant: -20),
         ])
+    }
+
+    /// Two-line talk button while the pill fits into the popup, else the microphone only.
+    func fit(popupWidth: CGFloat, circles: Int) {
+        talkButton.isCompact = !PopupPillFit.talkButtonFits(popupWidth: popupWidth, circles: circles, talkWidth: talkButton.fullWidth)
     }
 
     /// true when the click only closed the open menu.
@@ -416,14 +485,6 @@ final class PopupTalkControls {
 
     /// Keep the popup open while something is being sent from it.
     var isBusy: Bool { TalkbackService.shared.isActive(entryId: entryId) }
-
-    func pointerInside(_ inside: Bool) {
-        if inside {
-            TalkbackService.shared.pointerEntered(entryId: entryId)
-        } else {
-            TalkbackService.shared.pointerExited(entryId: entryId)
-        }
-    }
 
     func popupClosed() {
         isClosed = true
@@ -462,14 +523,13 @@ final class PopupTalkControls {
         switch mine?.purpose {
         case .talk?:
             let live = mine?.phase == .live
-            let liveTitle = SoundStore.shared.settings.talkMode == .hold ? "Spricht …" : "Beenden"
-            talkButton.update(title: live ? liveTitle : "Verbinde …", busy: !live)
+            talkButton.update(title: live ? TalkButtonView.liveTitle : TalkButtonView.connectingTitle, busy: !live)
             setSoundActive(false)
         case .announcement?:
-            talkButton.update(title: Self.idleTitle, busy: false)
+            talkButton.update(title: TalkButtonView.idleTitle, busy: false)
             setSoundActive(true)
         case nil:
-            talkButton.update(title: Self.idleTitle, busy: false)
+            talkButton.update(title: TalkButtonView.idleTitle, busy: false)
             setSoundActive(false)
         }
     }

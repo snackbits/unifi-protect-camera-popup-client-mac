@@ -120,7 +120,7 @@ final class GlobalHotkeyManager {
                     &hotkeyID
                 )
                 guard error == noErr else { return error }
-                // The push-to-talk space bar (PushToTalkKey) has its own signature and handler.
+                // Only this manager's hot keys (own signature).
                 guard hotkeyID.signature == GlobalHotkeyManager.signature else { return OSStatus(eventNotHandledErr) }
 
                 let manager = Unmanaged<GlobalHotkeyManager>
