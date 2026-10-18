@@ -193,6 +193,10 @@ struct CameraDetail: View {
                     .padding(.horizontal, 22)
                     .frame(maxWidth: .infinity, minHeight: geometry.size.height, alignment: .topLeading)
                 }
+                .onAppear {
+                    guard advancedExpanded else { return }
+                    DispatchQueue.main.async { proxy.scrollTo("advanced", anchor: .top) }
+                }
                 .onChange(of: advancedExpanded) { expanded in
                     guard expanded else { return }
                     DispatchQueue.main.async {

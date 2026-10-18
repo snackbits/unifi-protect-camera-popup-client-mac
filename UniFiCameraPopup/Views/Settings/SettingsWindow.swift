@@ -66,6 +66,29 @@ final class SettingsWindowController {
 
     private init() {}
 
+    /// Template window: 760 × 540 in total, title bar included (content runs under the transparent title bar).
+    static func makeWindow<Root: View>(rootView: Root) -> NSWindow {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 760, height: 540),
+            styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
+            backing: .buffered,
+            defer: false
+        )
+        window.titlebarAppearsTransparent = true
+        window.isReleasedWhenClosed = false
+        // A hosting view as `contentView` resizes the window to its ideal height (540 + title bar = 572).
+        // Wrapped in a plain container the window keeps the template size.
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: 760, height: 540))
+        let hosting = NSHostingView(rootView: rootView)
+        hosting.frame = container.bounds
+        hosting.autoresizingMask = [.width, .height]
+        container.addSubview(hosting)
+        window.contentView = container
+        // `contentRect` excludes the title bar; pin the whole frame to the template size.
+        window.setFrame(NSRect(x: 0, y: 0, width: 760, height: 540), display: false)
+        return window
+    }
+
     func show(webSocketClient: WebSocketClient, protectEvents: ProtectEventService, tab: SettingsTab? = nil) {
         if let tab {
             navigation.tab = tab
@@ -75,15 +98,7 @@ final class SettingsWindowController {
                 .environmentObject(SettingsStore.shared)
                 .environmentObject(webSocketClient)
                 .environmentObject(protectEvents)
-            let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 760, height: 540),
-                styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
-                backing: .buffered,
-                defer: false
-            )
-            window.titlebarAppearsTransparent = true
-            window.isReleasedWhenClosed = false
-            window.contentView = NSHostingView(rootView: root)
+            let window = Self.makeWindow(rootView: root)
             window.title = navigation.tab.windowTitle
             window.center()
             titleObserver = navigation.$tab.sink { [weak window] tab in

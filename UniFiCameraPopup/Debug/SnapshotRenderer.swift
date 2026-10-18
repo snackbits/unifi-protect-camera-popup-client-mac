@@ -11,7 +11,15 @@ enum SnapshotRenderer {
     static let argument = "--render-snapshots"
     static let suiteName = "com.snackbits.UniFiCameraPopup.snapshots"
 
-    static var isActive: Bool { CommandLine.arguments.contains(argument) }
+    /// Flag present and followed by a directory argument.
+    static var isActive: Bool { outputDirectory != nil }
+
+    private static var outputDirectory: URL? {
+        let args = CommandLine.arguments
+        guard let index = args.firstIndex(of: argument), args.indices.contains(index + 1),
+              !args[index + 1].hasPrefix("-") else { return nil }
+        return URL(fileURLWithPath: args[index + 1], isDirectory: true)
+    }
 
     static let isolatedDefaults: UserDefaults = {
         let defaults = UserDefaults(suiteName: suiteName)!
@@ -25,9 +33,7 @@ enum SnapshotRenderer {
     /// Call first in `applicationDidFinishLaunching`; renders and terminates when requested.
     @MainActor
     static func runIfRequested() {
-        let args = CommandLine.arguments
-        guard let index = args.firstIndex(of: argument), args.indices.contains(index + 1) else { return }
-        let directory = URL(fileURLWithPath: args[index + 1], isDirectory: true)
+        guard let directory = outputDirectory else { return }
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         NSApp.setActivationPolicy(.accessory)
         renderAll(into: directory)
@@ -106,14 +112,9 @@ enum SnapshotRenderer {
                     .environmentObject(sample.settings)
                     .environmentObject(relay)
                     .environmentObject(protectEvents)
-                let window = NSWindow(
-                    contentRect: NSRect(x: 0, y: 0, width: 760, height: 540),
-                    styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
-                    backing: .buffered, defer: false
-                )
-                window.titlebarAppearsTransparent = true
+                let window = SettingsWindowController.makeWindow(rootView: root)
                 window.title = tab.windowTitle
-                window.contentView = NSHostingView(rootView: root)
+                print("settings window \(tab.windowTitle): frame \(window.frame.size) content \(window.contentView?.frame.size ?? .zero)")
                 return window
             }
             write(window: settingsWindow(tab: .general), appearance: appearance,
@@ -143,13 +144,24 @@ enum SnapshotRenderer {
             .environmentObject(sample.settings)
             .environmentObject(relay)
             .environmentObject(protectEvents)
-            let sheetWindow = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 760, height: 540),
-                                       styleMask: [.titled, .fullSizeContentView], backing: .buffered, defer: false)
-            sheetWindow.titlebarAppearsTransparent = true
+            let sheetWindow = SettingsWindowController.makeWindow(rootView: sheetRoot)
             sheetWindow.title = "Kameras"
-            sheetWindow.contentView = NSHostingView(rootView: sheetRoot)
             write(window: sheetWindow, appearance: appearance,
                   to: directory.appendingPathComponent("S4-button-sheet-\(suffix).png"))
+
+            // Proof for the chip outline: same chips via ImageRenderer (no AppKit cacheDisplay).
+            if let camera = ProtectSession.shared.cameras.first {
+                let chips = TriggerChips(camera: camera, selection: .constant([.ring, .person]), size: .small)
+                    .padding(10).frame(width: 420)
+                    .background(Tokens.win.color)
+                    .environment(\.colorScheme, suffix == "dark" ? .dark : .light)
+                let renderer = ImageRenderer(content: chips)
+                renderer.scale = 2
+                if let image = renderer.nsImage, let tiff = image.tiffRepresentation,
+                   let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) {
+                    try? png.write(to: directory.appendingPathComponent("chips-imagerenderer-\(suffix).png"))
+                }
+            }
 
             // 7 – menu panel.
             let panel = StatusPanelView(
@@ -201,6 +213,7 @@ enum SnapshotRenderer {
         let view: NSView = includeFrame ? (content.superview ?? content) : content
         view.layoutSubtreeIfNeeded()
         let size = view.bounds.size
+        print("render \(url.lastPathComponent): window \(window.frame.size) frameView \(view.bounds.size)")
         guard let rep = NSBitmapImageRep(
             bitmapDataPlanes: nil, pixelsWide: Int(size.width * 2), pixelsHigh: Int(size.height * 2),
             bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
