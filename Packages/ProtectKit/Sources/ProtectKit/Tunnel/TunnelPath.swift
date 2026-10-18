@@ -17,17 +17,70 @@ public enum TunnelPath {
     public static let privateRanges = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16",
                                        "169.254.0.0/16", "fc00::/7", "fe80::/10"]
 
-    /// Where a webhook call (popup action button) goes.
+    /// Where a webhook call (popup action button) goes. Away, only hosts whose target is
+    /// certain go out: IP literals (IPv4-mapped and NAT64 IPv6 count as their IPv4) and
+    /// ordinary names. Numeric spellings that are not a canonical dotted quad and mDNS names
+    /// (`.local`, answered by any device on the current link) are refused.
     public static func webhook(_ url: URL, route: ProtectRoute, allowedIPs: [String]) -> Webhook {
         guard route == .tunnel,
               let comps = URLComponents(url: url, resolvingAgainstBaseURL: false),
               let scheme = comps.scheme?.lowercased(), scheme == "http" || scheme == "https",
               let rawHost = comps.host, !rawHost.isEmpty else { return .direct }
-        let host = unbracketed(rawHost)
-        if AllowedIPs.covers(host: host, prefixes: allowedIPs) == true {
-            return .forward(ForwardTarget(host: host, port: comps.port ?? (scheme == "https" ? 443 : 80)))
+        let ip: String
+        switch classify(host: rawHost) {
+        case .ambiguousNumeric:
+            return .refuse
+        case .name(let name):
+            return isMDNS(name) ? .refuse : .direct
+        case .address(let literal):
+            ip = literal
         }
-        return AllowedIPs.covers(host: host, prefixes: privateRanges) == true ? .refuse : .direct
+        if AllowedIPs.covers(host: ip, prefixes: allowedIPs) == true {
+            return .forward(ForwardTarget(host: ip, port: comps.port ?? (scheme == "https" ? 443 : 80)))
+        }
+        return AllowedIPs.covers(host: ip, prefixes: privateRanges) == true ? .refuse : .direct
+    }
+
+    enum HostClass: Equatable {
+        /// Canonical IP literal; IPv4-mapped (::ffff:a.b.c.d) and NAT64 (64:ff9b::/96)
+        /// addresses are given as their embedded IPv4.
+        case address(String)
+        /// Looks like a number (hex, octal, short or integer IPv4 forms) but is no canonical
+        /// dotted quad: resolvers disagree on what it means.
+        case ambiguousNumeric
+        /// Lowercased host name.
+        case name(String)
+    }
+
+    static func classify(host raw: String) -> HostClass {
+        let host = unbracketed(raw)
+        var v6 = in6_addr()
+        if inet_pton(AF_INET6, host, &v6) == 1 {
+            let b = withUnsafeBytes(of: &v6) { Array($0) }
+            let mapped = b[0..<10].allSatisfy { $0 == 0 } && b[10] == 0xFF && b[11] == 0xFF
+            let nat64 = b[0..<4] == [0x00, 0x64, 0xFF, 0x9B] && b[4..<12].allSatisfy { $0 == 0 }
+            if mapped || nat64 { return .address(b[12..<16].map(String.init).joined(separator: ".")) }
+            return .address(host)
+        }
+        var labels = host.split(separator: ".", omittingEmptySubsequences: false).map { $0.lowercased() }
+        let trailingDot = labels.count > 1 && labels.last == ""
+        if trailingDot { labels.removeLast() }
+        let numeric = labels.allSatisfy { label in
+            guard !label.isEmpty else { return false }
+            if label.hasPrefix("0x") { return label.dropFirst(2).allSatisfy(\.isHexDigit) }
+            return label.allSatisfy { $0.isASCII && $0.isNumber }
+        }
+        guard numeric else { return .name(host.lowercased()) }
+        let canonical = !trailingDot && labels.count == 4 && labels.allSatisfy { label in
+            guard let value = Int(label), (0...255).contains(value) else { return false }
+            return label == String(value)  // no leading zeros (octal in some resolvers)
+        }
+        return canonical ? .address(host) : .ambiguousNumeric
+    }
+
+    private static func isMDNS(_ name: String) -> Bool {
+        let trimmed = name.hasSuffix(".") ? String(name.dropLast()) : name
+        return trimmed == "local" || trimmed.hasSuffix(".local")
     }
 
     /// Same URL on 127.0.0.1:<localPort>; scheme, path and query stay (TLS stays end to end).
