@@ -27,7 +27,8 @@ public enum PiperError: Error, Equatable, LocalizedError {
         case .voiceNotInstalled(let label):
             return "Die Stimme „\(label)“ ist nicht geladen."
         case .download(let detail):
-            return "Die Stimme konnte nicht geladen werden (\(detail)). Zum ersten Gebrauch braucht sie einmal Internet – prüf die Verbindung und versuch es noch einmal."
+            let reason = detail.trimmingCharacters(in: CharacterSet(charactersIn: ". "))
+            return "Die Stimme konnte nicht geladen werden: \(reason). Sie wird beim ersten Gebrauch aus dem Internet geladen – prüf die Verbindung und versuch es noch einmal."
         case .checksum(let label):
             return "Die geladene Stimme „\(label)“ ist beschädigt (Prüfsumme stimmt nicht). Versuch es noch einmal."
         }

@@ -101,7 +101,7 @@ if [[ ! -s "${APP_PATH}/Contents/Resources/ThirdPartyNotices.txt" ]]; then
   exit 1
 fi
 # Piper (Phase 6, build phase "Build and embed Piper"): universal program and libraries,
-# espeak-ng data, the bundled voice, license marks, valid signature.
+# espeak-ng data, license marks, valid signature (voices are downloaded at first use).
 "${SCRIPT_DIR}/../../piper/scripts/check-app.sh" "$APP_PATH"
 
 "${SCRIPT_DIR}/resign-app.sh" "$APP_PATH"
