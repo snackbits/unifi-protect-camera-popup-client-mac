@@ -124,6 +124,25 @@ final class ProtectClientTests: XCTestCase {
         }
     }
 
+    func testProbeWithShortTimeoutSendsNoKey() async {
+        StubProtocol.responses["GET \(base)/meta/info"] = (401, Data())
+        do {
+            _ = try await ProtectClient.probeFingerprint(host: "192.168.1.1", protocolClasses: [StubProtocol.self], timeout: 2)
+            XCTFail()
+        } catch {
+            XCTAssertEqual(StubProtocol.requests.count, 1)
+            XCTAssertNil(StubProtocol.requests.first?.value(forHTTPHeaderField: "X-API-KEY"))
+        }
+    }
+
+    func testRequestTimeoutIsConfigurable() {
+        XCTAssertEqual(client().requestTimeout, 10)
+        let quick = ProtectClient(host: "192.168.1.1", apiKey: "", pinnedFingerprint: nil, onNewFingerprint: { _ in },
+                                  protocolClasses: [StubProtocol.self], requestTimeout: 2)
+        XCTAssertEqual(quick.requestTimeout, 2)
+    }
+
+
     func testProbeRejectsInvalidHost() async {
         do { _ = try await ProtectClient.probeFingerprint(host: "  "); XCTFail() } catch {
             XCTAssertEqual(error as? ProtectError, .invalidHost)

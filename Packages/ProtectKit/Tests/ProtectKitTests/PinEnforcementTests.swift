@@ -57,6 +57,20 @@ final class PinEnforcementTests: XCTestCase {
         do { _ = try await c.metaInfo(); XCTFail() } catch { XCTAssertEqual(error as? ProtectError, .certificateChanged) }
     }
 
+    /// Through the tunnel the client talks to 127.0.0.1:<forward>. The pin is the
+    /// console's certificate, not a host name, so it must hold unchanged.
+    func testPinHoldsForLocalForwardHost() throws {
+        let data = try der("selfsigned"); let rec = Recorder()
+        let c = ProtectClient(host: "127.0.0.1:50123", apiKey: "K",
+                              pinnedFingerprint: CertificatePinning.fingerprint(of: data),
+                              onNewFingerprint: { rec.add($0) }, protocolClasses: [FailingProtocol.self])
+        XCTAssertEqual(c.baseURL.absoluteString, "https://127.0.0.1:50123/proxy/protect/integration")
+        XCTAssertEqual(c.evaluate(trust: try trust(data)).0, .useCredential)
+        XCTAssertEqual(c.evaluate(trust: try trust(try der("selfsigned2"))).0, .cancelAuthenticationChallenge)
+        XCTAssertTrue(rec.all.isEmpty)
+    }
+
+
     func testRequestFailsAfterInvalidate() async {
         let c = client(pinned: nil, recorder: Recorder(), protocols: [StubProtocol.self])
         c.invalidate()

@@ -36,7 +36,8 @@ public final class ProtectClient: NSObject, URLSessionTaskDelegate, @unchecked S
         apiKey: String,
         pinnedFingerprint: String?,
         onNewFingerprint: @escaping @Sendable (String) -> Void,
-        protocolClasses: [AnyClass]? = nil
+        protocolClasses: [AnyClass]? = nil,
+        requestTimeout: TimeInterval = 10
     ) {
         self.baseURL = Self.baseURL(for: host) ?? URL(string: "https://invalid.invalid")!
         self.apiKey = apiKey
@@ -44,7 +45,7 @@ public final class ProtectClient: NSObject, URLSessionTaskDelegate, @unchecked S
         self.onNewFingerprint = onNewFingerprint
         super.init()
         let config = URLSessionConfiguration.ephemeral
-        config.timeoutIntervalForRequest = 10
+        config.timeoutIntervalForRequest = requestTimeout
         if let protocolClasses { config.protocolClasses = protocolClasses }
         session = URLSession(configuration: config, delegate: self, delegateQueue: nil)
     }
@@ -56,12 +57,19 @@ public final class ProtectClient: NSObject, URLSessionTaskDelegate, @unchecked S
         try await probeFingerprint(host: host, protocolClasses: nil)
     }
 
-    static func probeFingerprint(host: String, protocolClasses: [AnyClass]?) async throws -> String {
+    /// Same with a short timeout, for the route check (direct or tunnel) that must not
+    /// hang for the default 10 s on a foreign network.
+    public static func probeFingerprint(host: String, timeout: TimeInterval) async throws -> String {
+        try await probeFingerprint(host: host, protocolClasses: nil, timeout: timeout)
+    }
+
+    static func probeFingerprint(host: String, protocolClasses: [AnyClass]?, timeout: TimeInterval = 10) async throws -> String {
         guard baseURL(for: host) != nil else { throw ProtectError.invalidHost }
         let box = FingerprintBox()
         let client = ProtectClient(
             host: host, apiKey: "", pinnedFingerprint: nil,
-            onNewFingerprint: { box.set($0) }, protocolClasses: protocolClasses
+            onNewFingerprint: { box.set($0) }, protocolClasses: protocolClasses,
+            requestTimeout: timeout
         )
         defer { client.invalidate() }
         var failure: Error?
@@ -93,6 +101,9 @@ public final class ProtectClient: NSObject, URLSessionTaskDelegate, @unchecked S
         guard let port = comps.port, port != 443 else { return name }
         return "\(name):\(port)"
     }
+
+    /// Effective per-request timeout (tests).
+    var requestTimeout: TimeInterval { session.configuration.timeoutIntervalForRequest }
 
     // MARK: API
 
