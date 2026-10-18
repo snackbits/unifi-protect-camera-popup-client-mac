@@ -12,7 +12,8 @@ public struct Announcement: Codable, Equatable, Identifiable, Sendable {
     public var kind: Kind
     /// Spoken text (speech only).
     public var text: String
-    /// macOS voice (`AVSpeechSynthesisVoice.identifier`); nil = the bundled recording's voice.
+    /// Piper voice „piper:<id>#<speaker>“ (`PiperVoiceRef`); before Phase 6 a macOS voice identifier;
+    /// nil = the bundled recording's voice.
     public var voiceIdentifier: String?
     /// Audio in the app's sound folder: the copied MP3 or the rendered speech.
     public var fileName: String?

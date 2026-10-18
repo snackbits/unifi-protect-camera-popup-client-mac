@@ -107,9 +107,11 @@ final class SoundStore: ObservableObject {
         return nil
     }
 
-    /// Audio for "Anhören": the text as „Übernehmen“ would render it (Anna).
-    func previewBuffer(text: String) async throws -> AVAudioPCMBuffer {
-        try await AnnouncementAudio.render(text: text, voiceIdentifier: AnnouncementAudio.preferredVoice()?.identifier)
+    /// Audio for "Anhören": the text as „Übernehmen“ would render it with this Piper voice.
+    func previewBuffer(text: String, voice: PiperVoiceRef) async throws -> AVAudioPCMBuffer {
+        let wav = try await PiperVoiceStore.shared.render(text: text, voice: voice)
+        defer { try? FileManager.default.removeItem(at: wav) }
+        return try await Task.detached(priority: .userInitiated) { SpeechBuffer(buffer: try AnnouncementAudio.load(wav)) }.value.buffer
     }
 
     /// Maps a stored file name to a URL inside the sound folder: only the last path component
@@ -149,13 +151,13 @@ final class SoundStore: ObservableObject {
         return entry
     }
 
-    /// "Ansage aus Text …": new empty text entry for Anna (else the best German voice).
+    /// "Ansage aus Text …": new empty text entry for Thorsten (medium), the bundled Piper voice.
     @discardableResult
     func addText() -> Announcement {
         let entry = Announcement(
             name: Announcement.newName,
             kind: .speech,
-            voiceIdentifier: AnnouncementAudio.preferredVoice()?.identifier
+            voiceIdentifier: PiperVoiceRef.standard.identifier
         )
         settings.add(entry)
         return entry
@@ -176,28 +178,40 @@ final class SoundStore: ObservableObject {
         deleteFile(current.fileName)
     }
 
-    /// "Übernehmen": the text becomes the entry's audio, always spoken by Anna (Phase 5; entries in
-    /// another voice – the bundled recordings too – change to Anna on their next rendering).
-    func applySpeech(id: UUID, text: String) async throws {
+    /// "Übernehmen": Piper speaks the text with `voice`; the WAV becomes the entry's audio (also
+    /// for entries rendered by a macOS voice before Phase 6 and for the bundled recordings).
+    func applySpeech(id: UUID, text: String, voice: PiperVoiceRef) async throws {
         guard let current = settings.announcement(id: id) else { return }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         var entry = current
         entry.kind = .speech
         entry.text = trimmed
-        let voice = AnnouncementAudio.preferredVoice()?.identifier
-        let buffer = try await AnnouncementAudio.render(text: trimmed, voiceIdentifier: voice)
-        let name = "\(UUID().uuidString).caf"
-        guard let target = resolve(name) else { throw TalkbackError.audioFile("Ablage") }
-        // Writing and measuring a long text take a moment: off the main thread (like the imports).
-        let rendered = RenderedSpeech(buffer: buffer)
-        let gain = try await Task.detached(priority: .userInitiated) { () throws -> Double? in
-            try AnnouncementAudio.write(rendered.buffer, to: target)
-            return (try? AnnouncementAudio.loudnessGain(of: rendered.buffer)).map(Double.init)
+        let wav = try await PiperVoiceStore.shared.render(text: trimmed, voice: voice)
+        let name = "\(UUID().uuidString).wav"
+        guard let target = resolve(name) else {
+            try? FileManager.default.removeItem(at: wav)
+            throw TalkbackError.audioFile("Ablage")
+        }
+        // Moving, measuring and reading the length take a moment: off the main thread.
+        let (duration, gain) = try await Task.detached(priority: .userInitiated) { () throws -> (TimeInterval, Double?) in
+            do {
+                try FileManager.default.moveItem(at: wav, to: target)
+            } catch {
+                try? FileManager.default.removeItem(at: wav)
+                throw TalkbackError.audioFile(error.localizedDescription)
+            }
+            let buffer: AVAudioPCMBuffer
+            do { buffer = try AnnouncementAudio.load(target) } catch {
+                try? FileManager.default.removeItem(at: target)
+                throw error
+            }
+            let gain = (try? AnnouncementAudio.loudnessGain(of: buffer)).map(Double.init)
+            return (Double(buffer.frameLength) / buffer.format.sampleRate, gain)
         }.value
-        entry.voiceIdentifier = voice
+        entry.voiceIdentifier = voice.identifier
         entry.fileName = name
-        entry.duration = Double(buffer.frameLength) / buffer.format.sampleRate
+        entry.duration = duration
         entry.loudnessGain = gain
         // Deleted while rendering: drop the new file.
         guard var latest = settings.announcement(id: id) else {
@@ -283,7 +297,7 @@ final class SoundStore: ObservableObject {
     }
 }
 
-/// Hands a freshly rendered buffer to the background write/measure step (not touched meanwhile).
-private struct RenderedSpeech: @unchecked Sendable {
+/// Hands a buffer loaded off the main thread back to it (not touched meanwhile).
+private struct SpeechBuffer: @unchecked Sendable {
     let buffer: AVAudioPCMBuffer
 }

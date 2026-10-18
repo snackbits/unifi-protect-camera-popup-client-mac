@@ -22,11 +22,12 @@ enum SoundFilePicker {
 struct SoundTab: View {
     @ObservedObject private var store = SoundStore.shared
     @ObservedObject private var preview = PreviewPlayer.shared
+    @ObservedObject private var voices = PiperVoiceStore.shared
     @State private var selectedId: UUID?
     @State private var draftKind: Announcement.Kind = .speech
     @State private var draftText = ""
-    /// Anna (else the best German voice); read once per appearance of the tab.
-    @State private var voice: VoiceChoice.Candidate? = AnnouncementAudio.preferredVoice().map(AnnouncementAudio.candidate)
+    /// Piper voice + speaker for „Anhören“ and „Übernehmen“ of the selected entry.
+    @State private var draftVoice: PiperVoiceRef = .standard
     @State private var busy = false
     @State private var errorText: String?
     @State private var devices: [AudioInputDevice] = []
@@ -46,6 +47,9 @@ struct SoundTab: View {
                 if let selected {
                     editor(selected)
                 }
+                if !voices.downloadedVoices.isEmpty {
+                    downloadedVoicesCard
+                }
                 deviceCard
             }
             .padding(.vertical, 14)
@@ -53,12 +57,13 @@ struct SoundTab: View {
         }
         .onAppear {
             devices = MicrophoneCapture.inputDevices()
-            voice = AnnouncementAudio.preferredVoice().map(AnnouncementAudio.candidate)
+            voices.refresh()
             if selected == nil {
                 select(store.settings.announcements.first)
             }
             #if DEBUG
             if let sample = SnapshotRenderer.soundTabError { errorText = sample }
+            if let sample = SnapshotRenderer.soundTabVoice { draftVoice = sample }
             #endif
         }
     }
@@ -148,23 +153,38 @@ struct SoundTab: View {
                     .accessibilityLabel("Text der Ansage")
                 HStack(spacing: 8) {
                     Text("Stimme").font(.system(size: 12)).foregroundStyle(Tokens.muted.color)
-                    // Only Anna is offered (Phase 5): the field shows the voice and cannot be changed.
-                    PopUpField(selection: .constant(0), options: [(value: 0, title: VoiceChoice.fieldLabel(voice))])
-                        .disabled(true)
+                    PopUpField(selection: voiceSelection, options: voiceOptions)
                         .accessibilityLabel("Stimme")
+                    if let voice = draftVoice.resolved?.voice, voice.isMultiSpeaker {
+                        PopUpField(selection: speakerSelection, options: speakerOptions(voice))
+                            .accessibilityLabel("Sprecher")
+                    }
                     Spacer()
                     Button("Anhören") { listen(sound) }
                         .buttonStyle(FieldButtonStyle())
                         .disabled(busy || trimmedDraft.isEmpty)
                     Button("Übernehmen") { apply(sound) }
                         .buttonStyle(AccentButtonStyle(fontSize: 12, vertical: 3, horizontal: 10))
-                        .disabled(busy || !canApply(sound))
+                        .disabled(busy || !AnnouncementVoice.canApply(sound, text: draftText, selection: draftVoice))
                 }
-                Text("Wird auf diesem Mac erzeugt – ohne Internet, ohne Konto.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(Tokens.muted.color)
-                if let hint = VoiceChoice.hint(voice) {
-                    Text(hint)
+                if let voice = draftVoice.resolved?.voice {
+                    if let received = voices.downloads[voice.id] {
+                        downloadProgress(voice, received: received)
+                    } else {
+                        Text(voices.availability(voice) == .notDownloaded
+                             ? "Wird beim ersten Anhören oder Übernehmen geladen (\(voice.sizeText), einmalig) – danach auf diesem Mac erzeugt, ohne Internet."
+                             : "Wird auf diesem Mac erzeugt – ohne Internet, ohne Konto.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(Tokens.muted.color)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Text(voice.licenseText)
+                        .font(.system(size: 11))
+                        .foregroundStyle(Tokens.muted.color)
+                        .lineLimit(1)
+                }
+                if let note = AnnouncementVoice.note(for: sound) {
+                    Text(note)
                         .font(.system(size: 11))
                         .foregroundStyle(Color(nsColor: .systemOrange))
                         .fixedSize(horizontal: false, vertical: true)
@@ -198,10 +218,81 @@ struct SoundTab: View {
         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Tokens.accent.color, lineWidth: 1))
     }
 
-    /// New text, or an entry still in another voice (also the bundled recordings): render with Anna.
-    private func canApply(_ sound: Announcement) -> Bool {
-        guard !trimmedDraft.isEmpty, let voice else { return false }
-        return sound.kind != .speech || trimmedDraft != sound.text || sound.voiceIdentifier != voice.identifier
+    // MARK: Voices
+
+    /// Voice id of the draft; choosing another voice starts with its default speaker.
+    private var voiceSelection: Binding<String> {
+        Binding(
+            get: { draftVoice.voiceId },
+            set: { id in
+                guard let voice = PiperVoiceCatalog.voice(id: id) else { return }
+                draftVoice = PiperVoiceRef(voice: voice)
+            }
+        )
+    }
+
+    private var voiceOptions: [(value: String, title: String)] {
+        PiperVoice.menuOrder.map { (value: $0.id, title: $0.menuTitle(voices.availability($0))) }
+    }
+
+    private var speakerSelection: Binding<Int> {
+        Binding(
+            get: { draftVoice.resolved?.speaker ?? 0 },
+            set: { draftVoice = PiperVoiceRef(voiceId: draftVoice.voiceId, speaker: $0) }
+        )
+    }
+
+    private func speakerOptions(_ voice: PiperVoice) -> [(value: Int, title: String)] {
+        (0..<voice.speakerCount).map { (value: $0, title: voice.speakerLabel($0) ?? "Sprecher \($0 + 1)") }
+    }
+
+    private func downloadProgress(_ voice: PiperVoice, received: Int64) -> some View {
+        HStack(spacing: 8) {
+            ProgressView(value: Double(received), total: Double(max(voice.downloadSize, 1)))
+                .progressViewStyle(.linear)
+                .tint(Tokens.accent.color)
+                .frame(width: 120)
+                .accessibilityLabel("Stimme wird geladen")
+            Text(voice.progressText(received: received))
+                .font(.system(size: 11).monospacedDigit())
+                .foregroundStyle(Tokens.muted.color)
+                .lineLimit(1)
+            Spacer()
+            Button("Abbrechen") { voices.cancelDownload(voice) }
+                .buttonStyle(LinkButtonStyle())
+        }
+    }
+
+    /// Downloaded voices with their size and „Entfernen“ (the bundled voice is not listed).
+    private var downloadedVoicesCard: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            SectionLabel(text: "Geladene Stimmen")
+            Card {
+                ForEach(Array(voices.downloadedVoices.enumerated()), id: \.element.id) { index, voice in
+                    if index > 0 { CardDivider() }
+                    HStack(spacing: 10) {
+                        Text(voice.label).frame(maxWidth: .infinity, alignment: .leading)
+                        Text(voice.sizeText)
+                            .font(.system(size: 11).monospacedDigit())
+                            .foregroundStyle(Tokens.muted.color)
+                        Button("Entfernen") { removeVoice(voice) }
+                            .buttonStyle(LinkButtonStyle())
+                    }
+                    .padding(.vertical, 6)
+                    .padding(.horizontal, 12)
+                }
+            }
+        }
+    }
+
+    private func removeVoice(_ voice: PiperVoice) {
+        let alert = NSAlert()
+        alert.messageText = "„\(voice.label)“ entfernen?"
+        alert.informativeText = "Ansagen mit dieser Stimme spielen weiter. Zum Anhören oder neu Erzeugen wird sie wieder geladen (\(voice.sizeText))."
+        alert.addButton(withTitle: "Entfernen")
+        alert.addButton(withTitle: "Abbrechen")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        voices.remove(voice)
     }
 
     // MARK: Microphone, volume
@@ -244,6 +335,7 @@ struct SoundTab: View {
         errorText = nil
         draftKind = sound?.kind ?? .speech
         draftText = sound?.text ?? ""
+        draftVoice = sound.map(AnnouncementVoice.initialSelection) ?? .standard
     }
 
     private func addFile() {
@@ -273,9 +365,10 @@ struct SoundTab: View {
         busy = true
         errorText = nil
         let text = draftText
+        let voice = draftVoice
         Task { @MainActor in
             do {
-                try await store.applySpeech(id: sound.id, text: text)
+                try await store.applySpeech(id: sound.id, text: text, voice: voice)
                 if selectedId == sound.id { select(store.settings.announcement(id: sound.id)) }
             } catch {
                 if selectedId == sound.id { errorText = message(error) }
@@ -288,9 +381,10 @@ struct SoundTab: View {
         busy = true
         errorText = nil
         let text = trimmedDraft
+        let voice = draftVoice
         Task { @MainActor in
             do {
-                let buffer = try await store.previewBuffer(text: text)
+                let buffer = try await store.previewBuffer(text: text, voice: voice)
                 preview.play(buffer, id: sound.id)
             } catch {
                 if selectedId == sound.id { errorText = message(error) }
@@ -342,7 +436,9 @@ struct SoundTab: View {
         }
     }
 
-    private func message(_ error: Error) -> String {
-        (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+    /// nil for a cancelled download (the user pressed „Abbrechen“ – nothing to report).
+    private func message(_ error: Error) -> String? {
+        if error is CancellationError { return nil }
+        return (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
     }
 }

@@ -73,6 +73,7 @@
 		D41000000000000000000023 /* TunnelSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D42000000000000000000023 /* TunnelSettingsView.swift */; };
 		E51000000000000000000001 /* EventRuleService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E52000000000000000000001 /* EventRuleService.swift */; };
 		E51000000000000000000002 /* EventRulesSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = E52000000000000000000002 /* EventRulesSection.swift */; };
+		E61000000000000000000001 /* PiperVoiceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E62000000000000000000001 /* PiperVoiceStore.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -141,6 +142,7 @@
 		D42000000000000000000023 /* TunnelSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TunnelSettingsView.swift; sourceTree = "<group>"; };
 		E52000000000000000000001 /* EventRuleService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventRuleService.swift; sourceTree = "<group>"; };
 		E52000000000000000000002 /* EventRulesSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventRulesSection.swift; sourceTree = "<group>"; };
+		E62000000000000000000001 /* PiperVoiceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiperVoiceStore.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -212,6 +214,7 @@
 		A40000000000000000000005 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				E62000000000000000000001 /* PiperVoiceStore.swift */,
 				E52000000000000000000001 /* EventRuleService.swift */,
 				A20000000000000000000006 /* SettingsStore.swift */,
 				A20000000000000000000007 /* WebSocketClient.swift */,
@@ -458,6 +461,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E61000000000000000000001 /* PiperVoiceStore.swift in Sources */,
 				E51000000000000000000002 /* EventRulesSection.swift in Sources */,
 				E51000000000000000000001 /* EventRuleService.swift in Sources */,
 				D41000000000000000000023 /* TunnelSettingsView.swift in Sources */,
