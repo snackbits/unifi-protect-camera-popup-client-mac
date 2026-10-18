@@ -43,20 +43,29 @@ public struct SoundSettings: Codable, Equatable, Sendable {
     public var announcements: [Announcement]
     /// Core Audio device UID; nil = system default input.
     public var microphoneUID: String?
-    /// 0…1 slider; gain = volume × 1.5 (template default 2/3 = 1.0).
-    public var cameraVolume: Double
+    /// „Lautstärke Sprechen“, 0…1; gain = volume × 1.5 (2/3 = unchanged after the automatic gain).
+    public var talkVolume: Double
+    /// „Lautstärke Ansagen“, 0…1; gain = volume × 1.5 (2/3 = unchanged after normalization).
+    public var announcementVolume: Double
 
     public init(
         announcements: [Announcement] = SoundSettings.bundled,
         microphoneUID: String? = nil,
-        cameraVolume: Double = SoundSettings.defaultVolume
+        talkVolume: Double = SoundSettings.defaultVolume,
+        announcementVolume: Double = SoundSettings.defaultVolume
     ) {
         self.announcements = announcements
         self.microphoneUID = microphoneUID
-        self.cameraVolume = min(1, max(0, cameraVolume))
+        self.talkVolume = Self.clamped(talkVolume)
+        self.announcementVolume = Self.clamped(announcementVolume)
     }
 
-    public var gain: Float { Float(cameraVolume * 1.5) }
+    public var talkGain: Float { Float(talkVolume * 1.5) }
+    public var announcementGain: Float { Float(announcementVolume * 1.5) }
+
+    private static func clamped(_ volume: Double) -> Double {
+        volume.isFinite ? min(1, max(0, volume)) : defaultVolume
+    }
 
     public func announcement(id: UUID) -> Announcement? {
         announcements.first { $0.id == id }
@@ -84,7 +93,8 @@ public struct SoundSettings: Codable, Equatable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case announcements, microphoneUID, cameraVolume
+        /// `cameraVolume`: the single slider before Phase 5, read once into both new ones.
+        case announcements, microphoneUID, talkVolume, announcementVolume, cameraVolume
     }
 
     /// Lenient: broken entries or a missing list fall back to defaults. A stored `talkMode`
@@ -98,8 +108,19 @@ public struct SoundSettings: Codable, Equatable, Sendable {
             announcements = defaults.announcements
         }
         microphoneUID = (try? container.decodeIfPresent(String.self, forKey: .microphoneUID)) ?? nil
-        let volume = (try? container.decodeIfPresent(Double.self, forKey: .cameraVolume)) ?? nil
-        cameraVolume = min(1, max(0, volume ?? Self.defaultVolume))
+        let legacy = (try? container.decodeIfPresent(Double.self, forKey: .cameraVolume)) ?? nil
+        let talk = (try? container.decodeIfPresent(Double.self, forKey: .talkVolume)) ?? nil
+        let announcement = (try? container.decodeIfPresent(Double.self, forKey: .announcementVolume)) ?? nil
+        talkVolume = Self.clamped(talk ?? legacy ?? Self.defaultVolume)
+        announcementVolume = Self.clamped(announcement ?? legacy ?? Self.defaultVolume)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(announcements, forKey: .announcements)
+        try container.encodeIfPresent(microphoneUID, forKey: .microphoneUID)
+        try container.encode(talkVolume, forKey: .talkVolume)
+        try container.encode(announcementVolume, forKey: .announcementVolume)
     }
 
     private struct LossyAnnouncement: Decodable {

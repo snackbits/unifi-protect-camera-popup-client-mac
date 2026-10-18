@@ -110,7 +110,13 @@ final class TalkbackService: ObservableObject {
             guard run == token else { return }
             let target = try await openSession(for: mapping)
             guard run == token else { return }
-            let streamer = try makeStreamer(target: target, entryId: entryId)
+            // The microphone is levelled to the announcements' loudness, then „Lautstärke Sprechen“.
+            let streamer = try makeStreamer(
+                target: target,
+                entryId: entryId,
+                gain: SoundStore.shared.settings.talkGain,
+                automaticGain: true
+            )
             streamer.start()
             current = streamer
             try microphone.start(
@@ -145,7 +151,7 @@ final class TalkbackService: ObservableObject {
         activity = TalkbackActivity(entryId: entryId, purpose: purpose, phase: .preparing)
         let token = UUID()
         run = token
-        Task { await runAnnouncement(url: url, name: announcement.name, mapping: mapping, token: token) }
+        Task { await runAnnouncement(url: url, announcement: announcement, mapping: mapping, token: token) }
     }
 
     func stopPlayback() {
@@ -156,14 +162,32 @@ final class TalkbackService: ObservableObject {
         current = nil
     }
 
-    private func runAnnouncement(url: URL, name: String, mapping: WebhookMapping, token: UUID) async {
+    private func runAnnouncement(url: URL, announcement: Announcement, mapping: WebhookMapping, token: UUID) async {
         let entryId = mapping.entryId
+        let name = announcement.name
         do {
-            let loading = Task.detached { () throws -> PCMBox in PCMBox(buffer: try AnnouncementAudio.load(url)) }
+            let known = announcement.loudnessGain.map(Float.init)
+            let needsMeasuring = known == nil
+            let loading = Task.detached { () throws -> (box: PCMBox, measured: Float?) in
+                let buffer = try AnnouncementAudio.load(url)
+                let measured = needsMeasuring ? (try? AnnouncementAudio.loudnessGain(of: buffer)) : nil
+                return (PCMBox(buffer: buffer), measured)
+            }
             let target = try await openSession(for: mapping)
-            let audio = try await loading.value.buffer
+            let loaded = try await loading.value
+            let audio = loaded.box.buffer
             guard run == token else { return }
-            let streamer = try makeStreamer(target: target, entryId: entryId)
+            // Common loudness (measured on import; older entries now), then „Lautstärke Ansagen“.
+            let level = known ?? loaded.measured ?? 1
+            if needsMeasuring {
+                SoundStore.shared.recordLoudness(loaded.measured, id: announcement.id, fileName: announcement.fileName)
+            }
+            let streamer = try makeStreamer(
+                target: target,
+                entryId: entryId,
+                gain: SoundStore.shared.settings.announcementGain * level,
+                automaticGain: false
+            )
             streamer.start()
             streamer.append(audio)
             streamer.finish()
@@ -207,12 +231,13 @@ final class TalkbackService: ObservableObject {
         return routed
     }
 
-    private func makeStreamer(target: TalkbackTarget, entryId: UUID) throws -> TalkbackStreamer {
+    private func makeStreamer(target: TalkbackTarget, entryId: UUID, gain: Float, automaticGain: Bool) throws -> TalkbackStreamer {
         // Weak: the streamer owns this closure, a strong capture would keep it alive forever.
         let box = WeakStreamer()
         let made = try TalkbackStreamer(
             target: target,
-            gain: SoundStore.shared.settings.gain,
+            gain: gain,
+            automaticGain: automaticGain,
             log: { TalkbackLog.write($0) },
             onEvent: { [weak self] event in
                 Task { @MainActor in
