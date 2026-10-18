@@ -19,9 +19,16 @@ final class OnboardingModel: ObservableObject {
     @Published var triggerTab: String = ""
     var onFinish: () -> Void = {}
 
-    private var fingerprint: String?
+    @Published var certificateChanged = false
+    private var capturedFingerprint: String?
+    private var trustNewCertificate = false
 
-    var host: String { manualHost.trimmingCharacters(in: .whitespaces).isEmpty ? selectedHost : manualHost }
+    var host: String {
+        let manual = manualHost.trimmingCharacters(in: .whitespacesAndNewlines)
+        return manual.isEmpty ? selectedHost.trimmingCharacters(in: .whitespacesAndNewlines) : manual
+    }
+
+    func resetTrust() { trustNewCertificate = false; certificateChanged = false }
 
     func scan() {
         isScanning = true
@@ -33,11 +40,17 @@ final class OnboardingModel: ObservableObject {
         }
     }
 
-    func checkKey() {
+    func checkKey(trustNew: Bool = false) {
+        if trustNew { trustNewCertificate = true }
         checking = true
         keyError = nil
-        let client = ProtectClient(host: host, apiKey: apiKey, pinnedFingerprint: nil, onNewFingerprint: { [weak self] fp in
-            Task { @MainActor in self?.fingerprint = fp }
+        certificateChanged = false
+        capturedFingerprint = nil
+        let settings = SettingsStore.shared
+        let samePinnedHost = host.caseInsensitiveCompare(settings.protectHost.trimmingCharacters(in: .whitespacesAndNewlines)) == .orderedSame
+        let pin = (samePinnedHost && !trustNewCertificate) ? settings.protectCertificateFingerprint : nil
+        let client = ProtectClient(host: host, apiKey: apiKey, pinnedFingerprint: pin, onNewFingerprint: { [weak self] fp in
+            Task { @MainActor in self?.capturedFingerprint = fp }
         })
         Task {
             defer { client.invalidate() }
@@ -45,13 +58,25 @@ final class OnboardingModel: ObservableObject {
                 _ = try await client.metaInfo()
                 let cams = try await client.cameras()
                 cameras = cams
-                selectedCameraIds = Set(cams.filter(\.isConnected).map(\.id))
+                let existing = settings.mappings
+                let configured = Set(existing.filter { $0.protectCameraId != nil && !$0.triggers.isEmpty }.compactMap(\.protectCameraId))
+                let hasProtectMappings = existing.contains { $0.protectCameraId != nil }
+                if hasProtectMappings {
+                    selectedCameraIds = Set(cams.map(\.id)).intersection(configured)
+                } else {
+                    selectedCameraIds = Set(cams.filter(\.isConnected).map(\.id))
+                }
                 for cam in cams {
-                    triggers[cam.id] = cam.enabledTriggers.intersection([.ring, .person, .package, .vehicle, .animal])
+                    if let mapping = existing.first(where: { $0.protectCameraId == cam.id }) {
+                        triggers[cam.id] = mapping.triggers
+                    } else {
+                        triggers[cam.id] = cam.enabledTriggers.intersection([.ring, .person, .package, .vehicle, .animal])
+                    }
                 }
                 triggerTab = cams.first(where: { selectedCameraIds.contains($0.id) })?.id ?? ""
                 step = .cameras
             } catch {
+                if case ProtectError.certificateChanged = error { certificateChanged = true }
                 keyError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
             }
             checking = false
@@ -62,7 +87,7 @@ final class OnboardingModel: ObservableObject {
         let settings = SettingsStore.shared
         // Order matters: setting a different host clears the pinned fingerprint.
         settings.protectHost = host
-        settings.protectCertificateFingerprint = fingerprint
+        if let capturedFingerprint { settings.protectCertificateFingerprint = capturedFingerprint }
         settings.protectAPIKey = apiKey
         for cam in cameras where selectedCameraIds.contains(cam.id) {
             if let index = settings.mappings.firstIndex(where: { $0.protectCameraId == cam.id }) {
@@ -72,6 +97,11 @@ final class OnboardingModel: ObservableObject {
                 mapping.protectCameraId = cam.id
                 mapping.triggers = triggers[cam.id] ?? [.ring, .person]
                 settings.mappings.append(mapping)
+            }
+        }
+        for index in settings.mappings.indices {
+            if let id = settings.mappings[index].protectCameraId, !selectedCameraIds.contains(id) {
+                settings.mappings[index].triggers = []
             }
         }
         ProtectSession.shared.reconnect()
@@ -173,7 +203,10 @@ struct OnboardingView: View {
                     .textFieldStyle(.roundedBorder)
             }
             Spacer()
-            primary("Diese verwenden", disabled: model.host.isEmpty) { model.step = .key }
+            HStack {
+                Button("Zurück") { model.step = .welcome }.controlSize(.large)
+                primary("Diese verwenden", disabled: model.host.isEmpty) { model.resetTrust(); model.step = .key }
+            }
         }
     }
 
@@ -187,6 +220,11 @@ struct OnboardingView: View {
             if let error = model.keyError {
                 Label(error, systemImage: "exclamationmark.triangle.fill")
                     .font(.callout).foregroundStyle(.red)
+            }
+            if model.certificateChanged {
+                Button("Neuem Zertifikat vertrauen") { model.checkKey(trustNew: true) }
+                    .controlSize(.large)
+                    .disabled(model.checking)
             }
             if let consoleURL = URL(string: "https://\(model.host)"), consoleURL.host != nil {
                 Link("Konsole im Browser öffnen", destination: consoleURL)
@@ -203,6 +241,14 @@ struct OnboardingView: View {
     private var camerasStep: some View {
         VStack(spacing: 12) {
             Text("Welche Kameras sollen sich melden?").font(.title3.bold())
+            if model.cameras.isEmpty {
+                Spacer()
+                Text("Keine Kameras gefunden. Prüfe, ob Protect läuft und der Schlüssel Zugriff auf Kameras hat.")
+                    .font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                Button(model.checking ? "Lade …" : "Erneut laden") { model.checkKey() }
+                    .controlSize(.large).disabled(model.checking)
+                Spacer()
+            }
             ScrollView {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 4), spacing: 12) {
                     ForEach(model.cameras) { cam in
@@ -230,9 +276,12 @@ struct OnboardingView: View {
                     }
                 }
             }
-            primary("Weiter mit \(model.selectedCameraIds.count) Kameras", disabled: model.selectedCameraIds.isEmpty) {
-                model.triggerTab = model.cameras.first { model.selectedCameraIds.contains($0.id) }?.id ?? ""
-                model.step = .triggers
+            HStack {
+                Button("Zurück") { model.step = .key }.controlSize(.large)
+                primary("Weiter mit \(model.selectedCameraIds.count) Kameras", disabled: model.selectedCameraIds.isEmpty) {
+                    model.triggerTab = model.cameras.first { model.selectedCameraIds.contains($0.id) }?.id ?? ""
+                    model.step = .triggers
+                }
             }
         }
     }
@@ -256,7 +305,10 @@ struct OnboardingView: View {
                 ))
             }
             Spacer()
-            primary("Fertig") { model.finish() }
+            HStack {
+                Button("Zurück") { model.step = .cameras }.controlSize(.large)
+                primary("Fertig") { model.finish() }
+            }
         }
     }
 }
