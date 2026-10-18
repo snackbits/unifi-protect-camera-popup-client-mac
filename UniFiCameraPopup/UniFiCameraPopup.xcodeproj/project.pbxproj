@@ -48,6 +48,7 @@
 		A10000000000000000000072 /* PopUpField.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000072 /* PopUpField.swift */; };
 		A10000000000000000000073 /* SettingsWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000073 /* SettingsWindow.swift */; };
 		A10000000000000000000074 /* GeneralTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000074 /* GeneralTab.swift */; };
+		A10000000000000000000080 /* PopupOverlayViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000080 /* PopupOverlayViews.swift */; };
 		A10000000000000000000078 /* SoundAndRemoteTabs.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000078 /* SoundAndRemoteTabs.swift */; };
 /* End PBXBuildFile section */
 
@@ -92,6 +93,7 @@
 		A20000000000000000000072 /* PopUpField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopUpField.swift; sourceTree = "<group>"; };
 		A20000000000000000000073 /* SettingsWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindow.swift; sourceTree = "<group>"; };
 		A20000000000000000000074 /* GeneralTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneralTab.swift; sourceTree = "<group>"; };
+		A20000000000000000000080 /* PopupOverlayViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopupOverlayViews.swift; sourceTree = "<group>"; };
 		A20000000000000000000078 /* SoundAndRemoteTabs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundAndRemoteTabs.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -190,6 +192,14 @@
 			path = Design;
 			sourceTree = "<group>";
 		};
+		A40000000000000000000072 /* Popup */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000080 /* PopupOverlayViews.swift */,
+			);
+			path = Popup;
+			sourceTree = "<group>";
+		};
 		A40000000000000000000071 /* Settings */ = {
 			isa = PBXGroup;
 			children = (
@@ -215,6 +225,7 @@
 				A40000000000000000000060 /* Onboarding */,
 				A40000000000000000000070 /* Design */,
 				A40000000000000000000071 /* Settings */,
+				A40000000000000000000072 /* Popup */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -336,6 +347,7 @@
 				A10000000000000000000076 /* CameraAdvancedSection.swift in Sources */,
 				A10000000000000000000077 /* ActionEditorSheet.swift in Sources */,
 				A10000000000000000000078 /* SoundAndRemoteTabs.swift in Sources */,
+				A10000000000000000000080 /* PopupOverlayViews.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

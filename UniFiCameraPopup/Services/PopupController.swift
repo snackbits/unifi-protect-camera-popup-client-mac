@@ -118,6 +118,19 @@ final class PopupController {
         streamURL: String
     ) -> PopupWindow {
         let entryId = mapping.entryId
+        let cameraName = CamerasTab.displayName(mapping)
+        let overlay = PopupOverlayContent(
+            chipText: DisplayText.popupChip(
+                kind: Self.kindLabel(for: event, mapping: mapping),
+                camera: cameraName,
+                date: event.timestamp
+            ),
+            cameraName: cameraName,
+            muteOptions: settings.muteOptions,
+            onMute: { [weak self] duration in
+                self?.settings.mute(entryId: entryId, for: duration)
+            }
+        )
         return PopupWindow(
             frame: NSRect(x: 0, y: 0, width: CGFloat(mapping.width), height: CGFloat(mapping.height)),
             streamURL: streamURL,
@@ -128,6 +141,7 @@ final class PopupController {
             thumbnailDataURI: event.thumbnail,
             autoCloseSeconds: settings.autoCloseTimeout,
             actions: mapping.actions.filter(\.isConfigured),
+            overlay: overlay,
             onWillClose: { [weak self] scale, panOffset in
                 self?.settings.saveZoom(for: entryId, scale: scale, panOffset: panOffset)
             }
