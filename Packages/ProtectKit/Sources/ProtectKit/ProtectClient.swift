@@ -49,6 +49,28 @@ public final class ProtectClient: NSObject, URLSessionDelegate, @unchecked Senda
         session = URLSession(configuration: config, delegate: self, delegateQueue: nil)
     }
 
+    /// Reads the certificate fingerprint a console presents, without ever sending an API key.
+    /// Used for the two-phase re-trust: the user confirms the fingerprint before any credential
+    /// is sent over a connection pinned to it. The HTTP status is irrelevant (401 is expected).
+    public static func probeFingerprint(host: String) async throws -> String {
+        try await probeFingerprint(host: host, protocolClasses: nil)
+    }
+
+    static func probeFingerprint(host: String, protocolClasses: [AnyClass]?) async throws -> String {
+        guard baseURL(for: host) != nil else { throw ProtectError.invalidHost }
+        let box = FingerprintBox()
+        let client = ProtectClient(
+            host: host, apiKey: "", pinnedFingerprint: nil,
+            onNewFingerprint: { box.set($0) }, protocolClasses: protocolClasses
+        )
+        defer { client.invalidate() }
+        var failure: Error?
+        do { _ = try await client.metaInfo() } catch { failure = error }
+        if let fingerprint = box.value { return fingerprint }
+        if case .unreachable? = failure as? ProtectError, let failure { throw failure }
+        throw ProtectError.unreachable("kein Zertifikat erhalten")
+    }
+
     public static func baseURL(for host: String) -> URL? {
         var trimmed = host.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
@@ -85,7 +107,7 @@ public final class ProtectClient: NSObject, URLSessionDelegate, @unchecked Senda
         comps.scheme = "wss"
         comps.path += "/v1/subscribe/events"
         var request = URLRequest(url: comps.url!)
-        request.setValue(apiKey, forHTTPHeaderField: "X-API-KEY")
+        if !apiKey.isEmpty { request.setValue(apiKey, forHTTPHeaderField: "X-API-KEY") }
         return session.webSocketTask(with: request)
     }
 
@@ -98,7 +120,7 @@ public final class ProtectClient: NSObject, URLSessionDelegate, @unchecked Senda
     private func send<T: Decodable>(_ method: String, _ path: String, body: Data?) async throws -> T {
         var request = URLRequest(url: baseURL.appendingPathComponent(String(path.dropFirst())))
         request.httpMethod = method
-        request.setValue(apiKey, forHTTPHeaderField: "X-API-KEY")
+        if !apiKey.isEmpty { request.setValue(apiKey, forHTTPHeaderField: "X-API-KEY") }
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         if let body {
             request.httpBody = body
@@ -176,4 +198,11 @@ public final class ProtectClient: NSObject, URLSessionDelegate, @unchecked Senda
             return (.cancelAuthenticationChallenge, nil)
         }
     }
+}
+
+private final class FingerprintBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored: String?
+    var value: String? { lock.withLock { stored } }
+    func set(_ fingerprint: String) { lock.withLock { stored = fingerprint } }
 }

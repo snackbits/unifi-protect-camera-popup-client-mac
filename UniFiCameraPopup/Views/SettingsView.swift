@@ -16,6 +16,9 @@ struct SettingsView: View {
     @State private var launchRequiresApproval = false
     @State private var pendingImportData: Data?
     @State private var transferError: String?
+    @State private var probingCertificate = false
+    @State private var trustProbeError: String?
+    @State private var pendingFingerprint: String?
 
     var body: some View {
         Form {
@@ -34,9 +37,14 @@ struct SettingsView: View {
                     Label(error, systemImage: "exclamationmark.triangle.fill")
                         .foregroundStyle(.orange)
                     if error == ProtectError.certificateChanged.errorDescription {
-                        Button("Neuem Zertifikat vertrauen") {
-                            settings.protectCertificateFingerprint = nil
-                            ProtectSession.shared.reconnect()
+                        Button(probingCertificate ? "Prüfe …" : "Neuem Zertifikat vertrauen") {
+                            probeNewCertificate()
+                        }
+                        .disabled(probingCertificate)
+                        if let trustProbeError {
+                            Label(trustProbeError, systemImage: "exclamationmark.triangle.fill")
+                                .font(.caption)
+                                .foregroundStyle(.red)
                         }
                     }
                 }
@@ -289,6 +297,15 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .task { await ProtectSession.shared.refreshCameras() }
+        .alert("Neuem Zertifikat vertrauen?", isPresented: Binding(
+            get: { pendingFingerprint != nil },
+            set: { if !$0 { pendingFingerprint = nil } }
+        )) {
+            Button("Vertrauen") { confirmPendingFingerprint() }
+            Button("Abbrechen", role: .cancel) { pendingFingerprint = nil }
+        } message: {
+            Text("Das Zertifikat deiner Konsole hat sich geändert. Bestätige nur, wenn du es selbst geändert hast (z. B. nach einem Konsolen-Update). Neuer Fingerabdruck:\n\n\(pendingFingerprint ?? "")")
+        }
         .padding()
         .onAppear {
             refreshDNDPermission()
@@ -446,6 +463,29 @@ struct SettingsView: View {
 
     private func canTestPopup(_ mapping: WebhookMapping) -> Bool {
         mapping.hasStreamSource
+    }
+
+    /// Phase 1 of re-trust: read the presented fingerprint without sending the API key.
+    private func probeNewCertificate() {
+        probingCertificate = true
+        trustProbeError = nil
+        let host = settings.protectHost
+        Task {
+            defer { probingCertificate = false }
+            do {
+                pendingFingerprint = try await ProtectClient.probeFingerprint(host: host)
+            } catch {
+                trustProbeError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            }
+        }
+    }
+
+    /// Phase 2: only after explicit confirmation is the pin replaced; reconnect then connects pinned to it.
+    private func confirmPendingFingerprint() {
+        guard let fingerprint = pendingFingerprint else { return }
+        pendingFingerprint = nil
+        settings.protectCertificateFingerprint = fingerprint
+        ProtectSession.shared.reconnect()
     }
 
     @ViewBuilder

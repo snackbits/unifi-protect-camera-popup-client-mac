@@ -46,6 +46,35 @@ final class ProtectClientTests: XCTestCase {
         XCTAssertEqual(StubProtocol.requests.first?.value(forHTTPHeaderField: "X-API-KEY"), "KEY")
     }
 
+    func testOmitsApiKeyHeaderWhenKeyIsEmpty() async {
+        StubProtocol.responses["GET \(base)/meta/info"] = (401, Data())
+        let c = ProtectClient(host: "192.168.1.1", apiKey: "", pinnedFingerprint: nil, onNewFingerprint: { _ in }, protocolClasses: [StubProtocol.self])
+        _ = try? await c.metaInfo()
+        XCTAssertEqual(StubProtocol.requests.count, 1)
+        XCTAssertNil(StubProtocol.requests.first?.value(forHTTPHeaderField: "X-API-KEY"))
+        XCTAssertFalse(StubProtocol.requests.first?.allHTTPHeaderFields?.keys.contains { $0.lowercased() == "x-api-key" } ?? true)
+    }
+
+    // The fingerprint capture itself needs a real TLS handshake; it is covered by the
+    // evaluate(trust:) tests in PinEnforcementTests. Here: no handshake -> error, and no key sent.
+    func testProbeWithoutHandshakeThrowsAndSendsNoKey() async {
+        StubProtocol.responses["GET \(base)/meta/info"] = (401, Data())
+        do {
+            _ = try await ProtectClient.probeFingerprint(host: "192.168.1.1", protocolClasses: [StubProtocol.self])
+            XCTFail()
+        } catch {
+            XCTAssertEqual(StubProtocol.requests.count, 1)
+            XCTAssertNil(StubProtocol.requests.first?.value(forHTTPHeaderField: "X-API-KEY"))
+            guard case .unreachable? = error as? ProtectError else { return XCTFail("\(error)") }
+        }
+    }
+
+    func testProbeRejectsInvalidHost() async {
+        do { _ = try await ProtectClient.probeFingerprint(host: "  "); XCTFail() } catch {
+            XCTAssertEqual(error as? ProtectError, .invalidHost)
+        }
+    }
+
     func testUnauthorized() async {
         StubProtocol.responses["GET \(base)/meta/info"] = (401, Data())
         do { _ = try await client().metaInfo(); XCTFail() } catch { XCTAssertEqual(error as? ProtectError, .unauthorized) }

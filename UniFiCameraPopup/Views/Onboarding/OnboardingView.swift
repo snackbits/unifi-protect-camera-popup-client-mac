@@ -21,14 +21,39 @@ final class OnboardingModel: ObservableObject {
 
     @Published var certificateChanged = false
     private var capturedFingerprint: String?
-    private var trustNewCertificate = false
+    /// Fingerprint the user explicitly confirmed after a certificate change; the key is only sent pinned to it.
+    private var confirmedFingerprint: String?
+    @Published var pendingFingerprint: String?
+    @Published var probing = false
 
     var host: String {
         let manual = manualHost.trimmingCharacters(in: .whitespacesAndNewlines)
         return manual.isEmpty ? selectedHost.trimmingCharacters(in: .whitespacesAndNewlines) : manual
     }
 
-    func resetTrust() { trustNewCertificate = false; certificateChanged = false }
+    func resetTrust() { confirmedFingerprint = nil; pendingFingerprint = nil; certificateChanged = false }
+
+    /// Phase 1 of re-trust: read the presented fingerprint without sending the API key.
+    func probeNewCertificate() {
+        probing = true
+        keyError = nil
+        Task {
+            defer { probing = false }
+            do {
+                pendingFingerprint = try await ProtectClient.probeFingerprint(host: host)
+            } catch {
+                keyError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            }
+        }
+    }
+
+    /// Phase 2: the user confirmed the fingerprint; connect pinned to it.
+    func confirmPendingFingerprint() {
+        guard let pending = pendingFingerprint else { return }
+        pendingFingerprint = nil
+        confirmedFingerprint = pending
+        checkKey()
+    }
 
     func scan() {
         isScanning = true
@@ -40,15 +65,14 @@ final class OnboardingModel: ObservableObject {
         }
     }
 
-    func checkKey(trustNew: Bool = false) {
-        if trustNew { trustNewCertificate = true }
+    func checkKey() {
         checking = true
         keyError = nil
         certificateChanged = false
-        capturedFingerprint = nil
+        capturedFingerprint = confirmedFingerprint
         let settings = SettingsStore.shared
         let samePinnedHost = host.caseInsensitiveCompare(settings.protectHost.trimmingCharacters(in: .whitespacesAndNewlines)) == .orderedSame
-        let pin = (samePinnedHost && !trustNewCertificate) ? settings.protectCertificateFingerprint : nil
+        let pin = confirmedFingerprint ?? (samePinnedHost ? settings.protectCertificateFingerprint : nil)
         let client = ProtectClient(host: host, apiKey: apiKey, pinnedFingerprint: pin, onNewFingerprint: { [weak self] fp in
             Task { @MainActor in self?.capturedFingerprint = fp }
         })
@@ -127,6 +151,15 @@ struct OnboardingView: View {
         .padding(.top, 28)
         .padding(.bottom, 22)
         .frame(width: 560, height: 420)
+        .alert("Neuem Zertifikat vertrauen?", isPresented: Binding(
+            get: { model.pendingFingerprint != nil },
+            set: { if !$0 { model.pendingFingerprint = nil } }
+        )) {
+            Button("Vertrauen") { model.confirmPendingFingerprint() }
+            Button("Abbrechen", role: .cancel) { model.pendingFingerprint = nil }
+        } message: {
+            Text("Das Zertifikat deiner Konsole hat sich geändert. Bestätige nur, wenn du es selbst geändert hast (z. B. nach einem Konsolen-Update). Neuer Fingerabdruck:\n\n\(model.pendingFingerprint ?? "")")
+        }
     }
 
     private var dots: some View {
@@ -222,9 +255,9 @@ struct OnboardingView: View {
                     .font(.callout).foregroundStyle(.red)
             }
             if model.certificateChanged {
-                Button("Neuem Zertifikat vertrauen") { model.checkKey(trustNew: true) }
+                Button(model.probing ? "Prüfe …" : "Neuem Zertifikat vertrauen") { model.probeNewCertificate() }
                     .controlSize(.large)
-                    .disabled(model.checking)
+                    .disabled(model.checking || model.probing)
             }
             if let consoleURL = URL(string: "https://\(model.host)"), consoleURL.host != nil {
                 Link("Konsole im Browser öffnen", destination: consoleURL)
