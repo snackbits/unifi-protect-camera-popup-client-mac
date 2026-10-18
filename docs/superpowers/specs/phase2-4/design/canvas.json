@@ -1,0 +1,19 @@
+{
+  "v": 3,
+  "createdOnFiles": {"v": 1, "at": "2026-10-18T09:15:00Z"},
+  "title": "Camera Popup – Finale UI",
+  "launch": {"view": "canvas"},
+  "pages": [],
+  "boards": {
+    "Main.dc.html": {"x": 0, "y": 0, "w": 2540, "h": 1110, "title": "Einrichtung & Alltag · Hell"},
+    "Dunkel.dc.html": {"x": 0, "y": 1230, "w": 2540, "h": 1110, "title": "Einrichtung & Alltag · Dunkel"},
+    "Einstellungen.dc.html": {"x": 0, "y": 2760, "w": 2540, "h": 1330, "title": "Einstellungen · Hell"},
+    "EinstellungenDunkel.dc.html": {"x": 0, "y": 4210, "w": 2540, "h": 1330, "title": "Einstellungen · Dunkel"}
+  },
+  "order": ["Main.dc.html", "Dunkel.dc.html", "Einstellungen.dc.html", "EinstellungenDunkel.dc.html"],
+  "notes": {
+    "flow": {"x": 0, "y": -300, "text": "Einrichtung & Alltag – folgt dem System (Hell/Dunkel)", "kind": "title1", "maxW": 2540},
+    "settings": {"x": 0, "y": 2460, "text": "Einstellungen", "kind": "title1", "maxW": 2540}
+  },
+  "designSystems": []
+}
