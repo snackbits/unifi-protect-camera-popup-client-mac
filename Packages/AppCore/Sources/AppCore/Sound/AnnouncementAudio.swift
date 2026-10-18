@@ -50,18 +50,25 @@ public enum AnnouncementAudio {
     }
 
     /// Speaks `text` into a buffer (`AVSpeechSynthesizer.write`). Unknown voice = system default German voice.
-    public static func render(text: String, voiceIdentifier: String?) async throws -> AVAudioPCMBuffer {
-        let utterance = AVSpeechUtterance(string: text)
+    /// Fails with `.speechFailed` for empty text or when the synthesizer does not finish within `timeout`
+    /// (default 20 s + 0.15 s per character); honours task cancellation.
+    public static func render(text: String, voiceIdentifier: String?, timeout: TimeInterval? = nil) async throws -> AVAudioPCMBuffer {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { throw TalkbackError.speechFailed }
+        let utterance = AVSpeechUtterance(string: trimmed)
         if let voiceIdentifier, let voice = AVSpeechSynthesisVoice(identifier: voiceIdentifier) {
             utterance.voice = voice
         } else {
             utterance.voice = voices().first ?? AVSpeechSynthesisVoice(language: "de-DE")
         }
+        let limit = timeout ?? (20 + 0.15 * Double(trimmed.count))
         let collector = SpeechCollector()
-        return try await withCheckedThrowingContinuation { continuation in
-            collector.start(utterance) { result in
-                continuation.resume(with: result)
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                collector.start(utterance, timeout: limit) { continuation.resume(with: $0) }
             }
+        } onCancel: {
+            collector.cancel()
         }
     }
 
@@ -93,33 +100,62 @@ public enum AnnouncementAudio {
 }
 
 /// Keeps the synthesizer alive and concatenates its buffers; a zero-length buffer ends the utterance.
+/// Completes exactly once (result, timeout or cancellation) and then releases the synthesizer.
 private final class SpeechCollector: @unchecked Sendable {
-    private let synthesizer = AVSpeechSynthesizer()
+    private var synthesizer: AVSpeechSynthesizer?
     private var chunks: [AVAudioPCMBuffer] = []
     private var done = false
+    private var cancelled = false
+    private var completion: ((Result<AVAudioPCMBuffer, Error>) -> Void)?
     private let lock = NSLock()
 
-    func start(_ utterance: AVSpeechUtterance, completion: @escaping (Result<AVAudioPCMBuffer, Error>) -> Void) {
-        synthesizer.write(utterance) { [self] buffer in
-            guard let pcm = buffer as? AVAudioPCMBuffer else { return }
-            let finished: Bool = lock.withLock {
-                guard !done else { return false }
-                if pcm.frameLength == 0 {
-                    done = true
-                    return true
-                }
-                if let copy = pcm.deepCopy() { chunks.append(copy) }
+    func start(_ utterance: AVSpeechUtterance, timeout: TimeInterval,
+               completion: @escaping (Result<AVAudioPCMBuffer, Error>) -> Void) {
+        let synth = AVSpeechSynthesizer()
+        let alreadyCancelled: Bool = lock.withLock {
+            self.completion = completion
+            if cancelled { return true }
+            synthesizer = synth
+            return false
+        }
+        if alreadyCancelled { finish(.failure(CancellationError())); return }
+        DispatchQueue.global().asyncAfter(deadline: .now() + timeout) { [weak self] in
+            self?.finish(.failure(TalkbackError.speechFailed))
+        }
+        synth.write(utterance) { [weak self] buffer in
+            guard let self, let pcm = buffer as? AVAudioPCMBuffer else { return }
+            let ended: Bool = self.lock.withLock {
+                guard !self.done else { return false }
+                if pcm.frameLength == 0 { return true }
+                if let copy = pcm.deepCopy() { self.chunks.append(copy) }
                 return false
             }
-            guard finished else { return }
-            let parts = lock.withLock { chunks }
-            if let joined = Self.join(parts) {
-                completion(.success(joined))
+            guard ended else { return }
+            if let joined = Self.join(self.lock.withLock { self.chunks }) {
+                self.finish(.success(joined))
             } else {
-                completion(.failure(TalkbackError.speechFailed))
+                self.finish(.failure(TalkbackError.speechFailed))
             }
-            withExtendedLifetime(self) {}
         }
+    }
+
+    func cancel() {
+        lock.withLock { cancelled = true }
+        finish(.failure(CancellationError()))
+    }
+
+    private func finish(_ result: Result<AVAudioPCMBuffer, Error>) {
+        let (callback, synth): (((Result<AVAudioPCMBuffer, Error>) -> Void)?, AVSpeechSynthesizer?) = lock.withLock {
+            guard !done, let callback = completion else { return (nil, nil) }
+            done = true
+            let synth = synthesizer
+            synthesizer = nil
+            completion = nil
+            chunks = []
+            return (callback, synth)
+        }
+        synth?.stopSpeaking(at: .immediate)
+        callback?(result)
     }
 
     private static func join(_ parts: [AVAudioPCMBuffer]) -> AVAudioPCMBuffer? {

@@ -95,4 +95,34 @@ final class SoundSettingsTests: XCTestCase {
         XCTAssertEqual(try AnnouncementAudio.duration(of: url), Double(buffer.frameLength) / buffer.format.sampleRate, accuracy: 0.05)
         XCTAssertEqual(Double(try AnnouncementAudio.load(url).frameLength), Double(buffer.frameLength), accuracy: Double(buffer.frameLength) * 0.02)
     }
+
+    func testRenderRejectsEmptyText() async {
+        do {
+            _ = try await AnnouncementAudio.render(text: "   ", voiceIdentifier: nil)
+            XCTFail("expected throw")
+        } catch {
+            XCTAssertEqual(error as? TalkbackError, .speechFailed)
+        }
+    }
+
+    func testRenderTimesOut() async throws {
+        do {
+            _ = try await AnnouncementAudio.render(text: "Bin gleich da, ich muss noch etwas Längeres sagen.", voiceIdentifier: nil, timeout: 0.001)
+            XCTFail("expected throw")
+        } catch {
+            XCTAssertEqual(error as? TalkbackError, .speechFailed)
+        }
+    }
+
+    func testAnnouncementDecodingKeepsEntryAndSanitizesFileName() throws {
+        let json = #"{"id":"6F0C6A52-4C4B-4E58-9B1E-2F3C1C0A0009","name":"X","kind":"file","fileName":"../../etc/passwd"}"#
+        let entry = try JSONDecoder().decode(Announcement.self, from: Data(json.utf8))
+        XCTAssertEqual(entry.fileName, "passwd")
+        XCTAssertEqual(entry.text, "")
+        XCTAssertEqual(entry.duration, 0)
+        for bad in ["..", ".", "", "a/.."] {
+            let j = #"{"id":"6F0C6A52-4C4B-4E58-9B1E-2F3C1C0A0009","name":"X","kind":"file","fileName":"\#(bad)"}"#
+            XCTAssertNil(try JSONDecoder().decode(Announcement.self, from: Data(j.utf8)).fileName, bad)
+        }
+    }
 }

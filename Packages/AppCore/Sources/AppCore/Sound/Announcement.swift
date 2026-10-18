@@ -41,6 +41,31 @@ public struct Announcement: Codable, Equatable, Identifiable, Sendable {
         self.duration = duration
     }
 
+    private enum CodingKeys: String, CodingKey {
+        case id, name, kind, text, voiceIdentifier, fileName, bundledResource, duration
+    }
+
+    /// Lenient: missing text/duration/optional fields keep the entry; id, name and kind are required.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        kind = try c.decode(Kind.self, forKey: .kind)
+        text = (try? c.decodeIfPresent(String.self, forKey: .text)) ?? ""
+        voiceIdentifier = (try? c.decodeIfPresent(String.self, forKey: .voiceIdentifier)) ?? nil
+        fileName = Self.sanitizedFileName((try? c.decodeIfPresent(String.self, forKey: .fileName)) ?? nil)
+        bundledResource = (try? c.decodeIfPresent(String.self, forKey: .bundledResource)) ?? nil
+        let seconds = (try? c.decodeIfPresent(Double.self, forKey: .duration)) ?? 0
+        duration = seconds.isFinite && seconds > 0 ? seconds : 0
+    }
+
+    /// Only a plain file name may point into the sound folder (no paths, no "." / "..").
+    static func sanitizedFileName(_ raw: String?) -> String? {
+        guard let raw else { return nil }
+        let last = (raw as NSString).lastPathComponent
+        return last.isEmpty || last == "." || last == ".." || last == "/" ? nil : last
+    }
+
     /// Badge in Einstellungen › Ton ("MP3" / "KI-STIMME").
     public var badge: String { kind == .file ? "MP3" : "KI-STIMME" }
     /// Tag in the popup's sound menu ("MP3" / "KI-Stimme").
