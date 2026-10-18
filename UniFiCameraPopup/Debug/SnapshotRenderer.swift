@@ -36,6 +36,8 @@ enum SnapshotRenderer {
     nonisolated(unsafe) static var tunnelStepFeedback: ImportFeedback?
     /// Read by `TunnelSettingsView` instead of the live router/tunnel state (S6 variants).
     nonisolated(unsafe) static var tunnelPhase: TunnelPhase?
+    /// Read by `SettingsRootView`: a taller window for renders that must show a whole tab (S2).
+    nonisolated(unsafe) static var settingsHeight: CGFloat?
 
     /// Call first in `applicationDidFinishLaunching`; renders and terminates when requested.
     @MainActor
@@ -138,8 +140,13 @@ enum SnapshotRenderer {
             }
             write(window: settingsWindow(tab: .general), appearance: appearance,
                   to: directory.appendingPathComponent("S1-allgemein-\(suffix).png"))
-            write(window: settingsWindow(tab: .cameras, entry: sample.door.entryId), appearance: appearance,
+            // S2 tall enough for the whole camera page down to the „Ereignisse“ card.
+            SnapshotRenderer.settingsHeight = 760
+            let tallCameras = settingsWindow(tab: .cameras, entry: sample.door.entryId)
+            tallCameras.setFrame(NSRect(x: 0, y: 0, width: 760, height: 760), display: false)
+            write(window: tallCameras, appearance: appearance,
                   to: directory.appendingPathComponent("S2-kameras-\(suffix).png"))
+            SnapshotRenderer.settingsHeight = nil
             expandCameraAdvanced = true
             write(window: settingsWindow(tab: .cameras, entry: sample.door.entryId), appearance: appearance,
                   to: directory.appendingPathComponent("S3-kameras-erweitert-\(suffix).png"))
@@ -205,7 +212,11 @@ enum SnapshotRenderer {
             let sheetRoot = ZStack {
                 SettingsRootView(navigation: navigation)
                 Color.black.opacity(0.3).frame(width: 760, height: 540)
-                ActionEditorSheet(action: sample.door.actions[0], isNew: false, onSave: { _ in }, onDelete: {})
+                ActionEditorSheet(
+                    action: sample.door.actions[0], isNew: false,
+                    sounds: SoundStore.shared.settings.announcements, canPlaySound: true,
+                    onSave: { _ in }, onDelete: {}
+                )
                     .background(Tokens.win.color)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
             }

@@ -142,7 +142,8 @@ struct HelpView: View {
                 + "Ein Klick ruft die URL auf (z. B. einen Home-Assistant-Webhook oder ein Shelly-Relais), "
                 + "das Popup bleibt dabei geöffnet. Ein Häkchen bestätigt den Erfolg, ein Warndreieck zeigt einen Fehler – "
                 + "die Details siehst du im Tooltip. Mit „Testen“ in den Einstellungen prüfst du die URL vorab. "
-                + "Bei Kameras mit Lautsprecher kann ein Button zusätzlich (oder statt des Webhooks) eine Ansage aus dem Reiter Ton an der Kamera abspielen.")
+                + "Bei Kameras mit Lautsprecher kann ein Button zusätzlich (oder statt des Webhooks) eine Ansage aus dem Reiter Ton an der Kamera abspielen – "
+                + "ist ein Ton gewählt, ist die Adresse optional.")
 
             tip("Ereignisse", "bell.badge",
                 "Unter Einstellungen › Kameras › Ereignisse legst du pro Kamera Regeln an: Bei Klingeln, Bewegung, Person, Fahrzeug, Tier oder Paket "

@@ -114,6 +114,14 @@ final class SettingsWindowController {
 struct SettingsRootView: View {
     @ObservedObject var navigation: SettingsNavigation
 
+    private static var height: CGFloat {
+        #if DEBUG
+        SnapshotRenderer.settingsHeight ?? 540
+        #else
+        540
+        #endif
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             VStack(spacing: 0) {
@@ -126,7 +134,7 @@ struct SettingsRootView: View {
             content
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
-        .frame(width: 760, height: 540)
+        .frame(width: 760, height: Self.height)
         .background(Tokens.win.color)
         .foregroundStyle(Tokens.fg.color)
         .font(.system(size: 13))
