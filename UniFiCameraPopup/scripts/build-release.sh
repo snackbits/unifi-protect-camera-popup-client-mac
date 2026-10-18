@@ -66,8 +66,14 @@ if [[ ! -s "${APP_PATH}/Contents/Resources/ThirdPartyNotices.txt" ]]; then
   echo "ERROR: ThirdPartyNotices.txt missing from the app bundle." >&2
   exit 1
 fi
+# Piper (Phase 6, build phase "Build and embed Piper"): universal program and libraries,
+# espeak-ng data, the bundled voice, license marks, valid signature.
+"${SCRIPT_DIR}/../../piper/scripts/check-app.sh" "$APP_PATH"
 
 "${SCRIPT_DIR}/resign-app.sh" "$APP_PATH"
+# The re-signed bundle (nested Piper included) must still verify – and Piper must still speak.
+codesign --verify --deep --strict "$APP_PATH"
+"${SCRIPT_DIR}/../../piper/scripts/smoke.sh" "${APP_PATH}/Contents"
 
 SHORT_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "${APP_PATH}/Contents/Info.plist" 2>/dev/null || echo "1.0.0")"
 echo "App version: ${SHORT_VERSION}"
@@ -91,6 +97,23 @@ rm -f "$ZIP_PATH"
 # --keepParent keeps the .app wrapper as the top-level entry in the archive.
 ditto -c -k --keepParent "$APP_PATH" "$ZIP_PATH"
 echo "Packaged: ${ZIP_PATH}"
+
+# GPL source offer: mirror the pinned Piper/espeak-ng/onnxruntime source archives and the build
+# scripts next to app.zip (served from the update server).
+PIPER_SRC_DIR="${SERVER_PUBLIC_DIR}/piper-source/2023.11.14-2"
+PIPER_ROOT="${SCRIPT_DIR}/../../piper"
+rm -rf "$PIPER_SRC_DIR"
+mkdir -p "$PIPER_SRC_DIR"
+for archive in "${PIPER_ROOT}/.cache/"piper-* "${PIPER_ROOT}/.cache/"espeak-ng-* "${PIPER_ROOT}/.cache/"fmt-* \
+               "${PIPER_ROOT}/.cache/"spdlog-* "${PIPER_ROOT}/.cache/"onnxruntime-*; do
+  if [[ ! -f "$archive" ]]; then
+    echo "ERROR: Piper source archive ${archive} missing – run piper/scripts/build-piper.sh first." >&2
+    exit 1
+  fi
+  cp "$archive" "$PIPER_SRC_DIR/"
+done
+rsync -a "${PIPER_ROOT}/scripts/" "${PIPER_SRC_DIR}/scripts/"
+echo "Mirrored Piper sources: ${PIPER_SRC_DIR}"
 
 SHA256="$(shasum -a 256 "$ZIP_PATH" | awk '{print $1}')"
 

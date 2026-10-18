@@ -350,6 +350,7 @@
 				A60000000000000000000002 /* Sources */,
 				A30000000000000000000001 /* Frameworks */,
 				A60000000000000000000003 /* Resources */,
+				E66000000000000000000001 /* Build and embed Piper */,
 			);
 			buildRules = (
 			);
@@ -432,6 +433,22 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/bash;
 			shellScript = "\"$PROJECT_DIR/../wgtunnel/scripts/build-archive.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		E66000000000000000000001 /* Build and embed Piper */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Build and embed Piper";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/bash;
+			shellScript = "\"$PROJECT_DIR/../piper/scripts/embed.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */

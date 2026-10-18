@@ -32,7 +32,7 @@ while IFS='|' read -r name sha url; do
     continue
   fi
   echo "fetch: lade ${url}" >&2
-  curl -fsSL --retry 3 -o "${target}.part" "${url}"
+  curl --proto '=https' --proto-redir '=https' -fsSL --retry 3 -o "${target}.part" "${url}"
   if ! echo "${sha}  ${target}.part" | shasum -a 256 -c - >/dev/null 2>&1; then
     rm -f "${target}.part"
     echo "fetch: Prüfsumme falsch: ${name}" >&2
