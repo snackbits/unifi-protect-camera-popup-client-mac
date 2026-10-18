@@ -2,8 +2,9 @@
 # Downloads every pinned input of the Piper build into piper/.cache (gitignored) and checks
 # its SHA-256: CMake (build tool), the sources of piper, piper-phonemize, espeak-ng, fmt and
 # spdlog, the onnxruntime release (plus its matching source tag, mirror-only: the build does not
-# use it, it belongs to the GPL source offer) and the bundled voice Thorsten (medium). Idempotent: a file
-# with the right checksum is not downloaded again. Prints the cache directory.
+# use it, it belongs to the GPL source offer) and the voice Thorsten (medium) – not bundled (the app
+# downloads it on first use like every voice), only used by smoke.sh and the AppCore integration test.
+# Idempotent: a file with the right checksum is not downloaded again. Prints the cache directory.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

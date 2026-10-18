@@ -1,9 +1,9 @@
 #!/bin/bash
 # Xcode build phase "Build and embed Piper" (after Resources): builds piper/build/dist if needed
-# and copies it into the app – the program to Contents/Helpers/piper, data and the bundled voice
-# to Contents/Resources/piper. Every Mach-O is signed here with the build's identity (Xcode's own
+# and copies it into the app – the program to Contents/Helpers/piper, espeak-ng data, notices and
+# build scripts to Contents/Resources/piper (no voice: the app downloads every voice on first use). Every Mach-O is signed here with the build's identity (Xcode's own
 # CodeSign step only seals them); resign-app.sh re-signs them with --deep for releases.
-# Debug builds then let the embedded Piper speak one sentence (scripts/smoke.sh).
+# Debug builds then let the embedded Piper speak one sentence (scripts/smoke.sh, voice from piper/.cache).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

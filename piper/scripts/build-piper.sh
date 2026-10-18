@@ -3,8 +3,9 @@
 # pinned sources (scripts/fetch.sh) and assembles piper/build/dist:
 #   Helpers/piper/piper, Helpers/piper/lib/*.dylib           (program, found via @executable_path/lib)
 #   Resources/piper/espeak-ng-data/…                          (German + English only)
-#   Resources/piper/voices/de_DE-thorsten-medium.onnx(.json)  (the bundled voice)
 #   Resources/piper/ThirdPartyNotices-onnxruntime.txt, Resources/piper/build-scripts/…
+# No voice is bundled: every voice (Thorsten medium, the default, included) is downloaded by the
+# app on first use. The build needs no network once piper/.cache is filled (no sub-build fetches).
 # The official macOS release tarballs of 2023.11.14-2 cannot be used: both are x86_64 only and
 # lack the three dylibs. Skips the build when dist/STAMP matches the build scripts.
 set -euo pipefail
@@ -40,11 +41,12 @@ if [[ -n "${DEVELOPER_DIR:-}" ]]; then CLEAN_ENV+=(DEVELOPER_DIR="${DEVELOPER_DI
 run() {
   env -i "${CLEAN_ENV[@]}" "$@"
 }
+# FETCHCONTENT_FULLY_DISCONNECTED: a FetchContent left in any sub-build fails instead of downloading.
 configure() {
   local source="$1" build="$2"; shift 2
   run "${CMAKE}" -S "${source}" -B "${build}" -DCMAKE_BUILD_TYPE=Release \
     "-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 \
-    -DCMAKE_OSX_SYSROOT="${SDK}" "$@" > "${build}.log" 2>&1
+    -DCMAKE_OSX_SYSROOT="${SDK}" -DFETCHCONTENT_FULLY_DISCONNECTED=ON "$@" > "${build}.log" 2>&1
 }
 build() {
   local build="$1"; shift
@@ -59,7 +61,16 @@ configure "${SRC}/spdlog-1.12.0" "${WORK}/b-spdlog" -DSPDLOG_BUILD_EXAMPLE=OFF -
 build "${WORK}/b-spdlog"
 
 echo "build-piper: espeak-ng"
-configure "${SRC}/espeak-ng-0f65aa301e0d6bae5e172cc74197d32a6182200f" "${WORK}/b-espeak" \
+ESPEAK_SRC="${SRC}/espeak-ng-0f65aa301e0d6bae5e172cc74197d32a6182200f"
+# cmake/deps.cmake git-clones sonic from GitHub whenever no system libsonic is found – even with
+# USE_LIBSONIC=OFF, and sonic is never linked then. Drop that FetchContent block (the else branch
+# stays empty) so the build only uses the pinned, checksummed archives.
+sed -i '' '/FetchContent_Declare(sonic-git/,/set(SONIC_INC/d' "${ESPEAK_SRC}/cmake/deps.cmake"
+if grep -q "FetchContent_Declare\|FetchContent_MakeAvailable" "${ESPEAK_SRC}/cmake/deps.cmake"; then
+  echo "build-piper: espeak-ng cmake/deps.cmake lädt noch etwas aus dem Netz" >&2
+  exit 1
+fi
+configure "${ESPEAK_SRC}" "${WORK}/b-espeak" \
   -DCMAKE_INSTALL_PREFIX="${WORK}/ei" -DUSE_ASYNC=OFF -DBUILD_SHARED_LIBS=ON -DUSE_MBROLA=OFF \
   -DUSE_LIBSONIC=OFF -DUSE_LIBPCAUDIO=OFF -DUSE_KLATT=OFF -DUSE_SPEECHPLAYER=OFF \
   -DEXTRA_cmn=ON -DEXTRA_ru=ON -DCMAKE_C_FLAGS=-D_FILE_OFFSET_BITS=64
@@ -77,7 +88,7 @@ run "${CMAKE}" --build "${WORK}/b-piper" --target piper -j "${JOBS}" >> "${WORK}
 
 HELPERS="${DIST}/Helpers/piper"
 RESOURCES="${DIST}/Resources/piper"
-mkdir -p "${HELPERS}/lib" "${RESOURCES}/espeak-ng-data/lang/gmw" "${RESOURCES}/voices" "${RESOURCES}/build-scripts"
+mkdir -p "${HELPERS}/lib" "${RESOURCES}/espeak-ng-data/lang/gmw" "${RESOURCES}/build-scripts"
 cp "${WORK}/b-piper/piper" "${HELPERS}/piper"
 cp -L "${WORK}/ei/lib/libespeak-ng.1.dylib" "${WORK}/pi/lib/libpiper_phonemize.1.dylib" \
       "${ORT}/lib/libonnxruntime.1.14.1.dylib" "${HELPERS}/lib/"
@@ -103,7 +114,6 @@ cp "${DATA}/phontab" "${DATA}/phonindex" "${DATA}/phondata" "${DATA}/intonations
    "${DATA}/de_dict" "${DATA}/en_dict" "${RESOURCES}/espeak-ng-data/"
 cp "${DATA}/lang/gmw/de" "${DATA}/lang/gmw/en" "${RESOURCES}/espeak-ng-data/lang/gmw/"
 
-cp "${CACHE}/de_DE-thorsten-medium.onnx" "${CACHE}/de_DE-thorsten-medium.onnx.json" "${RESOURCES}/voices/"
 cp "${ORT}/ThirdPartyNotices.txt" "${RESOURCES}/ThirdPartyNotices-onnxruntime.txt"
 cp "${ROOT}/scripts/fetch.sh" "${ROOT}/scripts/build-piper.sh" "${RESOURCES}/build-scripts/"
 
@@ -118,5 +128,6 @@ for file in "${HELPERS}/piper" "${HELPERS}/lib/"*.dylib; do
   fi
 done
 echo "${STAMP_VALUE}" > "${DIST}/STAMP"
-rm -rf "${WORK}"
+# PIPER_KEEP_WORK=1 keeps build/work with the CMake logs (e.g. to check that nothing was fetched).
+if [[ -z "${PIPER_KEEP_WORK:-}" ]]; then rm -rf "${WORK}"; fi
 echo "build-piper: ${DIST}"

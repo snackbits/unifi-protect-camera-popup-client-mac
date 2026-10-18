@@ -16,11 +16,19 @@ SERVER_VERSION_FILE="../../server/version.json"
 
 # GPL source offer (Piper/espeak-ng/onnxruntime): the pinned source archives are mirrored next to
 # app.zip. Check they exist before anything is bumped or packaged, so a failure leaves no half release.
+# Named explicitly (as in collect-notices.sh), so an aborted *.part download is never mirrored.
+# The source mirror is not in the server's git (onnxruntime's source alone is 190 MB, over GitHub's
+# 100 MB limit; public/piper-source/ is git-ignored there) – it is deployed with rsync (see the end).
 PIPER_ROOT="${SCRIPT_DIR}/../../piper"
-PIPER_ARCHIVES=("${PIPER_ROOT}/.cache/"piper-* "${PIPER_ROOT}/.cache/"espeak-ng-* "${PIPER_ROOT}/.cache/"fmt-* \
-                "${PIPER_ROOT}/.cache/"spdlog-* "${PIPER_ROOT}/.cache/"onnxruntime-osx-universal2-*.tgz \
-                "${PIPER_ROOT}/.cache/onnxruntime-1.14.1-src.tar.gz")
-for archive in "${PIPER_ARCHIVES[@]}"; do
+PIPER_ARCHIVES=()
+for name in piper-2023.11.14-2.tar.gz piper-phonemize-bfc2e75.tar.gz espeak-ng-0f65aa3.tar.gz \
+            fmt-10.0.0.tar.gz spdlog-1.12.0.tar.gz onnxruntime-osx-universal2-1.14.1.tgz \
+            onnxruntime-1.14.1-src.tar.gz; do
+  PIPER_ARCHIVES+=("${PIPER_ROOT}/.cache/${name}")
+done
+# smoke.sh (after re-signing) speaks with the cached Thorsten (medium) – no voice is in the app.
+for archive in "${PIPER_ARCHIVES[@]}" "${PIPER_ROOT}/.cache/de_DE-thorsten-medium.onnx" \
+               "${PIPER_ROOT}/.cache/de_DE-thorsten-medium.onnx.json"; do
   if [[ ! -f "$archive" ]]; then
     echo "ERROR: Piper source archive ${archive} missing – run piper/scripts/build-piper.sh first." >&2
     exit 1
@@ -34,8 +42,21 @@ NEW_VERSION_ID="$(uuidgen | tr '[:upper:]' '[:lower:]')"
 echo "Build version id: ${NEW_VERSION_ID}"
 
 CURRENT_BUILD_NUMBER="$(sed -nE 's/.*static let buildNumber = ([0-9]+).*/\1/p' AppConfig.swift)"
+CURRENT_VERSION_ID="$(sed -nE 's/.*static let buildVersionId = "([^"]*)".*/\1/p' AppConfig.swift)"
 NEW_BUILD_NUMBER=$((CURRENT_BUILD_NUMBER + 1))
 echo "Build number: ${NEW_BUILD_NUMBER}"
+
+# Until version.json is written, any failure (build, checks, app.zip too large) puts the two
+# AppConfig.swift values back, so no half release is left behind.
+revert_bump() {
+  sed -i '' -E \
+    -e "s/(static let buildNumber = )[0-9]+/\1${CURRENT_BUILD_NUMBER}/" \
+    -e "s/(static let buildVersionId = \")[^\"]*(\")/\1${CURRENT_VERSION_ID}\2/" \
+    AppConfig.swift \
+  && echo "Reverted AppConfig.swift to buildNumber ${CURRENT_BUILD_NUMBER} / buildVersionId ${CURRENT_VERSION_ID}." >&2 \
+  || echo "ERROR: could not revert AppConfig.swift – set buildNumber back to ${CURRENT_BUILD_NUMBER} and buildVersionId back to \"${CURRENT_VERSION_ID}\" by hand." >&2
+}
+trap 'revert_bump' EXIT
 
 sed -i '' -E \
   "s/(static let buildNumber = )[0-9]+/\1${NEW_BUILD_NUMBER}/" \
@@ -106,13 +127,25 @@ fi
 # ---------------------------------------------------------------------------
 mkdir -p "$SERVER_PUBLIC_DIR"
 ZIP_PATH="${SERVER_PUBLIC_DIR}/app.zip"
-rm -f "$ZIP_PATH"
+# Packed next to the old app.zip first: a ZIP that is too large never replaces it.
+ZIP_NEW="${ZIP_PATH}.new"
+rm -f "$ZIP_NEW"
 # --keepParent keeps the .app wrapper as the top-level entry in the archive.
-ditto -c -k --keepParent "$APP_PATH" "$ZIP_PATH"
-echo "Packaged: ${ZIP_PATH}"
+ditto -c -k --keepParent "$APP_PATH" "$ZIP_NEW"
+# GitHub rejects files over 100 MiB, and app.zip is deployed through the server's git repo.
+ZIP_LIMIT=95000000
+ZIP_SIZE="$(stat -f %z "$ZIP_NEW")"
+if (( ZIP_SIZE > ZIP_LIMIT )); then
+  rm -f "$ZIP_NEW"
+  echo "ERROR: app.zip would be ${ZIP_SIZE} bytes (> 95 MB) – GitHub rejects files over 100 MB, so the deploy would fail." >&2
+  echo "       Nothing was packaged or written (no app.zip, no version.json). Is a Piper voice bundled again? (piper/scripts/check-app.sh)" >&2
+  exit 1
+fi
+mv -f "$ZIP_NEW" "$ZIP_PATH"
+echo "Packaged: ${ZIP_PATH} (${ZIP_SIZE} bytes)"
 
 # GPL source offer: mirror the pinned Piper/espeak-ng/onnxruntime source archives and the build
-# scripts next to app.zip (served from the update server).
+# scripts next to app.zip (served from the update server; git-ignored there, deployed by rsync).
 PIPER_SRC_DIR="${SERVER_PUBLIC_DIR}/piper-source/2023.11.14-2"
 rm -rf "$PIPER_SRC_DIR"
 mkdir -p "$PIPER_SRC_DIR"
@@ -149,14 +182,19 @@ cat > "$SERVER_VERSION_FILE" <<EOF
 }
 EOF
 echo "Wrote ${SERVER_VERSION_FILE}"
+# Released: the bumped AppConfig.swift stays.
+trap - EXIT
 
 echo ""
 echo "Release build ready:"
 echo "  $(pwd)/$APP_PATH"
 echo "  $(pwd)/$ZIP_PATH"
 echo ""
+echo "Deploy – Piper source mirror (git-ignored in the server repo, too large for GitHub), from app/:"
+echo "  rsync -a --delete ../server/public/piper-source/ snackbits:/var/www/snackbits.dev/subdomains/unifi-protect-camera-popup-server/public/piper-source/"
+echo ""
 echo "Deploy (git workflow):"
-echo "  git add app/UniFiCameraPopup/AppConfig.swift server/version.json server/public/app.zip server/public/piper-source"
+echo "  git add app/UniFiCameraPopup/AppConfig.swift server/version.json server/public/app.zip"
 echo "  git commit -m \"Release build ${NEW_BUILD_NUMBER}\""
 echo "  git push"
 echo "  # on server: git pull   (nginx serves app.zip immediately, Node reads version.json)"

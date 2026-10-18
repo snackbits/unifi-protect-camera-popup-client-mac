@@ -1,6 +1,7 @@
 #!/bin/bash
 # Checks the Piper inside a built app (called by build-release.sh, runnable on any build):
-# program and libraries universal (arm64 + x86_64), data and bundled voice present, signature valid.
+# program executable and universal (arm64 + x86_64), libraries universal, data present, no voice
+# bundled (every voice is downloaded on first use – keeps app.zip under GitHub's 100 MB), signature valid.
 #   piper/scripts/check-app.sh "<path>/UniFi Camera Popup.app"
 set -euo pipefail
 
@@ -14,6 +15,10 @@ for file in "${PIPER_DIR}/piper" "${PIPER_DIR}/lib/libespeak-ng.1.dylib" \
     echo "ERROR: ${file} missing from the app bundle." >&2
     exit 1
   fi
+  if [[ "${file}" == "${PIPER_DIR}/piper" && ! -x "${file}" ]]; then
+    echo "ERROR: ${file} is not executable." >&2
+    exit 1
+  fi
   archs="$(lipo -archs "${file}")"
   for arch in arm64 x86_64; do
     if [[ " ${archs} " != *" ${arch} "* ]]; then
@@ -22,7 +27,7 @@ for file in "${PIPER_DIR}/piper" "${PIPER_DIR}/lib/libespeak-ng.1.dylib" \
     fi
   done
 done
-for file in voices/de_DE-thorsten-medium.onnx voices/de_DE-thorsten-medium.onnx.json espeak-ng-data/phondata \
+for file in espeak-ng-data/phondata \
             espeak-ng-data/de_dict espeak-ng-data/en_dict ThirdPartyNotices-onnxruntime.txt \
             build-scripts/fetch.sh build-scripts/build-piper.sh; do
   if [[ ! -s "${RES}/${file}" ]]; then
@@ -30,6 +35,10 @@ for file in voices/de_DE-thorsten-medium.onnx voices/de_DE-thorsten-medium.onnx.
     exit 1
   fi
 done
+if [[ -e "${RES}/voices" ]] || find "${APP_PATH}/Contents" -name '*.onnx' | grep -q .; then
+  echo "ERROR: a Piper voice is bundled (Contents/Resources/piper/voices or *.onnx) – voices are downloaded on first use." >&2
+  exit 1
+fi
 NOTICES="${APP_PATH}/Contents/Resources/ThirdPartyNotices.txt"
 for marker in "Sprachausgabe (Piper)" "--- espeak-ng" "GPL-3.0-or-later" "--- onnxruntime" "Thorsten-Voice" "M-AILABS" "CC BY 4.0"; do
   if ! grep -qF -- "${marker}" "${NOTICES}"; then
