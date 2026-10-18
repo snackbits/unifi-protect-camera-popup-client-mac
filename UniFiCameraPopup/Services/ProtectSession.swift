@@ -127,13 +127,19 @@ final class ProtectSession: ObservableObject {
         aspectRatios[cameraId]
     }
 
+    /// Cameras whose aspect-ratio snapshot is in flight: a refresh while it runs adds no second one.
+    private var prefetching: Set<String> = []
+
     /// One snapshot per linked camera whose picture format is still unknown (once per launch).
     private func prefetchAspectRatios() {
-        let missing = Set(settings.mappings.compactMap(\.protectCameraId)).filter { aspectRatios[$0] == nil }
+        let missing = Set(settings.mappings.compactMap(\.protectCameraId))
+            .filter { aspectRatios[$0] == nil && !prefetching.contains($0) }
         guard !missing.isEmpty else { return }
+        prefetching.formUnion(missing)
         Task {
             for cameraId in missing {
                 _ = await snapshot(cameraId: cameraId)
+                prefetching.remove(cameraId)
             }
         }
     }

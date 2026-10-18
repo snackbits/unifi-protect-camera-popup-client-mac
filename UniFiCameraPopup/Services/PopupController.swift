@@ -22,9 +22,20 @@ final class PopupController {
     }
 
     private var activePopups: [ActivePopup] = []
+    /// Frame each popup was last sent to (animation target). An unchanged target never restarts
+    /// a running 300 ms animation.
+    private var targetFrames: [UUID: NSRect] = [:]
     private let settings = SettingsStore.shared
+    private var screenObserver: NSObjectProtocol?
 
-    private init() {}
+    private init() {
+        // Display added/removed, resolution or Dock changed: fit the stack to the new visible frame.
+        screenObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
+        ) { _ in
+            MainActor.assumeIsolated { PopupController.shared.relayout() }
+        }
+    }
 
     /// Entry point for triggers (Protect events, relay webhooks). The event is recorded for the
     /// menu panel even when muted; then global mute, the camera's own mute and Focus are honored.
@@ -96,9 +107,10 @@ final class PopupController {
             // Another trigger for this entry may have opened it while the URL resolved.
             if extendExistingPopup(for: mapping.entryId) { return }
 
-            // Without the "show all" option a new camera replaces the current popup.
+            // Without the "show all" option a new camera replaces the current popup – except one
+            // that is talking or playing an announcement: it stays, the new one joins the stack.
             if !settings.showAllActiveCameras {
-                dismiss()
+                dismiss(keepingBusy: true)
             }
 
             let screen = WindowPositioner.targetScreen(for: settings.screenTarget)
@@ -191,6 +203,9 @@ final class PopupController {
         let animate = !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         for (popup, frame) in zip(popups, frames) {
             let window = popup.window
+            // Already there or already gliding there: leave the running animation alone.
+            if targetFrames[popup.entryId] == frame { continue }
+            targetFrames[popup.entryId] = frame
             // A popup not on screen yet appears in place; the others glide.
             guard animate, window.isVisible, window.frame != frame else {
                 window.setFrame(frame, display: true)
@@ -206,6 +221,7 @@ final class PopupController {
 
     private func removePopup(entryId: UUID) {
         activePopups.removeAll { $0.entryId == entryId }
+        targetFrames[entryId] = nil
         relayout()
     }
 
@@ -297,9 +313,16 @@ final class PopupController {
     }
 
     func dismiss() {
-        let popups = activePopups
-        activePopups = []
-        for popup in popups {
+        dismiss(keepingBusy: false)
+    }
+
+    /// `keepingBusy`: popups that talk or play an announcement stay open.
+    private func dismiss(keepingBusy: Bool) {
+        let closing = activePopups.filter { !keepingBusy || !$0.window.isBusy }
+        guard !closing.isEmpty else { return }
+        let closingIds = Set(closing.map(\.entryId))
+        activePopups.removeAll { closingIds.contains($0.entryId) }
+        for popup in closing {
             popup.window.closePopup()
         }
     }

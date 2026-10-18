@@ -32,6 +32,12 @@ final class TalkButtonView: NSView {
     let fullWidth: CGFloat
     /// Mouse-up anywhere (other apps included) while held: the window may not see it.
     private var releaseMonitors: [Any] = []
+    /// While held: checks every 250 ms that the mouse button is still down, so a lost mouse-up
+    /// (e.g. swallowed by a modal or another app) never leaves the microphone open.
+    private var holdPoll: Timer?
+    /// Compact state requested by a relayout while held; applied on release, so the button never
+    /// loses „Loslassen zum Beenden“ under the user's finger.
+    private var requestedCompact = false
 
     init() {
         let titleFont = NSFont.systemFont(ofSize: 12, weight: .bold)
@@ -85,13 +91,22 @@ final class TalkButtonView: NSView {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
-    var isCompact = false {
-        didSet {
-            guard isCompact != oldValue else { return }
-            lines.isHidden = isCompact
-            NSLayoutConstraint.deactivate(isCompact ? fullConstraints : compactConstraints)
-            NSLayoutConstraint.activate(isCompact ? compactConstraints : fullConstraints)
+    var isCompact: Bool {
+        get { requestedCompact }
+        set {
+            requestedCompact = newValue
+            if !isHeld { applyCompact() }
         }
+    }
+
+    private var appliedCompact = false
+
+    private func applyCompact() {
+        guard requestedCompact != appliedCompact else { return }
+        appliedCompact = requestedCompact
+        lines.isHidden = appliedCompact
+        NSLayoutConstraint.deactivate(appliedCompact ? fullConstraints : compactConstraints)
+        NSLayoutConstraint.activate(appliedCompact ? compactConstraints : fullConstraints)
     }
 
     /// `busy` while the talkback session is being opened (70 %).
@@ -116,6 +131,13 @@ final class TalkButtonView: NSView {
             MainActor.assumeIsolated { self?.release() }
         }
         releaseMonitors = [local, global].compactMap { $0 }
+        let poll = Timer(timeInterval: 0.25, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated {
+                if NSEvent.pressedMouseButtons & 1 == 0 { self?.release() }
+            }
+        }
+        RunLoop.main.add(poll, forMode: .common)
+        holdPoll = poll
     }
 
     override func mouseUp(with event: NSEvent) { release() }
@@ -126,11 +148,15 @@ final class TalkButtonView: NSView {
         if newWindow == nil { release() }
     }
 
-    private func release() {
+    /// Ends a hold (mouse-up, lost mouse-up, popup closed). Idempotent.
+    func release() {
         guard isHeld else { return }
         isHeld = false
+        holdPoll?.invalidate()
+        holdPoll = nil
         releaseMonitors.forEach(NSEvent.removeMonitor)
         releaseMonitors = []
+        applyCompact()
         onRelease?()
     }
 
@@ -488,6 +514,8 @@ final class PopupTalkControls {
 
     func popupClosed() {
         isClosed = true
+        // Removes the mouse monitors and the hold poll at once (not only when the view leaves its window).
+        talkButton.release()
         TalkbackService.shared.popupClosed(entryId: entryId)
         cancellables.removeAll()
     }

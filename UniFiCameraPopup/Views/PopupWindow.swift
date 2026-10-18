@@ -336,12 +336,14 @@ final class PopupWindow: NSPanel {
             guard alert.runModal() == .alertFirstButtonReturn else { return }
         }
         // Sound only where this popup can talk (camera with speaker); errors show as the popup notice.
+        var soundStart: PlayStart?
         if let entryId = overlay?.talk?.entryId,
            let announcement = action.soundId.flatMap(SoundStore.shared.settings.announcement(id:)) {
-            TalkbackService.shared.play(announcement, entryId: entryId)
+            soundStart = TalkbackService.shared.play(announcement, entryId: entryId)
         }
         guard action.requestURL != nil else {
-            button.showResult(error: nil)
+            // Sound only: the tick only when the announcement really started.
+            button.showResult(error: Self.soundError(soundStart))
             return
         }
         button.showRunning()
@@ -353,6 +355,16 @@ final class PopupWindow: NSPanel {
                 NSLog("Camera action \"\(action.trimmedTitle)\" failed: \(error.localizedDescription)")
                 button.showResult(error: error.localizedDescription)
             }
+        }
+    }
+
+    /// nil = started; otherwise the reason for the button's tooltip (orange instead of the tick).
+    private static func soundError(_ start: PlayStart?) -> String? {
+        switch start {
+        case .started?: return nil
+        case .busy?: return "Es wird gerade gesprochen."
+        case .fileMissing?: return "Die Datei der Ansage fehlt."
+        case .noCamera?, nil: return "Ton nicht verfügbar."
         }
     }
 
@@ -407,6 +419,9 @@ final class PopupWindow: NSPanel {
             self?.autoCloseFired()
         }
     }
+
+    /// This popup is talking or sending an announcement (never replaced or auto-closed then).
+    var isBusy: Bool { talkControls?.isBusy == true }
 
     /// Auto-close waits while this popup talks or sends an announcement.
     private func autoCloseFired() {
