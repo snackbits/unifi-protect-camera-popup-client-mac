@@ -14,6 +14,18 @@ PRIVATE_KEY_FILE="${SCRIPT_DIR}/update_private_key.txt"
 SERVER_PUBLIC_DIR="../../server/public"
 SERVER_VERSION_FILE="../../server/version.json"
 
+# GPL source offer (Piper/espeak-ng/onnxruntime): the pinned source archives are mirrored next to
+# app.zip. Check they exist before anything is bumped or packaged, so a failure leaves no half release.
+PIPER_ROOT="${SCRIPT_DIR}/../../piper"
+PIPER_ARCHIVES=("${PIPER_ROOT}/.cache/"piper-* "${PIPER_ROOT}/.cache/"espeak-ng-* "${PIPER_ROOT}/.cache/"fmt-* \
+                "${PIPER_ROOT}/.cache/"spdlog-* "${PIPER_ROOT}/.cache/"onnxruntime-*)
+for archive in "${PIPER_ARCHIVES[@]}"; do
+  if [[ ! -f "$archive" ]]; then
+    echo "ERROR: Piper source archive ${archive} missing – run piper/scripts/build-piper.sh first." >&2
+    exit 1
+  fi
+done
+
 # ---------------------------------------------------------------------------
 # Bump version identifiers and bake them into the app + server manifest.
 # ---------------------------------------------------------------------------
@@ -101,17 +113,9 @@ echo "Packaged: ${ZIP_PATH}"
 # GPL source offer: mirror the pinned Piper/espeak-ng/onnxruntime source archives and the build
 # scripts next to app.zip (served from the update server).
 PIPER_SRC_DIR="${SERVER_PUBLIC_DIR}/piper-source/2023.11.14-2"
-PIPER_ROOT="${SCRIPT_DIR}/../../piper"
 rm -rf "$PIPER_SRC_DIR"
 mkdir -p "$PIPER_SRC_DIR"
-for archive in "${PIPER_ROOT}/.cache/"piper-* "${PIPER_ROOT}/.cache/"espeak-ng-* "${PIPER_ROOT}/.cache/"fmt-* \
-               "${PIPER_ROOT}/.cache/"spdlog-* "${PIPER_ROOT}/.cache/"onnxruntime-*; do
-  if [[ ! -f "$archive" ]]; then
-    echo "ERROR: Piper source archive ${archive} missing – run piper/scripts/build-piper.sh first." >&2
-    exit 1
-  fi
-  cp "$archive" "$PIPER_SRC_DIR/"
-done
+cp "${PIPER_ARCHIVES[@]}" "$PIPER_SRC_DIR/"
 rsync -a "${PIPER_ROOT}/scripts/" "${PIPER_SRC_DIR}/scripts/"
 echo "Mirrored Piper sources: ${PIPER_SRC_DIR}"
 
@@ -151,7 +155,7 @@ echo "  $(pwd)/$APP_PATH"
 echo "  $(pwd)/$ZIP_PATH"
 echo ""
 echo "Deploy (git workflow):"
-echo "  git add app/UniFiCameraPopup/AppConfig.swift server/version.json server/public/app.zip"
+echo "  git add app/UniFiCameraPopup/AppConfig.swift server/version.json server/public/app.zip server/public/piper-source"
 echo "  git commit -m \"Release build ${NEW_BUILD_NUMBER}\""
 echo "  git push"
 echo "  # on server: git pull   (nginx serves app.zip immediately, Node reads version.json)"
