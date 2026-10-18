@@ -24,6 +24,17 @@ struct TalkbackActivity: Equatable {
     var phase: Phase
 }
 
+/// Outcome of asking for an announcement.
+enum PlayStart: Equatable {
+    case started
+    /// Someone is talking (or, automatically, anything is being sent).
+    case busy
+    /// The announcement's audio file is gone.
+    case fileMissing
+    /// The camera entry no longer exists.
+    case noCamera
+}
+
 /// Error text for the popup of `entryId` (shown for a few seconds).
 struct TalkbackNotice: Equatable {
     let id = UUID()
@@ -139,28 +150,29 @@ final class TalkbackService: ObservableObject {
 
     // MARK: Announcements
 
-    func play(_ announcement: Announcement, entryId: UUID) {
-        if activity?.purpose == .talk { return }
-        stopCurrent()
-        guard let mapping = SettingsStore.shared.mapping(forEntry: entryId) else { return }
+    @discardableResult
+    func play(_ announcement: Announcement, entryId: UUID) -> PlayStart {
+        if activity?.purpose == .talk { return .busy }
+        guard let mapping = SettingsStore.shared.mapping(forEntry: entryId) else { return .noCamera }
         guard let url = SoundStore.shared.audioURL(for: announcement) else {
             report(TalkbackError.audioFile("Datei fehlt"), entryId: entryId)
-            return
+            return .fileMissing
         }
+        stopCurrent()
         let purpose = TalkbackPurpose.announcement(announcement.id)
         activity = TalkbackActivity(entryId: entryId, purpose: purpose, phase: .preparing)
         let token = UUID()
         run = token
         Task { await runAnnouncement(url: url, announcement: announcement, mapping: mapping, token: token) }
+        return .started
     }
 
     /// Event rules: plays only while nothing else is sent – never cuts off talking or another
-    /// announcement. false = skipped.
+    /// announcement.
     @discardableResult
-    func playAutomatically(_ announcement: Announcement, entryId: UUID) -> Bool {
-        guard activity == nil else { return false }
-        play(announcement, entryId: entryId)
-        return activity?.entryId == entryId
+    func playAutomatically(_ announcement: Announcement, entryId: UUID) -> PlayStart {
+        guard activity == nil else { return .busy }
+        return play(announcement, entryId: entryId)
     }
 
     func stopPlayback() {

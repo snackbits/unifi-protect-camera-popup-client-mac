@@ -189,11 +189,16 @@ final class SoundStore: ObservableObject {
         let buffer = try await AnnouncementAudio.render(text: trimmed, voiceIdentifier: voice)
         let name = "\(UUID().uuidString).caf"
         guard let target = resolve(name) else { throw TalkbackError.audioFile("Ablage") }
-        try AnnouncementAudio.write(buffer, to: target)
+        // Writing and measuring a long text take a moment: off the main thread (like the imports).
+        let rendered = RenderedSpeech(buffer: buffer)
+        let gain = try await Task.detached(priority: .userInitiated) { () throws -> Double? in
+            try AnnouncementAudio.write(rendered.buffer, to: target)
+            return (try? AnnouncementAudio.loudnessGain(of: rendered.buffer)).map(Double.init)
+        }.value
         entry.voiceIdentifier = voice
         entry.fileName = name
         entry.duration = Double(buffer.frameLength) / buffer.format.sampleRate
-        entry.loudnessGain = (try? AnnouncementAudio.loudnessGain(of: buffer)).map(Double.init)
+        entry.loudnessGain = gain
         // Deleted while rendering: drop the new file.
         guard var latest = settings.announcement(id: id) else {
             deleteFile(entry.fileName)
@@ -276,4 +281,9 @@ final class SoundStore: ObservableObject {
         }
         defaults.set(data, forKey: Self.storageKey)
     }
+}
+
+/// Hands a freshly rendered buffer to the background write/measure step (not touched meanwhile).
+private struct RenderedSpeech: @unchecked Sendable {
+    let buffer: AVAudioPCMBuffer
 }

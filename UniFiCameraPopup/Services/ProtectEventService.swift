@@ -15,7 +15,8 @@ final class ProtectEventService: ObservableObject {
     private var clientChange: AnyCancellable?
     private var wakeObserver: NSObjectProtocol?
     private var tunnelResetObserver: NSObjectProtocol?
-    private var dedup = EventDeduplicator()
+    /// Follows each event from `add` through its updates: smart-detect kinds may only arrive later.
+    private var tracker = EventTracker()
     private var backoff = Backoff(base: 2, max: 60)
 
     /// Keepalive interval while connected; a dead socket is otherwise never noticed.
@@ -179,11 +180,14 @@ final class ProtectEventService: ObservableObject {
     }
 
     private func handle(_ data: Data) {
-        guard let trigger = EventMessage.parse(data), dedup.isNew(trigger.eventId) else { return }
+        // Only kinds this event has not reported before (an update can add „Fahrzeug“ to „Person“).
+        guard let tracked = tracker.ingest(data) else { return }
+        let trigger = tracked.trigger
         // Kameras › Ereignisse: independent of popups, mutes and Focus.
         EventRuleService.shared.handle(trigger)
+        // A popup opens the first time the event matches the camera's triggers, as before.
         for mapping in settings.mappings(forProtectCamera: trigger.cameraId)
-        where !mapping.triggers.isDisjoint(with: trigger.kinds) {
+        where !mapping.triggers.isDisjoint(with: trigger.kinds) && mapping.triggers.isDisjoint(with: tracked.previousKinds) {
             let label = TriggerKind.ordered.first { trigger.kinds.contains($0) && mapping.triggers.contains($0) }?.label
             onTrigger?(TriggerEvent(
                 webhookId: mapping.webhookId,

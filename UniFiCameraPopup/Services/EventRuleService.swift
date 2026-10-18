@@ -15,37 +15,49 @@ final class EventRuleService {
 
     private init() {}
 
-    /// Called for every new event (already de-duplicated by event id).
+    /// Called with the kinds an event reports for the first time (`EventTracker`: an update can
+    /// add „Fahrzeug“ to an event that started as „Person“).
     func handle(_ trigger: ProtectTrigger) {
         let kinds = Set(trigger.kinds.map(\.rawValue))
         let now = Date()
         for mapping in settings.mappings(forProtectCamera: trigger.cameraId) {
-            let rules = EventRuleMatcher.matching(
-                mapping.eventRules,
-                kinds: kinds,
-                canPlaySound: TalkbackService.shared.canTalk(mapping),
-                soundExists: { SoundStore.shared.settings.announcement(id: $0) != nil }
-            )
-            for rule in rules where debouncer.shouldRun(entry: mapping.entryId.uuidString, rule: rule.id, at: now) {
-                schedule(ruleId: rule.id, entryId: mapping.entryId, delay: rule.delaySeconds)
+            for rule in runnable(mapping.eventRules, kinds: kinds, mapping: mapping)
+            where debouncer.shouldRun(entry: mapping.entryId.uuidString, rule: rule.id, at: now) {
+                schedule(ruleId: rule.id, entryId: mapping.entryId, kinds: kinds, delay: rule.delaySeconds)
             }
         }
     }
 
-    private func schedule(ruleId: UUID, entryId: UUID, delay: Int) {
+    private func runnable(_ rules: [EventRule], kinds: Set<String>, mapping: WebhookMapping) -> [EventRule] {
+        EventRuleMatcher.matching(
+            rules,
+            kinds: kinds,
+            canPlaySound: TalkbackService.shared.canTalk(mapping),
+            soundExists: { SoundStore.shared.settings.announcement(id: $0) != nil }
+        )
+    }
+
+    private func schedule(ruleId: UUID, entryId: UUID, kinds: Set<String>, delay: Int) {
         Task { @MainActor in
             if delay > 0 {
                 try? await Task.sleep(nanoseconds: UInt64(delay) * 1_000_000_000)
             }
-            await run(ruleId: ruleId, entryId: entryId)
+            await run(ruleId: ruleId, entryId: entryId, kinds: kinds)
         }
     }
 
-    /// Reads the rule again: edits during the delay apply, a removed rule or camera does nothing.
-    private func run(ruleId: UUID, entryId: UUID) async {
+    /// Reads the rule again: edits during the delay apply; a removed rule or camera, a changed event
+    /// kind or a rule that can no longer do anything here is skipped (logged, not in the event log).
+    private func run(ruleId: UUID, entryId: UUID, kinds: Set<String>) async {
         guard let mapping = settings.mapping(forEntry: entryId),
-              let rule = mapping.eventRules.first(where: { $0.id == ruleId }) else {
+              let current = mapping.eventRules.first(where: { $0.id == ruleId }) else {
             NSLog("Event rule \(ruleId) was removed before it ran")
+            return
+        }
+        guard let rule = runnable([current], kinds: kinds, mapping: mapping).first else {
+            let reason = kinds.contains(current.kind) ? "nothing to do (no valid webhook, no playable sound)" : "its event changed"
+            NSLog("Event rule \(ruleId) skipped: \(reason)")
+            TalkbackLog.write("Regel übersprungen – \(reason)")
             return
         }
         let kindLabel = TriggerKind(rawValue: rule.kind)?.label ?? rule.kind
@@ -72,15 +84,22 @@ final class EventRuleService {
         )
     }
 
-    /// nil = the rule plays nothing here; `played` false = skipped (the camera is busy talking).
+    /// nil = the rule plays nothing here; `played` false = skipped (busy, file missing).
     private func startSound(_ rule: EventRule, mapping: WebhookMapping) -> (name: String, played: Bool)? {
         guard let id = rule.soundId, TalkbackService.shared.canTalk(mapping),
               let announcement = SoundStore.shared.settings.announcement(id: id) else { return nil }
-        let played = TalkbackService.shared.playAutomatically(announcement, entryId: mapping.entryId)
-        if !played {
-            TalkbackLog.write("Regel: Ton „\(announcement.name)“ übersprungen – \(mapping.label) sendet gerade")
+        let start = TalkbackService.shared.playAutomatically(announcement, entryId: mapping.entryId)
+        let reason: String?
+        switch start {
+        case .started: reason = nil
+        case .busy: reason = "es wird gerade gesprochen oder angesagt"
+        case .fileMissing: reason = "die Datei der Ansage fehlt"
+        case .noCamera: reason = "die Kamera ist nicht mehr eingerichtet"
         }
-        return (announcement.name, played)
+        if let reason {
+            TalkbackLog.write("Regel: Ton „\(announcement.name)“ für \(mapping.label) übersprungen – \(reason)")
+        }
+        return (announcement.name, start == .started)
     }
 
     /// The rule's webhook as a transient popup button: same request, same routing.

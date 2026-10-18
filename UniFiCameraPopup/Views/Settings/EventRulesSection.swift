@@ -154,7 +154,7 @@ struct EventRuleEditorSheet: View {
                 )
             }
             FormLine(label: "Adresse") {
-                TokenTextField(placeholder: draft.soundId == nil ? "https://…" : "https://… (optional)", text: $address,
+                TokenTextField(placeholder: result.soundId == nil ? "https://…" : "https://… (optional)", text: $address,
                                fontSize: 12, vertical: 5, horizontal: 8, radius: 6)
             }
             FormLine(label: "Token") {
@@ -219,9 +219,11 @@ struct EventRuleEditorSheet: View {
         .font(.system(size: 13))
     }
 
-    /// The edited rule: empty address = no webhook, delay from the field (0…600).
+    /// The edited rule: empty address = no webhook, delay from the field (0…600). Without a speaker
+    /// the „Ton“ row is hidden, so a sound kept from before is dropped (it could never play here).
     private var result: EventRule {
         var rule = draft
+        if !canPlaySound { rule.soundId = nil }
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         rule.webhook = trimmed.isEmpty ? nil : EventRuleWebhook(method: method.rawValue, url: trimmed)
         rule.delaySeconds = EventRule.delay(fromText: delayText)
