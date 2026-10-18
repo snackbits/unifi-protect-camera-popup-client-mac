@@ -160,6 +160,30 @@ func WgRebind() *C.char {
 	return nil
 }
 
+// WgReresolve looks up the endpoint host names again (same network, peer silent)
+// and moves a peer only when its address changed. Returns
+// {"updates":[{"host":"…","ip":"…","changed":true}]} (empty for IP endpoints)
+// or {"error":"…","updates":[…]}.
+//
+//export WgReresolve
+func WgReresolve() *C.char {
+	mu.Lock()
+	t := cur
+	mu.Unlock()
+	if t == nil {
+		return jsonString(map[string]any{"error": "Tunnel nicht gestartet", "updates": []tunnel.EndpointUpdate{}})
+	}
+	// Outside the lock, like WgRebind: the DNS lookup may take seconds.
+	updates, err := t.Reresolve()
+	if updates == nil {
+		updates = []tunnel.EndpointUpdate{}
+	}
+	if err != nil {
+		return jsonString(map[string]any{"error": err.Error(), "updates": updates})
+	}
+	return jsonString(map[string]any{"updates": updates})
+}
+
 // WgStatus returns a JSON document ({"up":false} when stopped).
 //
 //export WgStatus

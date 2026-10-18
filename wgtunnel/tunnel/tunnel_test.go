@@ -257,6 +257,70 @@ func TestRebindKeepsTunnelWorking(t *testing.T) {
 	echoOnce(t, port)
 }
 
+// withResolver swaps the endpoint resolver for the test; *ip is read on every lookup.
+func withResolver(t *testing.T, ip *netip.Addr) {
+	t.Helper()
+	saved := Resolver
+	Resolver = func(host string) (netip.Addr, error) {
+		if host != "home.test" {
+			return netip.Addr{}, fmt.Errorf("unbekannt: %s", host)
+		}
+		return *ip, nil
+	}
+	t.Cleanup(func() { Resolver = saved })
+}
+
+func TestReresolveMovesToNewHomeIP(t *testing.T) {
+	// The DynDNS name still points at the old home IP (unreachable) when the tunnel starts.
+	ip := netip.MustParseAddr("192.0.2.1")
+	withResolver(t, &ip)
+	cfg := strings.Replace(startHome(t, ""), "Endpoint = 127.0.0.1:", "Endpoint = home.test:", 1)
+	tun := startApp(t, cfg)
+	port, err := tun.AddForward(0, "192.168.1.1", 7448)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Same answer: nothing to do.
+	updates, err := tun.Reresolve()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(updates) != 1 || updates[0].Changed || updates[0].Host != "home.test" || updates[0].IP != "192.0.2.1" {
+		t.Fatalf("unchanged lookup: %+v", updates)
+	}
+	// The home IP changed: the peer moves there and the tunnel works.
+	ip = netip.MustParseAddr("127.0.0.1")
+	updates, err = tun.Reresolve()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(updates) != 1 || !updates[0].Changed || updates[0].IP != "127.0.0.1" {
+		t.Fatalf("changed lookup: %+v", updates)
+	}
+	echoOnce(t, port)
+	if updates, err = tun.Reresolve(); err != nil || len(updates) != 1 || updates[0].Changed {
+		t.Fatalf("after move: %+v %v", updates, err)
+	}
+}
+
+func TestReresolveSkipsIPEndpoint(t *testing.T) {
+	tun := startApp(t, startHome(t, ""))
+	updates, err := tun.Reresolve()
+	if err != nil || len(updates) != 0 {
+		t.Fatalf("IP endpoint: %+v %v", updates, err)
+	}
+}
+
+func TestReresolveReportsLookupFailure(t *testing.T) {
+	ip := netip.MustParseAddr("127.0.0.1")
+	withResolver(t, &ip)
+	tun := startApp(t, strings.Replace(startHome(t, ""), "Endpoint = 127.0.0.1:", "Endpoint = home.test:", 1))
+	Resolver = func(string) (netip.Addr, error) { return netip.Addr{}, fmt.Errorf("offline") }
+	if _, err := tun.Reresolve(); err == nil {
+		t.Fatal("lookup failure must be reported")
+	}
+}
+
 func TestForwardAfterCloseFails(t *testing.T) {
 	tun := startApp(t, startHome(t, ""))
 	tun.Close()

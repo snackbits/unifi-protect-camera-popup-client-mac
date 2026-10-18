@@ -27,6 +27,9 @@ final class TunnelController: ObservableObject {
     private var forwards: [ForwardTarget: Int] = [:]
     private var udpForwards: [ForwardTarget: Int] = [:]
     private var liveness = TunnelLiveness()
+    /// Same network, peer silent: when to look up a DynDNS endpoint name again.
+    private var reresolve = EndpointReresolve(since: Date())
+    private var reresolving = false
     /// The events WebSocket pings every 30 s: only while it is open does silence mean an outage.
     private var eventsSocketOpen = false
     /// When the events socket dropped while the tunnel ran (nil while it is open).
@@ -81,6 +84,8 @@ final class TunnelController: ObservableObject {
             self.udpForwards = [:]
             // Fresh per start: counters and stall timer of an earlier run mean nothing now.
             self.liveness = TunnelLiveness()
+            self.reresolve = EndpointReresolve(since: Date())
+            self.reresolving = false
             self.lastHandshake = nil
             self.startPolling()
             NSLog("Tunnel: gestartet")
@@ -104,6 +109,7 @@ final class TunnelController: ObservableObject {
         forwards = [:]
         udpForwards = [:]
         liveness = TunnelLiveness()
+        reresolving = false
         socketClosedAt = nil
         state = .stopped
     }
@@ -204,6 +210,7 @@ final class TunnelController: ObservableObject {
     /// TCP connections inside the tunnel survive this (WireGuard roams).
     func networkChanged() async {
         guard isStarted else { return }
+        reresolve.reset(at: Date())
         let failure: String? = await onBridge {
             do {
                 try TunnelBridge.rebind()
@@ -275,6 +282,7 @@ final class TunnelController: ObservableObject {
                 store.recordConnection(at: handshake, via: networkKind())
             }
         }
+        reresolveIfStalled(lastHandshake: status.lastHandshake)
         guard eventsSocketOpen || liveness.isDown else { return }
         switch liveness.observe(rxBytes: status.rxBytes, at: Date()) {
         case .wentDown:
@@ -286,6 +294,27 @@ final class TunnelController: ObservableObject {
             resetConnections(reason: "Tunnel wieder da")
         case .none:
             break
+        }
+    }
+
+    /// No handshake for a while on an unchanged network: the home IP behind a DynDNS endpoint
+    /// may have changed. Looks the name up again (backed off by `EndpointReresolve`); Go
+    /// moves the peer only when the address differs. Not awaited: DNS runs on the bridge queue.
+    private func reresolveIfStalled(lastHandshake: Date?) {
+        guard !reresolving,
+              let endpoint = store.summary?.endpoint,
+              EndpointReresolve.isHostName(endpoint: endpoint),
+              reresolve.shouldReresolve(lastHandshake: lastHandshake, now: Date()) else { return }
+        reresolving = true
+        let attempt = generation
+        Task { @MainActor in
+            let result = await self.onBridge { TunnelBridge.reresolve() }
+            guard attempt == self.generation else { return }
+            self.reresolving = false
+            for update in result.updates where update.changed {
+                NSLog("Tunnel: Endpoint neu aufgelöst – \(update.host) → \(update.ip)")
+            }
+            if let error = result.error { NSLog("Tunnel: Endpoint neu auflösen – \(error)") }
         }
     }
 

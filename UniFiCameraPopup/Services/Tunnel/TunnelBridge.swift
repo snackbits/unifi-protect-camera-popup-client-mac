@@ -3,7 +3,7 @@ import ProtectKit
 import WGTunnelC
 
 /// Synchronous wrapper around the Go c-archive (`wgtunnel/capi`). The Go side
-/// serializes calls with its own mutex. `start` and `rebind` resolve DNS and may
+/// serializes calls with its own mutex. `start`, `rebind` and `reresolve` resolve DNS and may
 /// block for seconds – call them off the main thread.
 enum TunnelBridge {
     struct Failure: LocalizedError, Equatable {
@@ -56,6 +56,12 @@ enum TunnelBridge {
 
     static func rebind() throws {
         if let message = take(WgRebind()) { throw Failure(message: message) }
+    }
+
+    /// Looks up the endpoint host names again and moves the peer only when the IP changed
+    /// (same network, peer silent). Resolves DNS – call it off the main thread.
+    static func reresolve() -> TunnelReresolveResult {
+        TunnelReresolveResult.decode(take(WgReresolve()) ?? "")
     }
 
     static func status() -> TunnelStatus {

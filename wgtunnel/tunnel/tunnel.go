@@ -429,6 +429,75 @@ func (t *Tunnel) Rebind() error {
 	return t.dev.BindUpdate()
 }
 
+// EndpointUpdate is one peer endpoint host name looked up again by Reresolve.
+type EndpointUpdate struct {
+	Host    string `json:"host"`
+	IP      string `json:"ip"`
+	Changed bool   `json:"changed"`
+}
+
+// Reresolve looks up the endpoint host names again and moves a peer to the new
+// address only when it differs from the one the device uses now (a DynDNS name
+// whose home IP changed while the Mac stayed on the same network). Peers with an
+// IP literal endpoint are skipped; with none, the result is empty. The UDP
+// socket is not rebound: the network did not change, only the address.
+func (t *Tunnel) Reresolve() ([]EndpointUpdate, error) {
+	current, err := t.endpoints()
+	if err != nil {
+		return nil, err
+	}
+	updates := []EndpointUpdate{}
+	var b strings.Builder
+	for _, p := range t.Config.Peers {
+		if _, err := netip.ParseAddr(p.EndpointHost); err == nil {
+			continue
+		}
+		addr, err := Resolver(p.EndpointHost)
+		if err != nil {
+			return updates, fmt.Errorf("Endpoint %q nicht auflösbar: %v", p.EndpointHost, err)
+		}
+		next := netip.AddrPortFrom(addr.Unmap(), p.EndpointPort)
+		prev, known := current[p.PublicKey.Hex()]
+		changed := !known || prev != next
+		updates = append(updates, EndpointUpdate{Host: p.EndpointHost, IP: addr.Unmap().String(), Changed: changed})
+		if changed {
+			fmt.Fprintf(&b, "public_key=%s\nupdate_only=true\nendpoint=%s\n", p.PublicKey.Hex(), next)
+		}
+	}
+	if b.Len() == 0 {
+		return updates, nil
+	}
+	if err := t.dev.IpcSet(b.String()); err != nil {
+		return updates, fmt.Errorf("IpcSet: %w", err)
+	}
+	return updates, nil
+}
+
+// endpoints maps each peer's public key (hex) to the endpoint the device uses now.
+func (t *Tunnel) endpoints() (map[string]netip.AddrPort, error) {
+	raw, err := t.dev.IpcGet()
+	if err != nil {
+		return nil, err
+	}
+	m := map[string]netip.AddrPort{}
+	key := ""
+	for _, line := range strings.Split(raw, "\n") {
+		k, v, ok := strings.Cut(line, "=")
+		if !ok {
+			continue
+		}
+		switch k {
+		case "public_key":
+			key = v
+		case "endpoint":
+			if ap, err := netip.ParseAddrPort(v); err == nil && key != "" {
+				m[key] = netip.AddrPortFrom(ap.Addr().Unmap(), ap.Port())
+			}
+		}
+	}
+	return m, nil
+}
+
 // AddUDPForward listens on 127.0.0.1:localPort (UDP) and relays datagrams to
 // remoteHost:remotePort (an IP inside AllowedIPs) through the tunnel. The
 // forward serves one local sender at a time: the first one locks it, replies

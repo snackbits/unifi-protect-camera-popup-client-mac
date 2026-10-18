@@ -28,6 +28,9 @@ int WgReleaseUDPForward(int localPort);
 int WgResetConnections(void);
 /// NULL on success, otherwise an error message.
 char *WgRebind(void);
+/// Re-resolves endpoint host names; moves a peer only when its IP changed.
+/// JSON {"updates":[{"host":..,"ip":..,"changed":..}]}, plus "error" on failure.
+char *WgReresolve(void);
 /// JSON status, {"up":false} when stopped.
 char *WgStatus(void);
 /// Last error of WgAddForward/WgAddUDPForward/WgReleaseUDPForward, or NULL.
