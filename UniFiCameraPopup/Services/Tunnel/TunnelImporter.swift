@@ -26,12 +26,12 @@ enum TunnelImporter {
 
     static let pastedFileName = "Eingefügte Konfiguration"
 
-    static func importData(_ data: Data, fileName: String) -> Result<Outcome, Failure> {
+    static func importData(_ data: Data, fileName: String) async -> Result<Outcome, Failure> {
         switch WireGuardFile.text(from: data) {
         case .failure(let problem):
             return .failure(.file(problem))
         case .success(let text):
-            switch TunnelController.shared.parse(text) {
+            switch await TunnelController.shared.parse(text) {
             case .invalid(let message):
                 return .failure(.invalid(message))
             case .valid(let summary):

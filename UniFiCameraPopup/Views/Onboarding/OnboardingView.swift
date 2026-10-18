@@ -61,10 +61,10 @@ final class OnboardingModel: ObservableObject {
             let result: Result<String, Error>
             do {
                 // Away: through the tunnel (no key is sent, only the certificate is read).
-                guard let probeHost = await ConnectionRouter.shared.resolveAPIHost(for: host) else {
+                guard let dialHost = await ConnectionRouter.shared.resolveAPIHost(for: host) else {
                     throw TunnelRouteError.apiUnreachable
                 }
-                result = .success(try await ProtectClient.probeFingerprint(host: probeHost))
+                result = .success(try await ProtectClient.probeFingerprint(host: dialHost))
             } catch {
                 result = .failure(error)
             }
@@ -136,13 +136,7 @@ final class OnboardingModel: ObservableObject {
                 if attempt == generation { keyError = TunnelRouteError.pinRequired.errorDescription }
                 return
             }
-            // The client (and with it this callback) is released when the attempt ends.
-            let client = ProtectClient(host: apiHost, apiKey: key, pinnedFingerprint: pin, onNewFingerprint: { fp in
-                Task { @MainActor in
-                    guard self.generation == attempt else { return }
-                    self.capturedFingerprint = fp
-                }
-            })
+            let client = makeKeyCheckClient(host: apiHost, apiKey: key, pin: pin, attempt: attempt)
             defer { client.invalidate() }
             do {
                 _ = try await client.metaInfo()
@@ -173,6 +167,16 @@ final class OnboardingModel: ObservableObject {
                 keyError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
             }
         }
+    }
+
+    /// Client for `checkKey`; captures the model weakly (built outside the attempt's Task).
+    private func makeKeyCheckClient(host: String, apiKey: String, pin: String?, attempt: Int) -> ProtectClient {
+        ProtectClient(host: host, apiKey: apiKey, pinnedFingerprint: pin, onNewFingerprint: { [weak self] fp in
+            Task { @MainActor in
+                guard let self, self.generation == attempt else { return }
+                self.capturedFingerprint = fp
+            }
+        })
     }
 
     private static func sameLabel(_ a: String, _ b: String) -> Bool {

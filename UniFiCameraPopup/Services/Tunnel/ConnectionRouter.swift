@@ -112,11 +112,14 @@ final class ConnectionRouter: ObservableObject {
 
     /// Where a webhook call goes: through a forward while on the tunnel when the URL's host is
     /// an IP literal inside AllowedIPs, else unchanged. `tunneledHost` is the original host
-    /// (TLS is verified against it). nil = LAN target, but the forward failed.
+    /// (TLS is verified against it). nil = refused: away, a private address outside AllowedIPs
+    /// (would hit a device of the foreign network), or the forward failed.
     func webhookURL(for url: URL) async -> (url: URL, tunneledHost: String?)? {
-        guard route == .tunnel,
-              let target = TunnelPath.webhookTarget(url, allowedIPs: store.summary?.allowedIPs ?? []) else {
-            return (url, nil)
+        let target: ForwardTarget
+        switch TunnelPath.webhook(url, route: route, allowedIPs: store.summary?.allowedIPs ?? []) {
+        case .direct: return (url, nil)
+        case .refuse: return nil
+        case .forward(let forward): target = forward
         }
         guard let port = await tunnel.localPort(for: target), route == .tunnel,
               let local = TunnelPath.rewrite(url, localPort: port) else { return nil }
@@ -143,8 +146,10 @@ final class ConnectionRouter: ObservableObject {
     // MARK: Triggers
 
     /// The events socket dropped. Rate-limited: the console may simply be rebooting.
+    /// Ignored while both paths failed: the backoff retry is already scheduled and must not
+    /// be replaced by a sooner one (network change and wake reset it instead).
     func noteConnectionFailure() {
-        guard started, Date().timeIntervalSince(lastFailureEvaluation) > 30 else { return }
+        guard started, problem == nil, Date().timeIntervalSince(lastFailureEvaluation) > 30 else { return }
         lastFailureEvaluation = Date()
         scheduleEvaluation(reason: "Verbindung verloren", delay: 0)
     }
@@ -157,15 +162,15 @@ final class ConnectionRouter: ObservableObject {
     }
 
     /// Imports a dropped or picked file and re-evaluates the route on success.
-    func importTunnel(data: Data, fileName: String) -> Result<TunnelImporter.Outcome, TunnelImporter.Failure> {
-        let result = TunnelImporter.importData(data, fileName: fileName)
+    func importTunnel(data: Data, fileName: String) async -> Result<TunnelImporter.Outcome, TunnelImporter.Failure> {
+        let result = await TunnelImporter.importData(data, fileName: fileName)
         if case .success = result { tunnel.stop(); configurationChanged() }
         return result
     }
 
     /// Imports pasted text and re-evaluates the route on success.
-    func importTunnel(text: String) -> Result<TunnelImporter.Outcome, TunnelImporter.Failure> {
-        let result = TunnelImporter.importData(Data(text.utf8), fileName: TunnelImporter.pastedFileName)
+    func importTunnel(text: String) async -> Result<TunnelImporter.Outcome, TunnelImporter.Failure> {
+        let result = await TunnelImporter.importData(Data(text.utf8), fileName: TunnelImporter.pastedFileName)
         if case .success = result { tunnel.stop(); configurationChanged() }
         return result
     }
@@ -376,7 +381,7 @@ enum TunnelRouteError: LocalizedError, Equatable {
         case .talkbackNotRouted: return TunnelText.talkbackNotRouted
         case .apiUnreachable: return "Die Konsole ist über den Tunnel gerade nicht erreichbar."
         case .streamUnreachable: return "Livebild unterwegs nicht erreichbar."
-        case .webhookUnreachable: return "Das Ziel ist über den Tunnel gerade nicht erreichbar."
+        case .webhookUnreachable: return TunnelText.webhookNotRouted
         case .pinRequired: return "Unterwegs verbindet sich die App erst, wenn das Zertifikat deiner Konsole bestätigt ist."
         }
     }

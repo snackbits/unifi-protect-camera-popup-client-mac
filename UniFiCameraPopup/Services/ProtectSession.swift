@@ -42,6 +42,7 @@ final class ProtectSession: ObservableObject {
         // Away: 127.0.0.1:<forward>, never the direct address as a fallback (fail closed).
         guard let apiHost = router.apiHost(for: host) else {
             client = nil
+            cameras = []
             lastError = TunnelRouteError.apiUnreachable.errorDescription
             return
         }
@@ -49,6 +50,7 @@ final class ProtectSession: ObservableObject {
         // pinned (confirmed at home or via re-trust); no trust on first use there.
         if router.isViaTunnel, pin?.isEmpty ?? true {
             client = nil
+            cameras = []
             lastError = TunnelRouteError.pinRequired.errorDescription
             return
         }

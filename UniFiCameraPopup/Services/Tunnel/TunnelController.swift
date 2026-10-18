@@ -157,9 +157,9 @@ final class TunnelController: ObservableObject {
     }
 
     /// Checks a config with the Go parser (no tunnel needed, nothing is started).
-    func parse(_ config: String) -> TunnelParseResult {
-        // Fast and DNS-free; serialized with every other bridge call all the same.
-        bridge.sync { TunnelBridge.parse(config) }
+    func parse(_ config: String) async -> TunnelParseResult {
+        // Awaited, never waited for: the queue may be busy with a start resolving DNS.
+        await onBridge { TunnelBridge.parse(config) }
     }
 
     /// Closes every relayed connection, then tells their owners to reconnect.
@@ -217,6 +217,9 @@ final class TunnelController: ObservableObject {
             return
         }
         defer { socketClosedAt = nil }
+        // A detected outage is ended by `sample()` (one reset on the next received byte);
+        // a second reset here would only kill the socket that just reopened.
+        guard !liveness.isDown else { return }
         // A quick reconnect (new client, route change) is no outage; a long one may have left
         // relayed streams stuck, so they are rebuilt once.
         if let closedAt = socketClosedAt, Date().timeIntervalSince(closedAt) >= socketOutage {

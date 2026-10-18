@@ -81,7 +81,11 @@ private final class ForwardedTLSCheck: NSObject, URLSessionTaskDelegate {
             completionHandler(.performDefaultHandling, nil)
             return
         }
-        SecTrustSetPolicies(trust, SecPolicyCreateSSL(true, host as CFString))
+        // Fail closed: a trust that keeps another policy is never accepted.
+        guard SecTrustSetPolicies(trust, SecPolicyCreateSSL(true, host as CFString)) == errSecSuccess else {
+            completionHandler(.cancelAuthenticationChallenge, nil)
+            return
+        }
         var error: CFError?
         if SecTrustEvaluateWithError(trust, &error) {
             completionHandler(.useCredential, URLCredential(trust: trust))
