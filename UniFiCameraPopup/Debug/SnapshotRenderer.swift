@@ -33,6 +33,8 @@ enum SnapshotRenderer {
     nonisolated(unsafe) static var soundTabError: String?
     /// Read by `SoundTab` as the voice of the selected entry (S5 voice variants).
     nonisolated(unsafe) static var soundTabVoice: PiperVoiceRef?
+    /// Read by `SoundTab` as the draft text of the selected entry (S5 over-long text).
+    nonisolated(unsafe) static var soundTabText: String?
     /// Read by `OnboardingTunnelStep` as its initial feedback line (Einrichtung step 6).
     /// Fixed sample strings only; no import runs and nothing touches the keychain in snapshot mode.
     nonisolated(unsafe) static var tunnelStepFeedback: ImportFeedback?
@@ -163,9 +165,10 @@ enum SnapshotRenderer {
                   to: directory.appendingPathComponent("S5-ton-leer-fehler-\(suffix).png"))
             SnapshotRenderer.soundTabError = nil
             SoundStore.shared.settings.announcements = savedSounds
-            // Phase 6: a voice that is not downloaded yet, loading, next to an already downloaded one.
+            // Phase 6 (no voice bundled): S5-ton above shows the default Thorsten not downloaded yet.
+            // Now a voice that is not downloaded yet, loading, next to downloaded ones.
             SnapshotRenderer.soundTabVoice = PiperVoiceRef(voiceId: "de_DE-kerstin-low")
-            PiperVoiceStore.shared.simulateDownloaded(["de_DE-thorsten-high"])
+            PiperVoiceStore.shared.simulateDownloaded(["de_DE-thorsten-medium", "de_DE-thorsten-high"])
             write(window: settingsWindow(tab: .sound), appearance: appearance,
                   to: directory.appendingPathComponent("S5-ton-stimme-nicht-geladen-\(suffix).png"))
             PiperVoiceStore.shared.simulateDownload("de_DE-kerstin-low", received: 23_400_000)
@@ -177,6 +180,14 @@ enum SnapshotRenderer {
             write(window: settingsWindow(tab: .sound), appearance: appearance,
                   to: directory.appendingPathComponent("S5-ton-sprecher-\(suffix).png"))
             SnapshotRenderer.soundTabVoice = nil
+            // Text above the 1000-character limit (counter orange, „Anhören“/„Übernehmen“ off) while
+            // Piper speaks with Thorsten · hoch („Entfernen“ off).
+            SnapshotRenderer.soundTabText = String(repeating: "Bitte das Paket vor der Garage abstellen. ", count: 30)
+            PiperVoiceStore.shared.simulateRendering("de_DE-thorsten-high")
+            write(window: settingsWindow(tab: .sound), appearance: appearance,
+                  to: directory.appendingPathComponent("S5-ton-zu-lang-\(suffix).png"))
+            SnapshotRenderer.soundTabText = nil
+            PiperVoiceStore.shared.simulateRendering(nil)
             PiperVoiceStore.shared.simulateDownloaded([])
             // An announcement rendered by a macOS voice before Phase 6, with a Piper error line.
             SoundStore.shared.settings.announcements = [

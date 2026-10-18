@@ -1,8 +1,8 @@
 import AppCore
 import Foundation
 
-/// Piper voices on this Mac: the bundled Thorsten (medium) in the app, every other offered voice
-/// downloaded on first use into ~/Library/Application Support/UniFi Camera Popup/Voices/<id>/
+/// Piper voices on this Mac: every offered voice – the default Thorsten (medium) included, none is
+/// bundled – is downloaded on first use into ~/Library/Application Support/UniFi Camera Popup/Voices/<id>/
 /// (pinned revision, size + SHA-256 checked), and rendering text with Piper (Process, never linked).
 /// Not part of the configuration export.
 @MainActor
@@ -11,8 +11,10 @@ final class PiperVoiceStore: ObservableObject {
 
     /// Running downloads by voice id: bytes received so far.
     @Published private(set) var downloads: [String: Int64] = [:]
-    /// Downloaded voices (not the bundled one).
+    /// Downloaded voices.
     @Published private(set) var downloadedIds: Set<String> = []
+    /// Voices Piper is rendering with right now (count of runs) – „Entfernen“ waits for them.
+    @Published private(set) var rendering: [String: Int] = [:]
 
     let folder: URL
     let installation = PiperInstallation(contents: Bundle.main.bundleURL.appendingPathComponent("Contents", isDirectory: true))
@@ -32,13 +34,34 @@ final class PiperVoiceStore: ObservableObject {
         }
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         refresh()
+        Self.removeStaleOutputs()
+    }
+
+    /// WAVs of renders that never finished (app quit while Piper ran: the child finishes its bounded
+    /// job alone and nobody picks up its output). Only files older than the longest render, so a
+    /// render started right now keeps its output.
+    private static func removeStaleOutputs() {
+        Task.detached(priority: .utility) {
+            let manager = FileManager.default
+            let temporary = manager.temporaryDirectory
+            let cutoff = Date().addingTimeInterval(-2 * PiperRunner.timeout(forCharacters: PiperCommand.maxTextLength))
+            for name in (try? manager.contentsOfDirectory(atPath: temporary.path)) ?? []
+            where name.hasPrefix("piper-") && name.hasSuffix(".wav") {
+                let url = temporary.appendingPathComponent(name)
+                let modified = (try? manager.attributesOfItem(atPath: url.path))?[.modificationDate] as? Date
+                if let modified, modified < cutoff { try? manager.removeItem(at: url) }
+            }
+        }
     }
 
     // MARK: State
 
     func availability(_ voice: PiperVoice) -> VoiceAvailability {
-        if voice.id == PiperVoiceCatalog.bundledVoiceId { return .bundled }
-        return downloadedIds.contains(voice.id) ? .downloaded : .notDownloaded
+        downloadedIds.contains(voice.id) ? .downloaded : .notDownloaded
+    }
+
+    func isRendering(with voice: PiperVoice) -> Bool {
+        (rendering[voice.id] ?? 0) > 0
     }
 
     var downloadedVoices: [PiperVoice] {
@@ -46,10 +69,7 @@ final class PiperVoiceStore: ObservableObject {
     }
 
     func files(for voice: PiperVoice) -> PiperVoiceFiles {
-        if voice.id == PiperVoiceCatalog.bundledVoiceId {
-            return PiperVoiceFiles(voice: voice, folder: installation.bundledVoices)
-        }
-        return PiperVoiceFiles(voice: voice, folder: voiceFolder(voice))
+        PiperVoiceFiles(voice: voice, folder: voiceFolder(voice))
     }
 
     private func voiceFolder(_ voice: PiperVoice) -> URL {
@@ -62,17 +82,19 @@ final class PiperVoiceStore: ObservableObject {
         // `--render-snapshots` sets the state itself (simulateDownloaded).
         guard !isSnapshot else { return }
         var found: Set<String> = []
-        for voice in PiperVoiceCatalog.offered where voice.id != PiperVoiceCatalog.bundledVoiceId {
-            let files = files(for: voice)
-            if Self.size(files.model) == voice.model.size, Self.size(files.config) == voice.config.size {
-                found.insert(voice.id)
-            }
+        for voice in PiperVoiceCatalog.offered where hasPinnedSizes(voice) {
+            found.insert(voice.id)
         }
         downloadedIds = found
         let entries = (try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? []
         for entry in entries where entry.hasSuffix(".partial") && tasks.isEmpty {
             try? FileManager.default.removeItem(at: folder.appendingPathComponent(entry))
         }
+    }
+
+    private func hasPinnedSizes(_ voice: PiperVoice) -> Bool {
+        let files = files(for: voice)
+        return Self.size(files.model) == voice.model.size && Self.size(files.config) == voice.config.size
     }
 
     private static func size(_ url: URL) -> Int64? {
@@ -83,7 +105,11 @@ final class PiperVoiceStore: ObservableObject {
 
     /// The voice's files, downloading them first if needed (one download per voice at a time).
     func ensure(_ voice: PiperVoice) async throws -> PiperVoiceFiles {
-        if availability(voice) != .notDownloaded { return files(for: voice) }
+        if availability(voice) == .downloaded {
+            // Deleted in Finder while the tab was open: load it again instead of letting Piper fail.
+            if hasPinnedSizes(voice) { return files(for: voice) }
+            downloadedIds.remove(voice.id)
+        }
         if let running = tasks[voice.id] { return try await running.value }
         let task = Task { @MainActor [weak self] () throws -> PiperVoiceFiles in
             guard let self else { throw CancellationError() }
@@ -177,7 +203,7 @@ final class PiperVoiceStore: ObservableObject {
     // MARK: Remove
 
     func remove(_ voice: PiperVoice) {
-        guard voice.id != PiperVoiceCatalog.bundledVoiceId else { return }
+        guard !isRendering(with: voice) else { return }
         cancelDownload(voice)
         try? FileManager.default.removeItem(at: voiceFolder(voice))
         downloadedIds.remove(voice.id)
@@ -192,6 +218,11 @@ final class PiperVoiceStore: ObservableObject {
         guard let (voice, speaker) = ref.resolved else { throw PiperError.voiceNotInstalled(ref.label) }
         guard let input = PiperCommand.input(for: text) else { throw PiperError.noAudio }
         let files = try await ensure(voice)
+        rendering[voice.id, default: 0] += 1
+        defer {
+            rendering[voice.id, default: 1] -= 1
+            if rendering[voice.id] == 0 { rendering[voice.id] = nil }
+        }
         let output = FileManager.default.temporaryDirectory.appendingPathComponent("piper-\(UUID().uuidString).wav")
         let arguments = PiperCommand.arguments(
             installation: installation, files: files,
@@ -199,7 +230,8 @@ final class PiperVoiceStore: ObservableObject {
         )
         let start = Date()
         do {
-            try await PiperRunner.run(executable: installation.executable, arguments: arguments, input: input)
+            try await PiperRunner.run(executable: installation.executable, arguments: arguments, input: input,
+                                      timeout: PiperRunner.timeout(forCharacters: input.count - 1))
             let data = try await Task.detached(priority: .userInitiated) { try Data(contentsOf: output) }.value
             let speech = await Task.detached(priority: .userInitiated) { WAVInfo.hasSpeech(data) }.value
             guard speech else { throw PiperError.noAudio }
@@ -223,21 +255,42 @@ final class PiperVoiceStore: ObservableObject {
     func simulateDownloaded(_ ids: Set<String>) {
         downloadedIds = ids
     }
+
+    func simulateRendering(_ voiceId: String?) {
+        rendering = voiceId.map { [$0: 1] } ?? [:]
+    }
     #endif
 }
 
-/// Reports the received bytes of the one download task it is handed.
+/// Reports the received bytes of the one download task it is handed, at most every 100 ms (plus
+/// the last chunk) – KVO fires per network chunk, far more often than the bar can change.
+/// `urlSession(_:didCreateTask:)` reaches the per-task delegate of `download(from:delegate:)` on
+/// macOS 13+ (checked: 1 call, 71 KVO events for the 21 MB Eva K. model).
 private final class DownloadObserver: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
+    private static let interval: TimeInterval = 0.1
     private let progress: @Sendable (Int64) -> Void
+    private let lock = NSLock()
     private var observation: NSKeyValueObservation?
+    private var lastReport = Date.distantPast
 
     init(progress: @escaping @Sendable (Int64) -> Void) {
         self.progress = progress
     }
 
     func urlSession(_ session: URLSession, didCreateTask task: URLSessionTask) {
-        observation = task.observe(\.countOfBytesReceived, options: [.new]) { [progress] task, _ in
-            progress(task.countOfBytesReceived)
+        let observation = task.observe(\.countOfBytesReceived, options: [.new]) { [weak self] task, _ in
+            self?.received(task.countOfBytesReceived, of: task.countOfBytesExpectedToReceive)
         }
+        lock.withLock { self.observation = observation }
+    }
+
+    private func received(_ bytes: Int64, of expected: Int64) {
+        let now = Date()
+        let due: Bool = lock.withLock {
+            guard (expected > 0 && bytes >= expected) || now.timeIntervalSince(lastReport) >= Self.interval else { return false }
+            lastReport = now
+            return true
+        }
+        if due { progress(bytes) }
     }
 }

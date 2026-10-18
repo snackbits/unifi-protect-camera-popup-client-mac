@@ -12,8 +12,8 @@ public struct PiperVoiceRef: Equatable, Hashable, Sendable {
         self.speaker = max(0, speaker)
     }
 
-    /// The default for new announcements: Thorsten (medium).
-    public static var standard: PiperVoiceRef { PiperVoiceRef(voiceId: PiperVoiceCatalog.bundledVoiceId) }
+    /// The default for new announcements: Thorsten (medium), downloaded on first use.
+    public static var standard: PiperVoiceRef { PiperVoiceRef(voiceId: PiperVoiceCatalog.defaultVoiceId) }
 
     /// Default speaker of a voice (neutral for Thorsten emotional).
     public init(voice: PiperVoice) {
@@ -93,10 +93,11 @@ public enum AnnouncementVoice: Equatable, Sendable {
     }
 
     /// „Übernehmen“ is active when text or voice differ from the entry's audio (also for every
-    /// macOS-rendered entry, so it can be rendered again with Piper).
+    /// macOS-rendered entry, so it can be rendered again with Piper) – never above
+    /// `PiperCommand.maxTextLength` characters.
     public static func canApply(_ entry: Announcement, text: String, selection: PiperVoiceRef) -> Bool {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, selection.resolved != nil else { return false }
+        guard !trimmed.isEmpty, !PiperCommand.isTooLong(trimmed), selection.resolved != nil else { return false }
         guard entry.kind == .speech, trimmed == entry.text else { return true }
         switch of(entry) {
         case .piper(let ref): return ref.normalized != selection.normalized
@@ -106,9 +107,8 @@ public enum AnnouncementVoice: Equatable, Sendable {
     }
 }
 
-/// Whether a voice can speak right away (bundled / downloaded) or must be downloaded first.
+/// Whether a voice can speak right away (downloaded) or must be downloaded first (no voice is bundled).
 public enum VoiceAvailability: Equatable, Sendable {
-    case bundled
     case downloaded
     case notDownloaded
 }
@@ -119,10 +119,9 @@ extension PiperVoice {
         "\(max(1, Int((Double(downloadSize) / 1_000_000).rounded()))) MB"
     }
 
-    /// Entry of the voice field: „Thorsten · mittel – mitgeliefert“, „… – geladen“, „Kerstin · niedrig – 63 MB laden“.
+    /// Entry of the voice field: „Thorsten · mittel – geladen“, „Kerstin · niedrig – 63 MB laden“.
     public func menuTitle(_ availability: VoiceAvailability) -> String {
         switch availability {
-        case .bundled: return "\(label) – mitgeliefert"
         case .downloaded: return "\(label) – geladen"
         case .notDownloaded: return "\(label) – \(sizeText) laden"
         }
@@ -139,9 +138,17 @@ extension PiperVoice {
         "Lizenz der Stimme: \(license.name) · \(license.dataset)"
     }
 
-    /// The voice field lists the bundled voice first, then the catalog order.
+    /// Line under the voice field while it is not downloaded yet.
+    public var downloadHint: String {
+        if id == PiperVoiceCatalog.defaultVoiceId {
+            return "Die Standardstimme wird beim ersten Anhören oder Übernehmen geladen (\(sizeText), einmalig, braucht Internet) – danach auf diesem Mac erzeugt, ohne Internet."
+        }
+        return "Wird beim ersten Anhören oder Übernehmen geladen (\(sizeText), einmalig, braucht Internet) – danach auf diesem Mac erzeugt, ohne Internet."
+    }
+
+    /// The voice field lists the default voice first, then the catalog order.
     public static var menuOrder: [PiperVoice] {
-        let bundled = PiperVoiceCatalog.bundled
-        return [bundled] + PiperVoiceCatalog.offered.filter { $0.id != bundled.id }
+        let standard = PiperVoiceCatalog.defaultVoice
+        return [standard] + PiperVoiceCatalog.offered.filter { $0.id != standard.id }
     }
 }

@@ -7,18 +7,18 @@ final class PiperCommandTests: XCTestCase {
     func testInstallationPathsInsideTheBundle() {
         XCTAssertEqual(installation.executable.path, "/Applications/UniFi Camera Popup.app/Contents/Helpers/piper/piper")
         XCTAssertEqual(installation.espeakData.path, "/Applications/UniFi Camera Popup.app/Contents/Resources/piper/espeak-ng-data")
-        XCTAssertEqual(installation.bundledVoices.path, "/Applications/UniFi Camera Popup.app/Contents/Resources/piper/voices")
     }
 
     func testArgumentsForASingleSpeakerVoice() {
-        let files = PiperVoiceFiles(voice: PiperVoiceCatalog.bundled, folder: installation.bundledVoices)
+        let voices = URL(fileURLWithPath: "/Users/x/Library/Application Support/UniFi Camera Popup/Voices/de_DE-thorsten-medium")
+        let files = PiperVoiceFiles(voice: PiperVoiceCatalog.defaultVoice, folder: voices)
         let output = URL(fileURLWithPath: "/tmp/out.wav")
-        let speaker = PiperCommand.speakerArgument(voice: PiperVoiceCatalog.bundled, speaker: 3)
+        let speaker = PiperCommand.speakerArgument(voice: PiperVoiceCatalog.defaultVoice, speaker: 3)
         XCTAssertNil(speaker)
         XCTAssertEqual(PiperCommand.arguments(installation: installation, files: files, speaker: speaker, output: output), [
             "--quiet",
-            "--model", "/Applications/UniFi Camera Popup.app/Contents/Resources/piper/voices/de_DE-thorsten-medium.onnx",
-            "--config", "/Applications/UniFi Camera Popup.app/Contents/Resources/piper/voices/de_DE-thorsten-medium.onnx.json",
+            "--model", "/Users/x/Library/Application Support/UniFi Camera Popup/Voices/de_DE-thorsten-medium/de_DE-thorsten-medium.onnx",
+            "--config", "/Users/x/Library/Application Support/UniFi Camera Popup/Voices/de_DE-thorsten-medium/de_DE-thorsten-medium.onnx.json",
             "--espeak_data", "/Applications/UniFi Camera Popup.app/Contents/Resources/piper/espeak-ng-data",
             "--output_file", "/tmp/out.wav",
         ])
@@ -46,5 +46,15 @@ final class PiperCommandTests: XCTestCase {
         XCTAssertTrue(line.hasSuffix("Hallo\n"))
         let oneWord = try XCTUnwrap(PiperCommand.input(for: String(repeating: "a", count: 2_000)))
         XCTAssertEqual(oneWord.count, PiperCommand.maxTextLength + 1)
+    }
+
+    func testLengthLimitAndCounter() {
+        let limit = String(repeating: "a", count: 1_000)
+        XCTAssertFalse(PiperCommand.isTooLong("  \(limit)\n"))
+        XCTAssertTrue(PiperCommand.isTooLong(limit + "b"))
+        XCTAssertEqual(PiperCommand.lengthText(" Hallo "), "5 von höchstens 1000 Zeichen")
+        XCTAssertEqual(PiperCommand.lengthText(limit), "1000 von höchstens 1000 Zeichen")
+        XCTAssertEqual(PiperCommand.lengthText(String(repeating: "a", count: 3_000)),
+                       "3000 Zeichen – höchstens 1000 Zeichen. Kürze den Text oder teile ihn auf zwei Ansagen auf.")
     }
 }

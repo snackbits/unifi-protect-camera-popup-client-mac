@@ -116,8 +116,9 @@ public struct PiperVoice: Equatable, Identifiable, Sendable {
 /// Sizes and SHA-256 of the models are the Git-LFS object ids; the configs were hashed at the revision.
 public enum PiperVoiceCatalog {
     public static let revision = "c10ece1aade47bb51c153c893d14e5bf8e5b7117"
-    /// The voice shipped in the app (Contents/Resources/piper/voices) and used for new announcements.
-    public static let bundledVoiceId = "de_DE-thorsten-medium"
+    /// The voice new announcements use. Not shipped in the app (that kept app.zip under GitHub's
+    /// 100 MB limit): it is downloaded on first use like every other voice.
+    public static let defaultVoiceId = "de_DE-thorsten-medium"
 
     public static let all: [PiperVoice] = [
         PiperVoice(
@@ -186,7 +187,7 @@ public enum PiperVoiceCatalog {
     public static var offered: [PiperVoice] { all.filter(\.license.allowsRedistribution) }
     public static var excluded: [PiperVoice] { all.filter { !$0.license.allowsRedistribution } }
 
-    public static var bundled: PiperVoice { voice(id: bundledVoiceId)! }
+    public static var defaultVoice: PiperVoice { voice(id: defaultVoiceId)! }
 
     /// Only offered voices – an excluded or unknown id is nil.
     public static func voice(id: String) -> PiperVoice? {

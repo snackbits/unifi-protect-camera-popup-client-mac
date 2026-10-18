@@ -1,24 +1,21 @@
 import Foundation
 
-/// Where the bundled Piper lives inside the app (filled by piper/scripts/embed.sh).
+/// Where the bundled Piper lives inside the app (filled by piper/scripts/embed.sh). No voice is
+/// bundled – every voice is downloaded on first use (PiperVoiceStore).
 public struct PiperInstallation: Equatable, Sendable {
     public let executable: URL
     public let espeakData: URL
-    /// Folder with the bundled voice (de_DE-thorsten-medium.onnx + .onnx.json).
-    public let bundledVoices: URL
 
-    public init(executable: URL, espeakData: URL, bundledVoices: URL) {
+    public init(executable: URL, espeakData: URL) {
         self.executable = executable
         self.espeakData = espeakData
-        self.bundledVoices = bundledVoices
     }
 
     /// `<App>.app/Contents/Helpers/piper/piper` and `<App>.app/Contents/Resources/piper/…`.
     public init(contents: URL) {
         self.init(
             executable: contents.appendingPathComponent("Helpers/piper/piper"),
-            espeakData: contents.appendingPathComponent("Resources/piper/espeak-ng-data", isDirectory: true),
-            bundledVoices: contents.appendingPathComponent("Resources/piper/voices", isDirectory: true)
+            espeakData: contents.appendingPathComponent("Resources/piper/espeak-ng-data", isDirectory: true)
         )
     }
 }
@@ -42,8 +39,27 @@ public struct PiperVoiceFiles: Equatable, Sendable {
 
 /// Command line and input of one Piper run (Process – never linked).
 public enum PiperCommand {
-    /// Longest text handed to Piper (characters); longer text is cut at a word boundary.
+    /// Longest announcement text (characters). Einstellungen › Ton blocks „Anhören“ and „Übernehmen“
+    /// above it (`isTooLong`); `input` still cuts at a word boundary as a last guard.
     public static let maxTextLength = 1_000
+
+    /// The editor's count: trimmed text, as stored on „Übernehmen“.
+    public static func characterCount(_ text: String) -> Int {
+        text.trimmingCharacters(in: .whitespacesAndNewlines).count
+    }
+
+    public static func isTooLong(_ text: String) -> Bool {
+        characterCount(text) > maxTextLength
+    }
+
+    /// Under the text field: „12 von höchstens 1000 Zeichen“ / „1200 Zeichen – höchstens 1000 Zeichen …“.
+    public static func lengthText(_ text: String) -> String {
+        let count = characterCount(text)
+        if count > maxTextLength {
+            return "\(count) Zeichen – höchstens \(maxTextLength) Zeichen. Kürze den Text oder teile ihn auf zwei Ansagen auf."
+        }
+        return "\(count) von höchstens \(maxTextLength) Zeichen"
+    }
 
     public static func arguments(installation: PiperInstallation, files: PiperVoiceFiles, speaker: Int?, output: URL) -> [String] {
         var arguments = [

@@ -151,7 +151,8 @@ final class SoundStore: ObservableObject {
         return entry
     }
 
-    /// "Ansage aus Text …": new empty text entry for Thorsten (medium), the bundled Piper voice.
+    /// "Ansage aus Text …": new empty text entry for Thorsten (medium), the default Piper voice
+    /// (downloaded on first use like every voice).
     @discardableResult
     func addText() -> Announcement {
         let entry = Announcement(

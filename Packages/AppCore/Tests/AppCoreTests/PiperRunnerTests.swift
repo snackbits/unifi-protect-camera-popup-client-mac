@@ -69,6 +69,13 @@ final class PiperRunnerTests: XCTestCase {
         }
     }
 
+    func testTimeoutGrowsWithTheText() {
+        XCTAssertEqual(PiperRunner.timeout(forCharacters: 0), 20, accuracy: 0.001)
+        XCTAssertEqual(PiperRunner.timeout(forCharacters: 100), 35, accuracy: 0.001)
+        XCTAssertEqual(PiperRunner.timeout(forCharacters: PiperCommand.maxTextLength), 170, accuracy: 0.001)
+        XCTAssertEqual(PiperRunner.timeout(forCharacters: -3), 20, accuracy: 0.001)
+    }
+
     func testMessagesAreGerman() {
         XCTAssertEqual(PiperError.timeout(20).errorDescription, "Piper hat nach 20 Sekunden keinen Ton geliefert und wurde beendet.")
         XCTAssertEqual(PiperError.voiceNotInstalled("Kerstin · niedrig").errorDescription, "Die Stimme „Kerstin · niedrig“ ist nicht geladen.")

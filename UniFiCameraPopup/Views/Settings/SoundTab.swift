@@ -40,6 +40,10 @@ struct SoundTab: View {
         draftText.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    private var draftTooLong: Bool {
+        PiperCommand.isTooLong(draftText)
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
@@ -64,6 +68,7 @@ struct SoundTab: View {
             #if DEBUG
             if let sample = SnapshotRenderer.soundTabError { errorText = sample }
             if let sample = SnapshotRenderer.soundTabVoice { draftVoice = sample }
+            if let sample = SnapshotRenderer.soundTabText { draftText = sample }
             #endif
         }
     }
@@ -151,6 +156,12 @@ struct SoundTab: View {
             if draftKind == .speech {
                 TokenTextField(placeholder: "Text der Ansage", text: $draftText, fontSize: 13, vertical: 5, horizontal: 8, radius: 6)
                     .accessibilityLabel("Text der Ansage")
+                // Piper gets at most PiperCommand.maxTextLength characters: count, and block above it.
+                Text(PiperCommand.lengthText(draftText))
+                    .font(.system(size: 11).monospacedDigit())
+                    .foregroundStyle(draftTooLong ? Color(nsColor: .systemOrange) : Tokens.muted.color)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 8) {
                     Text("Stimme").font(.system(size: 12)).foregroundStyle(Tokens.muted.color)
                     PopUpField(selection: voiceSelection, options: voiceOptions)
@@ -162,7 +173,7 @@ struct SoundTab: View {
                     Spacer()
                     Button("Anhören") { listen(sound) }
                         .buttonStyle(FieldButtonStyle())
-                        .disabled(busy || trimmedDraft.isEmpty)
+                        .disabled(busy || trimmedDraft.isEmpty || draftTooLong)
                     Button("Übernehmen") { apply(sound) }
                         .buttonStyle(AccentButtonStyle(fontSize: 12, vertical: 3, horizontal: 10))
                         .disabled(busy || !AnnouncementVoice.canApply(sound, text: draftText, selection: draftVoice))
@@ -170,10 +181,20 @@ struct SoundTab: View {
                 if let voice = draftVoice.resolved?.voice {
                     if let received = voices.downloads[voice.id] {
                         downloadProgress(voice, received: received)
+                    } else if voices.availability(voice) == .notDownloaded {
+                        // No voice is bundled: the first use (also of the default Thorsten) downloads it.
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Text(voice.downloadHint)
+                                .font(.system(size: 11))
+                                .foregroundStyle(Tokens.muted.color)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            Button("Jetzt laden") { download(voice, for: sound) }
+                                .buttonStyle(LinkButtonStyle())
+                                .disabled(busy)
+                        }
                     } else {
-                        Text(voices.availability(voice) == .notDownloaded
-                             ? "Wird beim ersten Anhören oder Übernehmen geladen (\(voice.sizeText), einmalig) – danach auf diesem Mac erzeugt, ohne Internet."
-                             : "Wird auf diesem Mac erzeugt – ohne Internet, ohne Konto.")
+                        Text("Wird auf diesem Mac erzeugt – ohne Internet, ohne Konto.")
                             .font(.system(size: 11))
                             .foregroundStyle(Tokens.muted.color)
                             .fixedSize(horizontal: false, vertical: true)
@@ -247,12 +268,17 @@ struct SoundTab: View {
     }
 
     private func downloadProgress(_ voice: PiperVoice, received: Int64) -> some View {
-        HStack(spacing: 8) {
-            ProgressView(value: Double(received), total: Double(max(voice.downloadSize, 1)))
-                .progressViewStyle(.linear)
-                .tint(Tokens.accent.color)
-                .frame(width: 120)
-                .accessibilityLabel("Stimme wird geladen")
+        // Own bar: a linear ProgressView ignores `.tint` on macOS 13 and draws grey in inactive windows.
+        let fraction = min(1, max(0, Double(received) / Double(max(voice.downloadSize, 1))))
+        return HStack(spacing: 8) {
+            ZStack(alignment: .leading) {
+                Capsule().fill(Tokens.btn2.color)
+                Capsule().fill(Tokens.accent.color).frame(width: 120 * fraction)
+            }
+            .frame(width: 120, height: 5)
+            .accessibilityElement()
+            .accessibilityLabel("Stimme wird geladen")
+            .accessibilityValue("\(Int((fraction * 100).rounded())) Prozent")
             Text(voice.progressText(received: received))
                 .font(.system(size: 11).monospacedDigit())
                 .foregroundStyle(Tokens.muted.color)
@@ -263,7 +289,7 @@ struct SoundTab: View {
         }
     }
 
-    /// Downloaded voices with their size and „Entfernen“ (the bundled voice is not listed).
+    /// Downloaded voices with their size and „Entfernen“ (the default voice too – it loads again on use).
     private var downloadedVoicesCard: some View {
         VStack(alignment: .leading, spacing: 5) {
             SectionLabel(text: "Geladene Stimmen")
@@ -277,6 +303,9 @@ struct SoundTab: View {
                             .foregroundStyle(Tokens.muted.color)
                         Button("Entfernen") { removeVoice(voice) }
                             .buttonStyle(LinkButtonStyle())
+                            // Piper is speaking with it right now: wait until that render is done.
+                            .disabled(voices.isRendering(with: voice))
+                            .help(voices.isRendering(with: voice) ? "Die Stimme spricht gerade – gleich wieder möglich." : "")
                     }
                     .padding(.vertical, 6)
                     .padding(.horizontal, 12)
@@ -291,7 +320,7 @@ struct SoundTab: View {
         alert.informativeText = "Ansagen mit dieser Stimme spielen weiter. Zum Anhören oder neu Erzeugen wird sie wieder geladen (\(voice.sizeText))."
         alert.addButton(withTitle: "Entfernen")
         alert.addButton(withTitle: "Abbrechen")
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        guard alert.runModal() == .alertFirstButtonReturn, !voices.isRendering(with: voice) else { return }
         voices.remove(voice)
     }
 
@@ -374,6 +403,18 @@ struct SoundTab: View {
                 if selectedId == sound.id { errorText = message(error) }
             }
             busy = false
+        }
+    }
+
+    /// „Jetzt laden“: the voice's download without speaking (Anhören/Übernehmen would load it too).
+    private func download(_ voice: PiperVoice, for sound: Announcement) {
+        errorText = nil
+        Task { @MainActor in
+            do {
+                _ = try await voices.ensure(voice)
+            } catch {
+                if selectedId == sound.id { errorText = message(error) }
+            }
         }
     }
 

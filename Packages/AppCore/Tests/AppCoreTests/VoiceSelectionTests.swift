@@ -32,6 +32,12 @@ final class VoiceSelectionTests: XCTestCase {
         XCTAssertTrue(AnnouncementVoice.canApply(old, text: "Hallo.", selection: .standard))
     }
 
+    func testTextAboveTheLimitCannotBeApplied() {
+        let entry = Announcement(name: "Neu", kind: .speech, voiceIdentifier: PiperVoiceRef.standard.identifier)
+        XCTAssertTrue(AnnouncementVoice.canApply(entry, text: String(repeating: "a", count: 1_000), selection: .standard))
+        XCTAssertFalse(AnnouncementVoice.canApply(entry, text: String(repeating: "a", count: 1_001), selection: .standard))
+    }
+
     func testBundledRecordingCountsAsThorstenMedium() {
         let bundled = SoundSettings.bundledBinGleichDa
         XCTAssertEqual(AnnouncementVoice.of(bundled), .bundledRecording)
@@ -91,7 +97,8 @@ final class VoiceMenuTests: XCTestCase {
         XCTAssertEqual(kerstin.sizeText, "63 MB")
         XCTAssertEqual(kerstin.menuTitle(.notDownloaded), "Kerstin · niedrig – 63 MB laden")
         XCTAssertEqual(kerstin.menuTitle(.downloaded), "Kerstin · niedrig – geladen")
-        XCTAssertEqual(PiperVoiceCatalog.bundled.menuTitle(.bundled), "Thorsten · mittel – mitgeliefert")
+        XCTAssertEqual(PiperVoiceCatalog.defaultVoice.menuTitle(.notDownloaded), "Thorsten · mittel – 63 MB laden")
+        XCTAssertEqual(PiperVoiceCatalog.defaultVoice.menuTitle(.downloaded), "Thorsten · mittel – geladen")
         XCTAssertEqual(PiperVoiceCatalog.voice(id: "de_DE-thorsten-high")?.sizeText, "114 MB")
         XCTAssertEqual(PiperVoiceCatalog.voice(id: "de_DE-eva_k-x_low")?.sizeText, "21 MB")
     }
@@ -103,7 +110,15 @@ final class VoiceMenuTests: XCTestCase {
         XCTAssertEqual(kerstin.progressText(received: 999_000_000), "Lade „Kerstin · niedrig“ … 63 von 63 MB")
     }
 
-    func testMenuOrderStartsWithTheBundledVoiceAndLeavesOutPavoque() {
+    func testDownloadHintNamesSizeAndInternet() throws {
+        XCTAssertEqual(PiperVoiceCatalog.defaultVoice.downloadHint,
+                       "Die Standardstimme wird beim ersten Anhören oder Übernehmen geladen (63 MB, einmalig, braucht Internet) – danach auf diesem Mac erzeugt, ohne Internet.")
+        let kerstin = try XCTUnwrap(PiperVoiceCatalog.voice(id: "de_DE-kerstin-low"))
+        XCTAssertEqual(kerstin.downloadHint,
+                       "Wird beim ersten Anhören oder Übernehmen geladen (63 MB, einmalig, braucht Internet) – danach auf diesem Mac erzeugt, ohne Internet.")
+    }
+
+    func testMenuOrderStartsWithTheDefaultVoiceAndLeavesOutPavoque() {
         let ids = PiperVoice.menuOrder.map(\.id)
         XCTAssertEqual(ids.first, "de_DE-thorsten-medium")
         XCTAssertEqual(ids.count, 9)
@@ -112,6 +127,6 @@ final class VoiceMenuTests: XCTestCase {
     }
 
     func testLicenseText() {
-        XCTAssertEqual(PiperVoiceCatalog.bundled.licenseText, "Lizenz der Stimme: CC0 1.0 · Thorsten-Voice (Thorsten Müller)")
+        XCTAssertEqual(PiperVoiceCatalog.defaultVoice.licenseText, "Lizenz der Stimme: CC0 1.0 · Thorsten-Voice (Thorsten Müller)")
     }
 }

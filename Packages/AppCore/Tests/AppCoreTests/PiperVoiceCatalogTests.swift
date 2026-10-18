@@ -20,12 +20,12 @@ final class PiperVoiceCatalogTests: XCTestCase {
         XCTAssertTrue(PiperVoiceCatalog.offered.allSatisfy { $0.license.allowsRedistribution })
     }
 
-    func testBundledVoiceIsThorstenMedium() {
-        let voice = PiperVoiceCatalog.bundled
+    func testDefaultVoiceIsThorstenMedium() {
+        let voice = PiperVoiceCatalog.defaultVoice
         XCTAssertEqual(voice.id, "de_DE-thorsten-medium")
         XCTAssertEqual(voice.label, "Thorsten · mittel")
         XCTAssertEqual(voice.license, .thorstenCC0)
-        // Same pin as piper/scripts/fetch.sh – the bundled file is the catalog's file.
+        // Same pin as piper/scripts/fetch.sh (smoke test and integration test use that file).
         XCTAssertEqual(voice.model.sha256, "7e64762d8e5118bb578f2eea6207e1a35a8e0c30595010b666f983fc87bb7819")
         XCTAssertEqual(voice.config.sha256, "974adee790533adb273a1ac88f49027d2a1b8f0f2cf4905954a4791e79264e85")
     }
@@ -56,8 +56,8 @@ final class PiperVoiceCatalogTests: XCTestCase {
         XCTAssertEqual(mls.speakerCount, 236)
         XCTAssertEqual(mls.speakerLabel(0), "Sprecher 1")
         XCTAssertEqual(mls.speakerLabel(235), "Sprecher 236")
-        XCTAssertNil(PiperVoiceCatalog.bundled.speakerLabel(0))
-        XCTAssertFalse(PiperVoiceCatalog.bundled.isMultiSpeaker)
+        XCTAssertNil(PiperVoiceCatalog.defaultVoice.speakerLabel(0))
+        XCTAssertFalse(PiperVoiceCatalog.defaultVoice.isMultiSpeaker)
     }
 
     func testDownloadSizeIsModelPlusConfig() throws {

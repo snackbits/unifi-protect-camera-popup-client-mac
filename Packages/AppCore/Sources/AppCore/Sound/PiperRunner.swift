@@ -27,7 +27,7 @@ public enum PiperError: Error, Equatable, LocalizedError {
         case .voiceNotInstalled(let label):
             return "Die Stimme „\(label)“ ist nicht geladen."
         case .download(let detail):
-            return "Die Stimme konnte nicht geladen werden (\(detail))."
+            return "Die Stimme konnte nicht geladen werden (\(detail)). Zum ersten Gebrauch braucht sie einmal Internet – prüf die Verbindung und versuch es noch einmal."
         case .checksum(let label):
             return "Die geladene Stimme „\(label)“ ist beschädigt (Prüfsumme stimmt nicht). Versuch es noch einmal."
         }
@@ -38,6 +38,12 @@ public enum PiperError: Error, Equatable, LocalizedError {
 /// Used for Piper; generic so the tests can run `/bin/sh` instead.
 public enum PiperRunner {
     public static let defaultTimeout: TimeInterval = 20
+
+    /// Deadline for one render (voice load included): 20 s + 0.15 s per character, like the Phase 5
+    /// renderer – 1 000 characters with „Thorsten · hoch“ took 18 s under Rosetta on an M1 Max.
+    public static func timeout(forCharacters count: Int) -> TimeInterval {
+        defaultTimeout + 0.15 * Double(max(0, count))
+    }
 
     /// Runs `executable` and waits. Throws `.missing`, `.timeout`, `.crashed`, `.failed`
     /// (with the last line of stderr) or `CancellationError`.
