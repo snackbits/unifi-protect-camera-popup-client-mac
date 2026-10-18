@@ -30,6 +30,19 @@ final class TunnelModelsTests: XCTestCase {
         XCTAssertEqual(s.lastHandshake, Date(timeIntervalSince1970: 1_760_000_000))
     }
 
+    func testPeerWithOnlyRxBytesIsRunning() {
+        let s = TunnelStatus.decode(#"{"up":true,"peers":[{"rxBytes":7}]}"#)
+        XCTAssertTrue(s.up)
+        XCTAssertEqual(s.rxBytes, 7)
+        XCTAssertNil(s.lastHandshake)
+    }
+
+    func testParseToleratesNullAndMissingLists() {
+        let json = #"{"ok":true,"summary":{"endpoint":"h:1","addresses":["10.0.0.2/32"],"allowedIPs":["0.0.0.0/0"],"dns":null}}"#
+        XCTAssertEqual(TunnelParseResult.decode(json), .valid(TunnelConfigSummary(
+            endpoint: "h:1", addresses: ["10.0.0.2/32"], allowedIPs: ["0.0.0.0/0"], dns: [], warnings: [])))
+    }
+
     func testStatusWithoutHandshake() {
         let json = #"{"up":true,"peers":[{"publicKey":"x","endpoint":"","lastHandshakeUnix":0,"handshakeAgeSeconds":-1,"rxBytes":0,"txBytes":148,"keepaliveSeconds":25}]}"#
         XCTAssertNil(TunnelStatus.decode(json).lastHandshake)

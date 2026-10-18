@@ -28,6 +28,7 @@ final class TunnelRoutingTests: XCTestCase {
     func testReachabilityFromPin() {
         XCTAssertEqual(DirectReachability.from(presentedFingerprint: nil, pinned: "AA"), .unreachable)
         XCTAssertEqual(DirectReachability.from(presentedFingerprint: "AA", pinned: nil), .console)
+        XCTAssertEqual(DirectReachability.from(presentedFingerprint: "AA", pinned: ""), .console)
         XCTAssertEqual(DirectReachability.from(presentedFingerprint: "AA", pinned: "AA"), .console)
         XCTAssertEqual(DirectReachability.from(presentedFingerprint: "BB", pinned: "AA"), .otherDevice)
     }

@@ -70,7 +70,6 @@ final class PinEnforcementTests: XCTestCase {
         XCTAssertTrue(rec.all.isEmpty)
     }
 
-
     func testRequestFailsAfterInvalidate() async {
         let c = client(pinned: nil, recorder: Recorder(), protocols: [StubProtocol.self])
         c.invalidate()

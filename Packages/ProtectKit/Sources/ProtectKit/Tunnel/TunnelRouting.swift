@@ -30,7 +30,7 @@ public enum DirectReachability: Equatable, Sendable {
 
     public static func from(presentedFingerprint: String?, pinned: String?) -> DirectReachability {
         guard let presented = presentedFingerprint else { return .unreachable }
-        guard let pinned else { return .console }
+        guard let pinned, !pinned.isEmpty else { return .console }
         return presented == pinned ? .console : .otherDevice
     }
 }

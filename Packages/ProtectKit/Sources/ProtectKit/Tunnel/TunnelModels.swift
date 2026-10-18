@@ -17,6 +17,18 @@ public struct TunnelConfigSummary: Codable, Equatable, Sendable {
         self.dns = dns
         self.warnings = warnings
     }
+
+    private enum CodingKeys: String, CodingKey { case endpoint, addresses, allowedIPs, dns, warnings }
+
+    /// Go marshals nil slices as `null`, so every list is optional on the wire.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        endpoint = try c.decodeIfPresent(String.self, forKey: .endpoint) ?? ""
+        addresses = try c.decodeIfPresent([String].self, forKey: .addresses) ?? []
+        allowedIPs = try c.decodeIfPresent([String].self, forKey: .allowedIPs) ?? []
+        dns = try c.decodeIfPresent([String].self, forKey: .dns) ?? []
+        warnings = try c.decodeIfPresent([String].self, forKey: .warnings) ?? []
+    }
 }
 
 /// Result of `WgParse`: `{"ok":true,"summary":{…}}` or `{"ok":false,"error":"…"}`.
@@ -55,6 +67,20 @@ public struct TunnelStatus: Decodable, Equatable, Sendable {
             self.rxBytes = rxBytes
             self.txBytes = txBytes
         }
+
+        private enum CodingKeys: String, CodingKey {
+            case endpoint, lastHandshakeUnix, handshakeAgeSeconds, rxBytes, txBytes
+        }
+
+        /// Lenient: a missing or renamed field must not make a running tunnel look stopped.
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            endpoint = try c.decodeIfPresent(String.self, forKey: .endpoint) ?? ""
+            lastHandshakeUnix = try c.decodeIfPresent(Int64.self, forKey: .lastHandshakeUnix) ?? 0
+            handshakeAgeSeconds = try c.decodeIfPresent(Int64.self, forKey: .handshakeAgeSeconds) ?? 0
+            rxBytes = try c.decodeIfPresent(Int64.self, forKey: .rxBytes) ?? 0
+            txBytes = try c.decodeIfPresent(Int64.self, forKey: .txBytes) ?? 0
+        }
     }
 
     public var up: Bool
@@ -73,7 +99,7 @@ public struct TunnelStatus: Decodable, Equatable, Sendable {
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        up = try c.decode(Bool.self, forKey: .up)
+        up = try c.decodeIfPresent(Bool.self, forKey: .up) ?? false
         peers = try c.decodeIfPresent([Peer].self, forKey: .peers) ?? []
         error = try c.decodeIfPresent(String.self, forKey: .error)
     }

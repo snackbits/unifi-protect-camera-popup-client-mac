@@ -142,7 +142,6 @@ final class ProtectClientTests: XCTestCase {
         XCTAssertEqual(quick.requestTimeout, 2)
     }
 
-
     func testProbeRejectsInvalidHost() async {
         do { _ = try await ProtectClient.probeFingerprint(host: "  "); XCTFail() } catch {
             XCTAssertEqual(error as? ProtectError, .invalidHost)
