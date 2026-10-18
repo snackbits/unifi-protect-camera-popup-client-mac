@@ -58,6 +58,7 @@
 		C31000000000000000000004 /* MicrophoneCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = C32000000000000000000004 /* MicrophoneCapture.swift */; };
 		C31000000000000000000005 /* PushToTalkKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = C32000000000000000000005 /* PushToTalkKey.swift */; };
 		C31000000000000000000006 /* TalkbackService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C32000000000000000000006 /* TalkbackService.swift */; };
+		C31000000000000000000007 /* SoundTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = C32000000000000000000007 /* SoundTab.swift */; };
 		C31000000000000000000009 /* bin-gleich-da.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = C32000000000000000000009 /* bin-gleich-da.mp3 */; };
 		C31000000000000000000010 /* paket-abstellen.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = C32000000000000000000010 /* paket-abstellen.mp3 */; };
 /* End PBXBuildFile section */
@@ -113,6 +114,7 @@
 		C32000000000000000000004 /* MicrophoneCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicrophoneCapture.swift; sourceTree = "<group>"; };
 		C32000000000000000000005 /* PushToTalkKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushToTalkKey.swift; sourceTree = "<group>"; };
 		C32000000000000000000006 /* TalkbackService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalkbackService.swift; sourceTree = "<group>"; };
+		C32000000000000000000007 /* SoundTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundTab.swift; sourceTree = "<group>"; };
 		C32000000000000000000009 /* bin-gleich-da.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = "bin-gleich-da.mp3"; sourceTree = "<group>"; };
 		C32000000000000000000010 /* paket-abstellen.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = "paket-abstellen.mp3"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -250,6 +252,7 @@
 				A20000000000000000000073 /* SettingsWindow.swift */,
 				A20000000000000000000074 /* GeneralTab.swift */,
 				A20000000000000000000078 /* SoundAndRemoteTabs.swift */,
+				C32000000000000000000007 /* SoundTab.swift */,
 				A20000000000000000000075 /* CamerasTab.swift */,
 				A20000000000000000000076 /* CameraAdvancedSection.swift */,
 				A20000000000000000000077 /* ActionEditorSheet.swift */,
@@ -412,6 +415,7 @@
 				C31000000000000000000004 /* MicrophoneCapture.swift in Sources */,
 				C31000000000000000000005 /* PushToTalkKey.swift in Sources */,
 				C31000000000000000000006 /* TalkbackService.swift in Sources */,
+				C31000000000000000000007 /* SoundTab.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

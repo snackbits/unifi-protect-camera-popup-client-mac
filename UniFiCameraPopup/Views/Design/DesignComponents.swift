@@ -433,18 +433,39 @@ struct StripePlaceholder: View {
     }
 }
 
-/// Static volume slider of the Ton scaffold: track 180 × 4, fill 120, knob 16 at x 112.
-struct VolumeTrack: View {
+/// Slider of Einstellungen › Ton: track 180 × 4 radius 2 `toggleOff`, fill `accent` up to the value,
+/// knob 16 white centered on the fill end, shadow 0 1 3 rgba(0,0,0,.35). 2/3 = template (fill 120, knob x 112).
+struct VolumeSlider: View {
+    @Binding var value: Double
+    let label: String
+    private let width: CGFloat = 180
+
     var body: some View {
+        let clamped = min(1, max(0, value))
+        let fill = CGFloat(clamped) * width
         ZStack(alignment: .leading) {
-            RoundedRectangle(cornerRadius: 2).fill(Tokens.toggleOff.color).frame(width: 180, height: 4)
-            RoundedRectangle(cornerRadius: 2).fill(Tokens.accent.color).frame(width: 120, height: 4)
+            RoundedRectangle(cornerRadius: 2).fill(Tokens.toggleOff.color).frame(width: width, height: 4)
+            RoundedRectangle(cornerRadius: 2).fill(Tokens.accent.color).frame(width: fill, height: 4)
             Circle()
                 .fill(Color.white)
                 .frame(width: 16, height: 16)
                 .shadow(color: Color.black.opacity(0.35), radius: 1.5, y: 1)
-                .offset(x: 112)
+                .offset(x: min(width - 16, max(0, fill - 8)))
         }
-        .frame(width: 180, height: 16)
+        .frame(width: width, height: 16)
+        .contentShape(Rectangle())
+        .gesture(DragGesture(minimumDistance: 0).onChanged { drag in
+            value = Double(min(1, max(0, drag.location.x / width)))
+        })
+        .accessibilityElement()
+        .accessibilityLabel(label)
+        .accessibilityValue("\(Int((clamped * 100).rounded())) Prozent")
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment: value = min(1, clamped + 0.05)
+            case .decrement: value = max(0, clamped - 0.05)
+            @unknown default: break
+            }
+        }
     }
 }

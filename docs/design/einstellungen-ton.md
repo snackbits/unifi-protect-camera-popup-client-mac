@@ -1,22 +1,34 @@
-# Einstellungen › Ton (Vorlage S5) – Gerüst in Phase 2
+# Einstellungen › Ton (Vorlage S5)
 
 Kopf wie Allgemein, Titel „Ton & Sprechen“, Reiter „Ton“ aktiv.
-Inhalt Innenabstand 14/40, Abstand 10, Schrift 13.
-1. Abschnitt Abstand 5: „Ansagen für „Ton abspielen““ 11/600 `muted`. Karte Radius 10:
-   Zeilen Abstand 10, Innenabstand 6/12, Trennlinie: Play-Knopf 22 rund `accSoft`, Dreieck 9
-   (gefüllt) `accText` · Name 500 · Länge 11 `muted` tabellarisch · Badge 10/700 Innenabstand
-   2/6 Radius 4 (MP3: `btn2`/`muted`; KI-STIMME: `accSoft`/`accText`). Ausgewählte Zeile Fläche `accSoft`.
-   Zeilen: Gong 0:02 MP3 · Bin gleich da 0:03 KI-STIMME (ausgewählt) · Paket bitte abstellen 0:05 KI-STIMME.
-   Danach Zeile Abstand 14, Innenabstand 6/12, 12: Links „MP3 hinzufügen …“ · „Ansage aus Text …“.
-2. Editor-Karte: Abstand 8, Innenabstand 10/12, Radius 10, `group`, Rand 1 `accent`:
-   - „„Bin gleich da““ 600 | Segment „MP3-Datei“ · „KI-Stimme“ (aktiv)
-   - Eingabe „Bin gleich da! Einen kleinen Moment, bitte.“ 13, 5/8, Radius 6
-   - Zeile Abstand 8: „Stimme“ 12 `muted` · Auswahl „Anna (Premium) · macOS“ · Freiraum ·
-     „Anhören“ (Feld-Button 12, 3/10) · „Übernehmen“ (12/600, 3/10, `accent`, weiß)
+Inhalt Innenabstand 14/40, Abstand 10, Schrift 13. Scrollt, wenn der Inhalt höher als das Fenster ist.
+1. Abschnitt Abstand 5: „Ansagen für „Ton abspielen““ 11/600 `muted`. Karte Radius 10, `group`, Rand 1 `border`:
+   Zeilen Abstand 10, Innenabstand 6/12, Trennlinie 1 `border` unter jeder Ansage:
+   Play-Knopf 22 rund `accSoft`, Dreieck 9 (gefüllt) `accText` („Probehören“ am Mac, zweiter Klick stoppt) ·
+   Name 500, füllt, einzeilig · Länge 11 `muted` tabellarisch („0:03“, auf Sekunden gerundet) ·
+   Badge 10/700 Innenabstand 2/6 Radius 4 (MP3: `btn2`/`muted`; KI-STIMME: `accSoft`/`accText`).
+   Ausgewählte Zeile Fläche `accSoft`; Klick auf die Zeile wählt aus.
+   Kontextmenü (nativ): „Umbenennen …“, „Löschen“ – beide mit nativem Dialog.
+   Mitgeliefert: „Bin gleich da“ 0:03 KI-STIMME · „Paket bitte abstellen“ 0:04 KI-STIMME.
+   Danach Zeile Abstand 14, Innenabstand 6/12, 12: Links „MP3 hinzufügen …“ · „Ansage aus Text …“
+   (`accText`, unterstrichen).
+2. Editor-Karte (nur mit ausgewählter Ansage): Abstand 8, Innenabstand 10/12, Radius 10, `group`, Rand 1 `accent`:
+   - „„<Name>““ 600, füllt | Segment „MP3-Datei“ · „KI-Stimme“
+   KI-Stimme:
+   - Eingabe „Text der Ansage“ 13, Innenabstand 5/8, Radius 6
+   - Zeile Abstand 8: „Stimme“ 12 `muted` · Auswahlfeld · Freiraum · „Anhören“ (Feld-Button 12, 3/10) ·
+     „Übernehmen“ (12/600, 3/10, `accent`, weiß). Stimmen: „Thorsten · mitgeliefert“ (nur mitgelieferte
+     Ansage mit Originalwortlaut), dann deutsche macOS-Stimmen „Anna (Premium) · macOS“,
+     „<Name> (Erweitert) · macOS“, „<Name> · macOS“.
    - „Wird auf diesem Mac erzeugt – ohne Internet, ohne Konto.“ 11 `muted`
-3. Karte Radius 10, Zeilen 10/14:
-   - „Mikrofon“ | Auswahl „MacBook Pro-Mikrofon“
-   - „Sprechen“ | Segment „Leertaste halten“ (aktiv) · „Umschalten“
-   - „Lautstärke an der Kamera“ | Regler: Spur 180 × 4 Radius 2 `toggleOff`, Füllung 120 `accent`,
-     Knopf 16 weiß bei x 112, y −6, Schatten 0 1 3 rgba(0,0,0,.35)
-Phase 2: nicht bedienbar, Werte sind die Beispiele der Vorlage.
+   MP3-Datei:
+   - Zeile Abstand 8: „MP3-Datei · 0:03“ bzw. „Noch keine Datei gewählt.“ 13 `muted` · Freiraum ·
+     „Datei wählen …“ · „Anhören“ (Feld-Buttons 12, 3/10)
+   - „MP3 bis 5 Minuten. Die Datei wird in die App kopiert und bleibt auf diesem Mac.“ 11 `muted`
+   Fehler: eine Zeile 11 System-Orange unter dem Hinweis.
+3. Karte Radius 10, Zeilen 10/14, Trennlinie 1 `border`:
+   - „Mikrofon“ | Auswahlfeld mit den Eingabegeräten (Core-Audio-Name, z. B. „MacBook Pro-Mikrofon“)
+   - „Sprechen“ | Segment „Leertaste halten“ · „Umschalten“
+   - „Lautstärke an der Kamera“ | Regler: Spur 180 × 4 Radius 2 `toggleOff`, Füllung bis zum Wert `accent`,
+     Knopf 16 weiß mittig auf dem Ende der Füllung, Schatten 0 1 3 rgba(0,0,0,.35).
+     Vorlagenstellung 2/3 (Füllung 120, Knopf x 112) = unveränderte Lautstärke, ganz rechts × 1,5.

@@ -85,6 +85,10 @@ enum SnapshotRenderer {
         EventLog.shared.record(mapping: door, kindLabel: "Klingel", date: now.addingTimeInterval(-120))
         EventLog.shared.record(mapping: garden, kindLabel: "Person", date: now.addingTimeInterval(-3600))
         EventLog.shared.record(mapping: garage, kindLabel: "Fahrzeug", date: now.addingTimeInterval(-7200))
+        // S5: sample announcements (SoundStore is isolated in snapshot mode: throwaway defaults and folder).
+        SoundStore.shared.settings.announcements = SoundSettings.bundled + [
+            Announcement(name: "Gong", kind: .file, fileName: "gong.mp3", duration: 12.4),
+        ]
         return Sample(settings: settings, door: door, garage: garage)
     }
 
