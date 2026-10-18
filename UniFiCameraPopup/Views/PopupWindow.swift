@@ -324,7 +324,8 @@ final class PopupWindow: NSPanel {
         if muteMenu?.isHidden == false { _ = talkControls?.closeMenu() }
     }
 
-    /// Calls the button's webhook; the popup stays open. Optional confirmation first.
+    /// Calls the button's webhook and/or plays its sound at this camera, both at once; the popup
+    /// stays open. Optional confirmation first.
     private func run(_ action: CameraAction, from button: CircleIconButton) {
         if action.confirmBeforeRun {
             let alert = NSAlert()
@@ -333,6 +334,15 @@ final class PopupWindow: NSPanel {
             alert.addButton(withTitle: "Abbrechen")
             NSApp.activate(ignoringOtherApps: true)
             guard alert.runModal() == .alertFirstButtonReturn else { return }
+        }
+        // Sound only where this popup can talk (camera with speaker); errors show as the popup notice.
+        if let entryId = overlay?.talk?.entryId,
+           let announcement = action.soundId.flatMap(SoundStore.shared.settings.announcement(id:)) {
+            TalkbackService.shared.play(announcement, entryId: entryId)
+        }
+        guard action.requestURL != nil else {
+            button.showResult(error: nil)
+            return
         }
         button.showRunning()
         Task {

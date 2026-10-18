@@ -56,7 +56,8 @@ enum ActionIcon: String, Codable, CaseIterable, Identifiable {
     }
 }
 
-/// A user-defined button shown in the popup that calls a webhook (e.g. "Tür öffnen").
+/// A user-defined button shown in the popup: calls a webhook (e.g. "Tür öffnen"), plays an
+/// announcement at the camera, or both at once (Phase 5).
 struct CameraAction: Codable, Identifiable, Equatable {
     enum Method: String, Codable, CaseIterable, Identifiable {
         case get = "GET"
@@ -75,6 +76,8 @@ struct CameraAction: Codable, Identifiable, Equatable {
     var icon: ActionIcon
     /// Ask before calling the webhook (e.g. opening a door).
     var confirmBeforeRun: Bool
+    /// Announcement (Einstellungen › Ton) played at the popup's camera; nil = „Kein Ton“.
+    var soundId: UUID?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -84,6 +87,7 @@ struct CameraAction: Codable, Identifiable, Equatable {
         case bearerToken
         case icon
         case confirmBeforeRun
+        case soundId
     }
 
     init(
@@ -93,7 +97,8 @@ struct CameraAction: Codable, Identifiable, Equatable {
         method: Method = .post,
         bearerToken: String = "",
         icon: ActionIcon = .bolt,
-        confirmBeforeRun: Bool = false
+        confirmBeforeRun: Bool = false,
+        soundId: UUID? = nil
     ) {
         self.id = id
         self.title = title
@@ -102,6 +107,7 @@ struct CameraAction: Codable, Identifiable, Equatable {
         self.bearerToken = bearerToken
         self.icon = icon
         self.confirmBeforeRun = confirmBeforeRun
+        self.soundId = soundId
     }
 
     init(from decoder: Decoder) throws {
@@ -113,6 +119,7 @@ struct CameraAction: Codable, Identifiable, Equatable {
         bearerToken = (try? container.decodeIfPresent(String.self, forKey: .bearerToken)) ?? ""
         icon = (try? container.decodeIfPresent(ActionIcon.self, forKey: .icon)) ?? .bolt
         confirmBeforeRun = (try? container.decodeIfPresent(Bool.self, forKey: .confirmBeforeRun)) ?? false
+        soundId = (try? container.decodeIfPresent(UUID.self, forKey: .soundId)) ?? nil
     }
 
     /// The bearer token is only encoded when explicitly requested (export or
@@ -125,6 +132,7 @@ struct CameraAction: Codable, Identifiable, Equatable {
         try container.encode(method, forKey: .method)
         try container.encode(icon, forKey: .icon)
         try container.encode(confirmBeforeRun, forKey: .confirmBeforeRun)
+        try container.encodeIfPresent(soundId, forKey: .soundId)
 
         let includeAll = encoder.userInfo[.includeActionTokens] as? Bool == true
         let plaintextIDs = encoder.userInfo[.plaintextActionTokenIDs] as? Set<UUID> ?? []
@@ -147,9 +155,9 @@ struct CameraAction: Codable, Identifiable, Equatable {
         return parsed
     }
 
-    /// Only fully configured actions are shown in the popup.
+    /// Title plus webhook and/or sound; a typed address must be valid (see `ActionAvailability`).
     var isConfigured: Bool {
-        !trimmedTitle.isEmpty && requestURL != nil
+        ActionAvailability.isConfigured(title: title, address: url, hasValidURL: requestURL != nil, hasSound: soundId != nil)
     }
 }
 

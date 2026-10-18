@@ -156,6 +156,7 @@ struct CameraDetail: View {
     @EnvironmentObject private var settings: SettingsStore
     @ObservedObject private var protect = ProtectSession.shared
     @ObservedObject private var events = EventLog.shared
+    @ObservedObject private var sounds = SoundStore.shared
     #if DEBUG
     @State private var advancedExpanded = SnapshotRenderer.expandCameraAdvanced
     #else
@@ -214,6 +215,8 @@ struct CameraDetail: View {
             ActionEditorSheet(
                 action: context.action,
                 isNew: context.isNew,
+                sounds: sounds.settings.announcements,
+                canPlaySound: TalkbackService.shared.canTalk(mapping),
                 onSave: save,
                 onDelete: context.isNew ? nil : { delete(context.action.id) }
             )
@@ -291,14 +294,14 @@ struct CameraDetail: View {
                         Text(action.trimmedTitle.isEmpty ? "Ohne Titel" : action.trimmedTitle)
                             .fontWeight(.semibold)
                             .lineLimit(1)
-                        Text(action.method.rawValue)
+                        Text(action.requestURL == nil && action.soundId != nil ? "TON" : action.method.rawValue)
                             .font(.system(size: 10, weight: .bold))
                             .padding(.vertical, 2)
                             .padding(.horizontal, 5)
                             .frame(maxWidth: .infinity)
                             .foregroundStyle(Tokens.accText.color)
                             .background(RoundedRectangle(cornerRadius: 4).fill(Tokens.accSoft.color))
-                        Text(DisplayText.actionAddress(action.url))
+                        Text(DisplayText.actionTarget(url: action.url, soundName: soundName(action.soundId)))
                             .foregroundStyle(Tokens.muted.color)
                             .lineLimit(1)
                             .truncationMode(.tail)
@@ -324,6 +327,11 @@ struct CameraDetail: View {
                 }
             }
         }
+    }
+
+    private func soundName(_ id: UUID?) -> String? {
+        guard let id else { return nil }
+        return sounds.settings.announcement(id: id)?.name ?? "Gelöschte Ansage"
     }
 
     private func save(_ action: CameraAction) {

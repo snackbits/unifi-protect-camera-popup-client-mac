@@ -15,12 +15,24 @@ struct ActionEditorSheet: View {
     private let originalTitle: String
     private let onSave: (CameraAction) -> Void
     private let onDelete: (() -> Void)?
+    /// Announcements for „Ton“; the line only shows on a camera with speaker.
+    private let sounds: [Announcement]
+    private let canPlaySound: Bool
     @State private var test: TestState = .idle
     @Environment(\.dismiss) private var dismiss
 
-    init(action: CameraAction, isNew: Bool, onSave: @escaping (CameraAction) -> Void, onDelete: (() -> Void)?) {
+    init(
+        action: CameraAction,
+        isNew: Bool,
+        sounds: [Announcement] = [],
+        canPlaySound: Bool = false,
+        onSave: @escaping (CameraAction) -> Void,
+        onDelete: (() -> Void)?
+    ) {
         _draft = State(initialValue: action)
         originalTitle = isNew ? "" : action.trimmedTitle
+        self.sounds = sounds
+        self.canPlaySound = canPlaySound
         self.onSave = onSave
         self.onDelete = onDelete
     }
@@ -59,7 +71,7 @@ struct ActionEditorSheet: View {
                 )
             }
             FormLine(label: "Adresse") {
-                TokenTextField(placeholder: "https://…", text: $draft.url,
+                TokenTextField(placeholder: draft.soundId == nil ? "https://…" : "https://… (optional)", text: $draft.url,
                                fontSize: 12, vertical: 5, horizontal: 8, radius: 6)
             }
             FormLine(label: "Token") {
@@ -70,6 +82,17 @@ struct ActionEditorSheet: View {
                 Text("Bearer-Token, liegt im Schlüsselbund. Optional.")
                     .font(.system(size: 11))
                     .foregroundStyle(Tokens.muted.color)
+            }
+            if canPlaySound {
+                FormLine(label: "Ton") {
+                    PopUpField(selection: $draft.soundId, options: soundOptions)
+                }
+                FormLine(label: "") {
+                    Text("Spielt die Ansage an der Kamera ab. Mit Adresse laufen Ton und Webhook gleichzeitig.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Tokens.muted.color)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
             if let urlWarning {
                 FormLine(label: "") {
@@ -84,7 +107,7 @@ struct ActionEditorSheet: View {
             HStack(spacing: 8) {
                 Button(test == .running ? "Teste …" : "Testen", action: runTest)
                     .buttonStyle(FieldButtonStyle(fontSize: 13, vertical: 5, horizontal: 12))
-                    .disabled(!draft.isConfigured || test == .running)
+                    .disabled(draft.requestURL == nil || test == .running)
                 if let onDelete {
                     Button("Entfernen") {
                         onDelete()
@@ -137,6 +160,16 @@ struct ActionEditorSheet: View {
         .padding(.horizontal, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 7).fill(background))
+    }
+
+    /// „Kein Ton“ + the announcements; a deleted one stays listed as such until changed.
+    private var soundOptions: [(value: UUID?, title: String)] {
+        var options: [(value: UUID?, title: String)] = [(value: nil, title: "Kein Ton")]
+        options += sounds.map { (value: Optional($0.id), title: $0.name) }
+        if let id = draft.soundId, !sounds.contains(where: { $0.id == id }) {
+            options.append((value: id, title: "Gelöschte Ansage"))
+        }
+        return options
     }
 
     private var urlWarning: String? {

@@ -56,6 +56,19 @@ final class PopupController {
         present(event: event, isTrigger: true)
     }
 
+    /// Buttons shown in this camera's popup: the webhook part always, a sound only on a camera
+    /// with speaker and while the announcement exists.
+    static func popupActions(of mapping: WebhookMapping) -> [CameraAction] {
+        let canPlaySound = TalkbackService.shared.canTalk(mapping)
+        return mapping.actions.filter { action in
+            action.isConfigured && ActionAvailability.isShown(
+                hasWebhook: action.requestURL != nil,
+                hasSound: action.soundId.flatMap(SoundStore.shared.settings.announcement(id:)) != nil,
+                canPlaySound: canPlaySound
+            )
+        }
+    }
+
     /// Event kind for the popup chip and the menu panel ("Klingel"); nil for webhook and manual popups.
     static func kindLabel(for event: TriggerEvent, mapping: WebhookMapping) -> String? {
         TriggerKind.displayOrder.first { event.kinds.contains($0) && mapping.triggers.contains($0) }?.label
@@ -144,7 +157,7 @@ final class PopupController {
             cropRegion: mapping.crop,
             thumbnailDataURI: event.thumbnail,
             autoCloseSeconds: settings.autoCloseTimeout,
-            actions: mapping.actions.filter(\.isConfigured),
+            actions: Self.popupActions(of: mapping),
             overlay: overlay,
             onWillClose: { [weak self] scale, panOffset in
                 self?.settings.saveZoom(for: entryId, scale: scale, panOffset: panOffset)

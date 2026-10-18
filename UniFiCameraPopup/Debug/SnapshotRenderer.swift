@@ -66,6 +66,9 @@ enum SnapshotRenderer {
                          bearerToken: "", icon: .door, confirmBeforeRun: true),
             CameraAction(id: UUID(), title: "Flurlicht", url: "https://home.example/light", method: .get,
                          bearerToken: "", icon: .bulb, confirmBeforeRun: false),
+            // Phase 5: a button that only plays an announcement.
+            CameraAction(id: UUID(), title: "Gleich da", url: "", method: .post,
+                         bearerToken: "", icon: .house, confirmBeforeRun: false, soundId: SoundSettings.bundledBinGleichDa.id),
         ]
         let door = WebhookMapping(label: "Haustür", actions: actions, protectCameraId: "cam-door",
                                   triggers: [.ring, .person], chimeOnOpen: true)
@@ -265,7 +268,7 @@ enum SnapshotRenderer {
                 streamURL: "", soundEnabled: false,
                 thumbnailDataURI: placeholderDataURI(size: CGSize(width: 470, height: 300)),
                 autoCloseSeconds: 0,
-                actions: sample.door.actions,
+                actions: Array(sample.door.actions.prefix(2)),
                 overlay: PopupOverlayContent(
                     chipText: nil, cameraName: "Haustür",
                     muteOptions: sample.settings.muteOptions, onMute: { _ in }
@@ -280,7 +283,7 @@ enum SnapshotRenderer {
                     streamURL: "", soundEnabled: false,
                     thumbnailDataURI: placeholderDataURI(size: CGSize(width: 470, height: 300)),
                     autoCloseSeconds: 0,
-                    actions: sample.door.actions,
+                    actions: Array(sample.door.actions.prefix(2)),
                     overlay: PopupOverlayContent(
                         chipText: "Klingel · Haustür · 10:41", cameraName: "Haustür",
                         muteOptions: sample.settings.muteOptions, onMute: { _ in }

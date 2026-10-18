@@ -442,6 +442,8 @@ final class SettingsStore: ObservableObject {
                 if let a = ext.actions[action.id.uuidString] {
                     if let icon = a.icon.flatMap(ActionIcon.init(rawValue:)) { action.icon = icon }
                     if let confirm = a.confirmBeforeRun { action.confirmBeforeRun = confirm }
+                    // The extension entry is complete: no sound id there means „Kein Ton“.
+                    action.soundId = a.soundId.flatMap(UUID.init(uuidString:))
                 }
                 return action
             }
@@ -464,7 +466,8 @@ final class SettingsStore: ObservableObject {
             for action in mapping.actions {
                 actionValues[action.id.uuidString] = .init(
                     icon: action.icon.rawValue,
-                    confirmBeforeRun: action.confirmBeforeRun
+                    confirmBeforeRun: action.confirmBeforeRun,
+                    soundId: action.soundId?.uuidString
                 )
             }
         }
