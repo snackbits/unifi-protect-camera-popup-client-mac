@@ -1,4 +1,5 @@
 import AppKit
+import ProtectKit
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -140,7 +141,7 @@ struct SettingsView: View {
                         TextField("RTSP URL", text: $mapping.rtspsURL, prompt: Text("rtsp://user:pass@host:7447/…"))
                             .textFieldStyle(.roundedBorder)
                             .onChange(of: mapping.rtspsURL) { newValue in
-                                let normalized = normalizeRTSP(newValue)
+                                let normalized = StreamURL.normalizedRTSP(newValue)
                                 if normalized != newValue {
                                     mapping.rtspsURL = normalized
                                 }
@@ -502,31 +503,6 @@ struct SettingsView: View {
             return "?enableSrtp wird nicht unterstützt. Bitte entfernen."
         }
         return nil
-    }
-
-    /// Normalizes a UniFi RTSP URL: rtsps:// → rtsp://, :7441 → :7447,
-    /// and removes the enableSrtp query parameter. Idempotent.
-    private func normalizeRTSP(_ url: String) -> String {
-        var result = url
-
-        if let range = result.range(of: "rtsps://", options: .caseInsensitive) {
-            result.replaceSubrange(range, with: "rtsp://")
-        }
-
-        result = result.replacingOccurrences(of: ":7441", with: ":7447")
-
-        result = result.replacingOccurrences(
-            of: "[?&]enableSrtp(=[^&]*)?",
-            with: "",
-            options: [.regularExpression, .caseInsensitive]
-        )
-
-        // If removing the first query parameter left a dangling "&", promote it to "?".
-        if !result.contains("?"), let amp = result.firstIndex(of: "&") {
-            result.replaceSubrange(amp...amp, with: "?")
-        }
-
-        return result
     }
 
     private func dimensionBinding(_ value: Binding<Double>) -> Binding<String> {

@@ -35,6 +35,7 @@
 		A10000000000000000000025 /* CropSelectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000025 /* CropSelectionView.swift */; };
 		A10000000000000000000013 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000013 /* Assets.xcassets */; };
 		A10000000000000000000014 /* VLCKitSPM in Frameworks */ = {isa = PBXBuildFile; productRef = A50000000000000000000001 /* VLCKitSPM */; };
+		A10000000000000000000015 /* ProtectKit in Frameworks */ = {isa = PBXBuildFile; productRef = A50000000000000000000002 /* ProtectKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -75,6 +76,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10000000000000000000014 /* VLCKitSPM in Frameworks */,
+				A10000000000000000000015 /* ProtectKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -173,6 +175,7 @@
 			name = UniFiCameraPopup;
 			packageProductDependencies = (
 				A50000000000000000000001 /* VLCKitSPM */,
+				A50000000000000000000002 /* ProtectKit */,
 			);
 			productName = UniFiCameraPopup;
 			productReference = A20000000000000000000015 /* UniFiCameraPopup.app */;
@@ -204,6 +207,7 @@
 			mainGroup = A40000000000000000000001;
 			packageReferences = (
 				A90000000000000000000001 /* XCRemoteSwiftPackageReference "vlckit-spm" */,
+				AB0000000000000000000001 /* XCLocalSwiftPackageReference "../Packages/ProtectKit" */,
 			);
 			productRefGroup = A40000000000000000000003 /* Products */;
 			projectDirPath = "";
@@ -374,6 +378,13 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		AB0000000000000000000001 /* XCLocalSwiftPackageReference "../Packages/ProtectKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../Packages/ProtectKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
 		A90000000000000000000001 /* XCRemoteSwiftPackageReference "vlckit-spm" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -390,6 +401,10 @@
 			isa = XCSwiftPackageProductDependency;
 			package = A90000000000000000000001 /* XCRemoteSwiftPackageReference "vlckit-spm" */;
 			productName = VLCKitSPM;
+		};
+		A50000000000000000000002 /* ProtectKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ProtectKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
