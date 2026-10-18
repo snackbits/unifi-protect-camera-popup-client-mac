@@ -16,6 +16,32 @@ final class SettingsStore: ObservableObject {
         didSet { persist() }
     }
 
+    @Published var protectHost: String {
+        didSet { persist() }
+    }
+
+    @Published var protectCertificateFingerprint: String? {
+        didSet { persist() }
+    }
+
+    /// Protect Integration API key. Lives only in the keychain (never in
+    /// UserDefaults or configuration exports).
+    var protectAPIKey: String {
+        get { KeychainStore.string(service: KeychainStore.protectAPIKeyService, account: "default") ?? "" }
+        set {
+            if newValue.isEmpty {
+                KeychainStore.delete(service: KeychainStore.protectAPIKeyService, account: "default")
+            } else {
+                _ = KeychainStore.set(newValue, service: KeychainStore.protectAPIKeyService, account: "default")
+            }
+            objectWillChange.send()
+        }
+    }
+
+    var isProtectConfigured: Bool {
+        !protectHost.trimmingCharacters(in: .whitespaces).isEmpty && !protectAPIKey.isEmpty
+    }
+
     @Published var defaultPosition: PopupPosition {
         didSet { persist() }
     }
@@ -104,6 +130,8 @@ final class SettingsStore: ObservableObject {
         var autoUpdate: Bool?
         var disableDuringDND: Bool?
         var muteUntil: Date?
+        var protectHost: String?
+        var protectCertificateFingerprint: String?
     }
 
     private init() {
@@ -131,6 +159,8 @@ final class SettingsStore: ObservableObject {
             autoUpdate = saved.autoUpdate ?? true
             disableDuringDND = saved.disableDuringDND ?? false
             muteUntil = saved.muteUntil
+            protectHost = saved.protectHost ?? ""
+            protectCertificateFingerprint = saved.protectCertificateFingerprint
 
             // Decode succeeded: rewrite the (possibly migrated/normalized) payload.
             persist()
@@ -158,6 +188,8 @@ final class SettingsStore: ObservableObject {
             autoUpdate = true
             disableDuringDND = false
             muteUntil = nil
+            protectHost = ""
+            protectCertificateFingerprint = nil
 
             // Only persist on a genuine first launch (no prior data). When prior
             // data existed but failed to decode, leave it untouched above.
@@ -168,7 +200,15 @@ final class SettingsStore: ObservableObject {
     }
 
     func mapping(for webhookId: String) -> WebhookMapping? {
-        mappings.first { $0.webhookId == webhookId }
+        mappings.first { $0.webhookTriggerEnabled && $0.webhookId == webhookId }
+    }
+
+    func mappings(forProtectCamera cameraId: String) -> [WebhookMapping] {
+        mappings.filter { $0.protectCameraId == cameraId }
+    }
+
+    func mapping(forEntry id: UUID) -> WebhookMapping? {
+        mappings.first { $0.entryId == id }
     }
 
     func saveZoom(for webhookId: String, scale: CGFloat, panOffset: CGPoint) {
@@ -271,7 +311,9 @@ final class SettingsStore: ObservableObject {
             launchAtLogin: launchAtLogin,
             autoUpdate: autoUpdate,
             disableDuringDND: disableDuringDND,
-            muteUntil: muteUntil
+            muteUntil: muteUntil,
+            protectHost: protectHost,
+            protectCertificateFingerprint: protectCertificateFingerprint
         )
     }
 
@@ -407,6 +449,10 @@ final class SettingsStore: ObservableObject {
         disableDuringDND = saved.disableDuringDND ?? disableDuringDND
         muteUntil = saved.muteUntil
         launchAtLogin = saved.launchAtLogin
+        if let host = saved.protectHost {
+            protectHost = host
+            protectCertificateFingerprint = saved.protectCertificateFingerprint
+        }
     }
 }
 

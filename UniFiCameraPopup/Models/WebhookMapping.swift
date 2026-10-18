@@ -1,4 +1,5 @@
 import Foundation
+import ProtectKit
 
 struct SavedCameraZoom: Codable, Equatable {
     var scale: Double
@@ -128,6 +129,12 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
     var hotkey: CameraHotkey?
     var crop: CameraCrop?
     var actions: [CameraAction]
+    /// Protect camera id (Integration API). nil = legacy webhook/RTSP-only entry.
+    var protectCameraId: String?
+    /// Protect events that open this camera's popup.
+    var triggers: Set<TriggerKind>
+    /// Hidden option: also open the popup when the relay server receives `webhookId`.
+    var webhookTriggerEnabled: Bool
 
     enum CodingKeys: String, CodingKey {
         case entryId
@@ -143,6 +150,9 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
         case hotkey
         case crop
         case actions
+        case protectCameraId
+        case triggers
+        case webhookTriggerEnabled
         case widthOverride
         case heightOverride
     }
@@ -160,7 +170,10 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
         savedZoom: SavedCameraZoom? = nil,
         hotkey: CameraHotkey? = nil,
         crop: CameraCrop? = nil,
-        actions: [CameraAction] = []
+        actions: [CameraAction] = [],
+        protectCameraId: String? = nil,
+        triggers: Set<TriggerKind> = [.ring, .person],
+        webhookTriggerEnabled: Bool = false
     ) {
         self.entryId = entryId
         self.webhookId = webhookId
@@ -175,6 +188,9 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
         self.hotkey = hotkey
         self.crop = crop
         self.actions = actions
+        self.protectCameraId = protectCameraId
+        self.triggers = triggers
+        self.webhookTriggerEnabled = webhookTriggerEnabled
     }
 
     init(from decoder: Decoder) throws {
@@ -201,6 +217,11 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
         hotkey = (try? container.decodeIfPresent(CameraHotkey.self, forKey: .hotkey)) ?? nil
         crop = (try? container.decodeIfPresent(CameraCrop.self, forKey: .crop)) ?? nil
         actions = (try? container.decodeIfPresent([CameraAction].self, forKey: .actions)) ?? []
+        protectCameraId = (try? container.decodeIfPresent(String.self, forKey: .protectCameraId)) ?? nil
+        triggers = Set((try? container.decodeIfPresent([TriggerKind].self, forKey: .triggers)) ?? [.ring, .person])
+        // Legacy entries were webhook-driven: keep them working.
+        webhookTriggerEnabled = (try? container.decodeIfPresent(Bool.self, forKey: .webhookTriggerEnabled))
+            ?? !webhookId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     func encode(to encoder: Encoder) throws {
@@ -218,6 +239,9 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
         try container.encodeIfPresent(hotkey, forKey: .hotkey)
         try container.encodeIfPresent(crop, forKey: .crop)
         try container.encode(actions, forKey: .actions)
+        try container.encodeIfPresent(protectCameraId, forKey: .protectCameraId)
+        try container.encode(TriggerKind.ordered.filter(triggers.contains), forKey: .triggers)
+        try container.encode(webhookTriggerEnabled, forKey: .webhookTriggerEnabled)
     }
 }
 
@@ -226,4 +250,7 @@ struct TriggerEvent: Equatable {
     let thumbnail: String?
     let alarmName: String?
     let timestamp: Date
+    /// Set for Protect events: the mapping entry to show.
+    var mappingId: UUID? = nil
+    var kinds: Set<TriggerKind> = []
 }

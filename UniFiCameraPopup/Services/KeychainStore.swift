@@ -6,6 +6,7 @@ import Security
 /// (e.g. the bearer tokens of camera action buttons).
 enum KeychainStore {
     static let actionTokenService = "com.snackbits.UniFiCameraPopup.action-token"
+    static let protectAPIKeyService = "com.snackbits.UniFiCameraPopup.protect-api-key"
 
     static func string(service: String, account: String) -> String? {
         var query = baseQuery(service: service, account: account)
