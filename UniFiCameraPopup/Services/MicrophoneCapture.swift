@@ -14,6 +14,7 @@ struct AudioInputDevice: Identifiable, Hashable {
 @MainActor
 final class MicrophoneCapture {
     private var engine: AVAudioEngine?
+    private var configObserver: NSObjectProtocol?
 
     // MARK: Devices
 
@@ -96,7 +97,12 @@ final class MicrophoneCapture {
     // MARK: Capture
 
     /// Delivers microphone buffers on the audio thread until `stop()`. Unknown UID = system default.
-    func start(deviceUID: String?, onBuffer: @escaping @Sendable (AVAudioPCMBuffer) -> Void) throws {
+    /// `onConfigurationChange` fires (main actor) when the device changes or disappears while capturing.
+    func start(
+        deviceUID: String?,
+        onBuffer: @escaping @Sendable (AVAudioPCMBuffer) -> Void,
+        onConfigurationChange: @escaping @MainActor () -> Void = {}
+    ) throws {
         stop()
         let engine = AVAudioEngine()
         let input = engine.inputNode
@@ -127,9 +133,18 @@ final class MicrophoneCapture {
         }
         TalkbackLog.write("Mikrofon: \(Int(format.sampleRate)) Hz, \(format.channelCount) Kanal/Kanäle")
         self.engine = engine
+        configObserver = NotificationCenter.default.addObserver(
+            forName: .AVAudioEngineConfigurationChange, object: engine, queue: .main
+        ) { _ in
+            MainActor.assumeIsolated { onConfigurationChange() }
+        }
     }
 
     func stop() {
+        if let configObserver {
+            NotificationCenter.default.removeObserver(configObserver)
+            self.configObserver = nil
+        }
         guard let engine else { return }
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()

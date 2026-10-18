@@ -17,6 +17,8 @@ public final class TalkbackEncoder {
 
     private var converter: AudioConverterRef?
     private var pending: [Int16] = []
+    /// Samples before this index were handed to the converter already (compacted in bulk).
+    private var readIndex = 0
     /// Memory handed to the converter must stay valid until its next input callback.
     private var supplied: UnsafeMutablePointer<Int16>?
     private var suppliedCapacity = 0
@@ -88,6 +90,10 @@ public final class TalkbackEncoder {
 
     /// Feeds samples, returns every packet that is complete now (may be none: encoder delay).
     public func encode(_ samples: [Int16]) throws -> [EncodedPacket] {
+        if readIndex > 0, readIndex >= pending.count / 2 {
+            pending.removeFirst(readIndex)
+            readIndex = 0
+        }
         pending.append(contentsOf: samples)
         guard let converter else { return [] }
         var packets: [EncodedPacket] = []
@@ -131,22 +137,23 @@ public final class TalkbackEncoder {
         _ ioPackets: UnsafeMutablePointer<UInt32>,
         _ ioData: UnsafeMutablePointer<AudioBufferList>
     ) -> OSStatus {
-        guard !pending.isEmpty else {
+        let available = pending.count - readIndex
+        guard available > 0 else {
             ioPackets.pointee = 0
             ioData.pointee.mBuffers.mDataByteSize = 0
             return Self.needMoreInput
         }
         let requested = Int(ioPackets.pointee)
-        let count = requested > 0 ? min(requested, pending.count) : pending.count
+        let count = requested > 0 ? min(requested, available) : available
         if suppliedCapacity < count {
             supplied?.deallocate()
             supplied = UnsafeMutablePointer<Int16>.allocate(capacity: count)
             suppliedCapacity = count
         }
         pending.withUnsafeBufferPointer { source in
-            supplied!.update(from: source.baseAddress!, count: count)
+            supplied!.update(from: source.baseAddress! + readIndex, count: count)
         }
-        pending.removeFirst(count)
+        readIndex += count
         ioPackets.pointee = UInt32(count)
         ioData.pointee.mNumberBuffers = 1
         ioData.pointee.mBuffers.mNumberChannels = 1

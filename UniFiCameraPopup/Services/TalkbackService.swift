@@ -139,7 +139,13 @@ final class TalkbackService: ObservableObject {
             current = streamer
             try microphone.start(
                 deviceUID: SoundStore.shared.settings.microphoneUID,
-                onBuffer: Self.forward(to: streamer)
+                onBuffer: Self.forward(to: streamer),
+                onConfigurationChange: { [weak self] in
+                    guard let self, self.run == token, self.activity?.purpose == .talk else { return }
+                    TalkbackLog.write("Talkback: Mikrofon-Konfiguration geändert")
+                    self.stopTalking()
+                    self.notice = TalkbackNotice(entryId: entryId, text: "Mikrofon nicht mehr verfügbar.")
+                }
             )
             activity?.phase = .live
             TalkbackLog.write("Talkback: Mikrofon offen für \(mapping.label)")
@@ -257,19 +263,20 @@ final class TalkbackService: ObservableObject {
     }
 
     private func makeStreamer(target: TalkbackTarget, entryId: UUID) throws -> TalkbackStreamer {
-        var streamer: TalkbackStreamer?
+        // Weak: the streamer owns this closure, a strong capture would keep it alive forever.
+        let box = WeakStreamer()
         let made = try TalkbackStreamer(
             target: target,
             gain: SoundStore.shared.settings.gain,
             log: { TalkbackLog.write($0) },
             onEvent: { [weak self] event in
                 Task { @MainActor in
-                    guard let self, let streamer else { return }
+                    guard let self, let streamer = box.value else { return }
                     self.handle(event, from: streamer, entryId: entryId)
                 }
             }
         )
-        streamer = made
+        box.value = made
         return made
     }
 
@@ -311,6 +318,11 @@ final class TalkbackService: ObservableObject {
     private nonisolated static func forward(to streamer: TalkbackStreamer) -> @Sendable (AVAudioPCMBuffer) -> Void {
         { buffer in streamer.append(buffer) }
     }
+}
+
+/// Lets the event closure refer to its own streamer without keeping it alive.
+private final class WeakStreamer: @unchecked Sendable {
+    weak var value: TalkbackStreamer?
 }
 
 /// Moves a decoded file from the loading task to the main actor (read-only afterwards).

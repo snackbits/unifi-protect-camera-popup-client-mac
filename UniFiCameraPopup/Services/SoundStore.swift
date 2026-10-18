@@ -48,7 +48,7 @@ final class SoundStore: ObservableObject {
             loadFailed = stored != nil
         }
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        guard !loadFailed else { return }
+        guard !loadFailed, defaults.data(forKey: Self.storageKey + ".corrupt-backup") == nil else { return }
         removeUnreferencedFiles()
         if !Self.isSnapshot { seedGongIfNeeded() }
     }

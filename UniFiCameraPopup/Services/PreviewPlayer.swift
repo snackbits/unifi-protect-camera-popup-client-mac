@@ -35,6 +35,7 @@ final class PreviewPlayer: ObservableObject {
                 Task { @MainActor in
                     guard let self, self.generation == current else { return }
                     self.playingId = nil
+                    self.engine.pause()
                 }
             }
             node.play()
@@ -47,6 +48,7 @@ final class PreviewPlayer: ObservableObject {
     func stop() {
         generation += 1
         node.stop()
+        if engine.isRunning { engine.pause() }
         playingId = nil
     }
 }

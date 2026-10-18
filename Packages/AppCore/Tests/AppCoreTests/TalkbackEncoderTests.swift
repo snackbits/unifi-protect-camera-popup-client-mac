@@ -64,3 +64,13 @@ final class TalkbackEncoderTests: XCTestCase {
         XCTAssertEqual(PCMResampler(sampleRate: 16_000).silence(seconds: 0.3).count, 4_800)
     }
 }
+
+extension TalkbackEncoderTests {
+    func testLongInputEncodesInLinearTime() throws {
+        let encoder = try TalkbackEncoder(codec: .opus, sampleRate: 48_000)
+        let start = Date()
+        let packets = try encoder.encode([Int16](repeating: 0, count: 48_000 * 300))
+        XCTAssertGreaterThanOrEqual(packets.count, 14_900)
+        XCTAssertLessThan(Date().timeIntervalSince(start), 3)
+    }
+}

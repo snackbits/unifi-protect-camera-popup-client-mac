@@ -193,3 +193,30 @@ final class OnceFlag: @unchecked Sendable {
         }
     }
 }
+
+extension TalkbackStreamerTests {
+    /// A finished streamer must be freed once its owner lets go (no cycle through the event closure).
+    func testFinishedStreamerIsDeallocated() async throws {
+        let sink = try UDPSink()
+        let port = try await sink.start()
+        defer { sink.stop() }
+        let finished = expectation(description: "finished")
+        let box = EventBox()
+        weak var weakStreamer: TalkbackStreamer?
+        do {
+            let streamer = try TalkbackStreamer(
+                target: TalkbackTarget(host: "127.0.0.1", port: port, codec: .opus, sampleRate: 48_000)
+            ) { event in
+                guard event != .ready, box.set(event) else { return }
+                finished.fulfill()
+            }
+            weakStreamer = streamer
+            streamer.start()
+            streamer.append(sineBuffer(seconds: 0.2))
+            streamer.finish()
+            await fulfillment(of: [finished], timeout: 5)
+        }
+        try await Task.sleep(nanoseconds: 500_000_000)
+        XCTAssertNil(weakStreamer)
+    }
+}

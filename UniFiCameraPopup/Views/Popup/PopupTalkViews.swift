@@ -335,6 +335,7 @@ final class PopupTalkControls {
     /// Called when the sound menu opens (the popup closes its mute menu).
     var onMenuOpened: (() -> Void)?
     private var cancellables: Set<AnyCancellable> = []
+    private var isClosed = false
 
     init(content talk: PopupTalkContent) {
         entryId = talk.entryId
@@ -425,6 +426,7 @@ final class PopupTalkControls {
     }
 
     func popupClosed() {
+        isClosed = true
         TalkbackService.shared.popupClosed(entryId: entryId)
         cancellables.removeAll()
     }
@@ -447,6 +449,8 @@ final class PopupTalkControls {
         guard let url = SoundFilePicker.chooseMP3() else { return }
         do {
             let added = try SoundStore.shared.addFile(from: url)
+            // The modal picker may outlive the popup: then the file is only added.
+            guard !isClosed else { return }
             TalkbackService.shared.play(added, entryId: entryId)
         } catch {
             notice.show((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)

@@ -141,7 +141,7 @@ struct HelpView: View {
             tip("Sprechen und Ansagen", "mic",
                 "Bei Kameras mit Lautsprecher zeigt das Popup unten „Ton abspielen“ und „Leertaste halten“. "
                 + "Halte den Button oder – solange der Mauszeiger über dem Popup ist – die Leertaste gedrückt und sprich; "
-                + "Loslassen beendet. Unter Einstellungen › Ton wählst du Mikrofon, Sprech-Modus und Lautstärke und verwaltest "
+                + "Loslassen beendet. Im Modus „Umschalten“ tippst du einmal zum Starten und einmal zum Beenden. Unter Einstellungen › Ton wählst du Mikrofon, Sprech-Modus und Lautstärke und verwaltest "
                 + "die Ansagen (MP3 oder Text mit einer macOS-Stimme, erzeugt auf diesem Mac). Die mitgelieferten Ansagen "
                 + "„Bin gleich da“ und „Paket bitte abstellen“ wurden mit Piper und der Stimme „Thorsten“ erzeugt "
                 + "(Datensatz CC0, gemeinfrei). Klappt etwas nicht, steht der Ablauf in "
