@@ -114,6 +114,11 @@ public final class ProtectClient: NSObject, URLSessionTaskDelegate, @unchecked S
         return created.preferred.map(StreamURL.normalizedRTSP)
     }
 
+    /// Current still image of a camera (JPEG). Used for thumbnails in settings and the menu panel.
+    public func snapshot(cameraId: String) async throws -> Data {
+        try await sendRaw("GET", "/v1/cameras/\(cameraId)/snapshot", body: nil, accept: "image/jpeg")
+    }
+
     public func eventsWebSocket() -> URLSessionWebSocketTask {
         var comps = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
         comps.scheme = "wss"
@@ -130,10 +135,15 @@ public final class ProtectClient: NSObject, URLSessionTaskDelegate, @unchecked S
     }
 
     private func send<T: Decodable>(_ method: String, _ path: String, body: Data?) async throws -> T {
+        let data = try await sendRaw(method, path, body: body, accept: "application/json")
+        do { return try JSONDecoder().decode(T.self, from: data) } catch { throw ProtectError.decoding }
+    }
+
+    private func sendRaw(_ method: String, _ path: String, body: Data?, accept: String) async throws -> Data {
         var request = URLRequest(url: baseURL.appendingPathComponent(String(path.dropFirst())))
         request.httpMethod = method
         if !apiKey.isEmpty { request.setValue(apiKey, forHTTPHeaderField: "X-API-KEY") }
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue(accept, forHTTPHeaderField: "Accept")
         if let body {
             request.httpBody = body
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -152,11 +162,10 @@ public final class ProtectClient: NSObject, URLSessionTaskDelegate, @unchecked S
         }
         guard let http = response as? HTTPURLResponse else { throw ProtectError.decoding }
         switch http.statusCode {
-        case 200..<300: break
+        case 200..<300: return data
         case 401, 403: throw ProtectError.unauthorized
         default: throw ProtectError.http(http.statusCode)
         }
-        do { return try JSONDecoder().decode(T.self, from: data) } catch { throw ProtectError.decoding }
     }
 
     // MARK: Lifecycle

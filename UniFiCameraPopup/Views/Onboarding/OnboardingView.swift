@@ -218,7 +218,7 @@ struct OnboardingView: View {
             Button("Abbrechen", role: .cancel) { model.pendingFingerprint = nil }
         } message: {
             if model.pendingIsDifferentConsole {
-                Text("„\(model.host)“ ist eine andere Konsole als die bisher eingerichtete. Bestätige nur, wenn das wirklich deine Konsole ist – erst dann wird dein API-Schlüssel dorthin gesendet. Fingerabdruck der neuen Konsole:\n\n\(model.pendingFingerprint ?? "")")
+                Text("„\(model.canonicalHost ?? model.host)“ ist eine andere Konsole als die bisher eingerichtete. Bestätige nur, wenn das wirklich deine Konsole ist – erst dann wird dein API-Schlüssel dorthin gesendet. Fingerabdruck der neuen Konsole:\n\n\(model.pendingFingerprint ?? "")")
             } else {
                 Text("Das Zertifikat deiner Konsole hat sich geändert. Bestätige nur, wenn du es selbst geändert hast (z. B. nach einem Konsolen-Update). Neuer Fingerabdruck:\n\n\(model.pendingFingerprint ?? "")")
             }

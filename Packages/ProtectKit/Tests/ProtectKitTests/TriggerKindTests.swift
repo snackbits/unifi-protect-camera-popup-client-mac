@@ -40,4 +40,23 @@ final class TriggerKindTests: XCTestCase {
         XCTAssertEqual(String(data: data, encoding: .utf8), "[\"ring\",\"person\"]")
         XCTAssertEqual(try JSONDecoder().decode([TriggerKind].self, from: data), [.ring, .person])
     }
+
+    func testChipsFollowTemplateOrder() {
+        let doorbell: Set<TriggerKind> = [.ring, .person, .package, .animal, .speak, .glassBreak, .motion]
+        let chips = TriggerKind.chips(supported: doorbell)
+        XCTAssertEqual(chips.map { $0.kind.label },
+                       ["Klingel", "Person", "Paket", "Tier", "Sprache", "Glasbruch", "Bewegung", "Fahrzeug"])
+        XCTAssertEqual(chips.map { $0.isSupported }, [true, true, true, true, true, true, true, false])
+    }
+
+    func testChipsAlwaysOfferCoreKinds() {
+        let chips = TriggerKind.chips(supported: [.motion])
+        XCTAssertEqual(chips.map { $0.kind }, [.motion, .ring, .person, .package, .animal, .vehicle])
+        XCTAssertEqual(chips.filter { $0.isSupported }.map { $0.kind }, [.motion])
+    }
+
+    func testDisplayOrderCoversAllKindsOnce() {
+        XCTAssertEqual(TriggerKind.displayOrder.count, TriggerKind.allCases.count)
+        XCTAssertEqual(Set(TriggerKind.displayOrder), Set(TriggerKind.allCases))
+    }
 }

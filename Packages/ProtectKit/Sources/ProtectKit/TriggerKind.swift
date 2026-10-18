@@ -26,6 +26,24 @@ public enum TriggerKind: String, Codable, CaseIterable, Sendable {
         .speak, .bark, .babyCry, .glassBreak, .smoke, .carbonMonoxide, .siren, .carHorn, .burglar
     ]
 
+    /// Chip order in settings and onboarding (template): specific detections first, motion last.
+    public static let displayOrder: [TriggerKind] = [
+        .ring, .person, .package, .animal, .vehicle, .licensePlate, .face,
+        .speak, .bark, .babyCry, .glassBreak, .smoke, .carbonMonoxide, .siren, .carHorn, .burglar,
+        .motion,
+    ]
+
+    /// Offered even when a camera cannot detect them (shown struck through).
+    public static let alwaysShown: Set<TriggerKind> = [.ring, .person, .package, .animal, .vehicle]
+
+    /// Chips for one camera: supported kinds in display order, then the unsupported core kinds.
+    /// The order depends only on the camera, so chips never jump when toggled.
+    public static func chips(supported: Set<TriggerKind>) -> [TriggerChipItem] {
+        let shown = displayOrder.filter { supported.contains($0) || alwaysShown.contains($0) }
+        return shown.filter { supported.contains($0) }.map { TriggerChipItem(kind: $0, isSupported: true) }
+            + shown.filter { !supported.contains($0) }.map { TriggerChipItem(kind: $0, isSupported: false) }
+    }
+
     /// Maps Protect `smartDetectTypes` / audio type wire values.
     public init?(wireValue: String) {
         switch wireValue {
@@ -69,4 +87,9 @@ public enum TriggerKind: String, Codable, CaseIterable, Sendable {
         case .burglar: return "Einbruchalarm"
         }
     }
+}
+
+public struct TriggerChipItem: Equatable, Sendable {
+    public let kind: TriggerKind
+    public let isSupported: Bool
 }

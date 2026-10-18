@@ -51,4 +51,27 @@ final class DiscoveryTests: XCTestCase {
         XCTAssertNil(ConsoleProbe.parse(Data("<html></html>".utf8), candidate: candidate))
         XCTAssertNil(ConsoleProbe.parse(Data(#"{"name":"x"}"#.utf8), candidate: candidate))
     }
+
+    func testProbeFallsBackToProtectEndpointWhenSystemNeedsLogin() throws {
+        let candidate = DiscoveredConsole(ip: "10.0.0.1", mac: "aa:bb:cc:00:00:01", hostname: "UDM", model: nil)
+        let console = try XCTUnwrap(ConsoleProbe.decide(systemStatus: 401, systemData: Data(), metaStatus: 401, candidate: candidate))
+        XCTAssertEqual(console.ip, "10.0.0.1")
+        XCTAssertEqual(console.displayName, "UDM")
+        XCTAssertNotNil(ConsoleProbe.decide(systemStatus: 403, systemData: nil, metaStatus: 401, candidate: candidate))
+    }
+
+    func testProbeFallbackNeedsBothSignals() {
+        let candidate = DiscoveredConsole(ip: "10.0.0.2", mac: nil, hostname: nil, model: "UVC G4 Bullet")
+        XCTAssertNil(ConsoleProbe.decide(systemStatus: 401, systemData: Data(), metaStatus: 404, candidate: candidate))
+        XCTAssertNil(ConsoleProbe.decide(systemStatus: 404, systemData: nil, metaStatus: 401, candidate: candidate))
+        XCTAssertNil(ConsoleProbe.decide(systemStatus: 401, systemData: nil, metaStatus: nil, candidate: candidate))
+        XCTAssertNil(ConsoleProbe.decide(systemStatus: nil, systemData: nil, metaStatus: nil, candidate: candidate))
+    }
+
+    func testProbeStillParsesSystemInfo() throws {
+        let json = Data(#"{"hardware":{"shortname":"UDMPROSE"},"name":"snackbits","mac":"70A741B5EF8D"}"#.utf8)
+        let candidate = DiscoveredConsole(ip: "172.2.4.1", mac: nil, hostname: nil, model: nil)
+        let console = try XCTUnwrap(ConsoleProbe.decide(systemStatus: 200, systemData: json, metaStatus: nil, candidate: candidate))
+        XCTAssertEqual(console.displayName, "snackbits (UDMPROSE)")
+    }
 }

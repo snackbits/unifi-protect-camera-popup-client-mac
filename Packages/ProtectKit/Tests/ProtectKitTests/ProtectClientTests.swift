@@ -156,4 +156,22 @@ final class ProtectClientTests: XCTestCase {
         })
         XCTAssertEqual(String(data: body, encoding: .utf8), #"{"qualities":["high"]}"#)
     }
+
+    func testSnapshotReturnsImageBytesAndSendsKey() async throws {
+        let jpeg = Data([0xFF, 0xD8, 0xFF, 0xD9])
+        StubProtocol.responses["GET \(base)/cameras/cam1/snapshot"] = (200, jpeg)
+        let data = try await client().snapshot(cameraId: "cam1")
+        XCTAssertEqual(data, jpeg)
+        XCTAssertEqual(StubProtocol.requests.last?.value(forHTTPHeaderField: "X-API-KEY"), "KEY")
+    }
+
+    func testSnapshotUnauthorized() async {
+        StubProtocol.responses["GET \(base)/cameras/cam1/snapshot"] = (401, Data())
+        do {
+            _ = try await client().snapshot(cameraId: "cam1")
+            XCTFail("401 must throw")
+        } catch {
+            XCTAssertEqual(error as? ProtectError, .unauthorized)
+        }
+    }
 }

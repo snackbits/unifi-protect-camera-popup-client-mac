@@ -133,16 +133,39 @@ public final class ConsoleDiscovery {
 /// pinning starts when the user picks a console and the API key is sent.
 enum ConsoleProbe {
     static func probe(_ candidate: DiscoveredConsole) async -> DiscoveredConsole? {
-        guard let url = URL(string: "https://\(candidate.ip)/api/system") else { return nil }
         let config = URLSessionConfiguration.ephemeral
         config.timeoutIntervalForRequest = 3
         config.httpCookieStorage = nil
         let delegate = AcceptAnyCertificate()
         let session = URLSession(configuration: config, delegate: delegate, delegateQueue: nil)
         defer { session.finishTasksAndInvalidate() }
-        guard let (data, response) = try? await session.data(from: url),
-              (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
-        return parse(data, candidate: candidate)
+
+        let system = await fetch(session, "https://\(candidate.ip)/api/system")
+        var metaStatus: Int?
+        if let status = system?.status, status == 401 || status == 403 {
+            // No API key is sent: a Protect console answers its integration endpoint with 401.
+            metaStatus = await fetch(session, "https://\(candidate.ip)/proxy/protect/integration/v1/meta/info")?.status
+        }
+        return decide(systemStatus: system?.status, systemData: system?.data, metaStatus: metaStatus, candidate: candidate)
+    }
+
+    /// `/api/system` answered → parse it. Some consoles want a login there (401/403); then a 401
+    /// from the Protect integration endpoint (requested without key) proves a Protect console.
+    static func decide(systemStatus: Int?, systemData: Data?, metaStatus: Int?, candidate: DiscoveredConsole) -> DiscoveredConsole? {
+        if systemStatus == 200, let systemData {
+            return parse(systemData, candidate: candidate)
+        }
+        if let systemStatus, systemStatus == 401 || systemStatus == 403, metaStatus == 401 {
+            return DiscoveredConsole(ip: candidate.ip, mac: candidate.mac, hostname: candidate.hostname, model: candidate.model)
+        }
+        return nil
+    }
+
+    private static func fetch(_ session: URLSession, _ address: String) async -> (status: Int, data: Data)? {
+        guard let url = URL(string: address),
+              let (data, response) = try? await session.data(from: url),
+              let http = response as? HTTPURLResponse else { return nil }
+        return (http.statusCode, data)
     }
 
     static func parse(_ data: Data, candidate: DiscoveredConsole) -> DiscoveredConsole? {
