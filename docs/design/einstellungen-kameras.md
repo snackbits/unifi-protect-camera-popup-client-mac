@@ -61,3 +61,15 @@ Breite 440 + Innenabstand 18/20 (gesamt 480), Fläche `win`, Abstand 11, Schrift
    Radius 7, `okBg`/`ok`.
 5. Zeile Abstand 8: „Testen“ | Freiraum | „Abbrechen“ | „Sichern“.
    Feld-Button 13, Innenabstand 5/12; „Sichern“ 13/600, Innenabstand 5/14, `accent`, weiß, ohne Rand.
+
+## Phase 5 (Nutzerwunsch, gilt vor der Vorlage)
+- Karte 3 bekommt als vierte Zeile „Ton des Livebilds“ | Schalter (8/12). In „Erweitert › Popup“ steht dort „Name und Zeit einblenden“ (aus).
+- Zeile 5: „Erweitert“ links, rechts Link „Kamera entfernen“ 12, `danger`, unterstrichen, immer sichtbar; Rückfrage bleibt.
+- „Größe“: leere Felder = automatisch, Platzhalter = berechnete Werte; ein Wert allein hält das Seitenverhältnis.
+- Button-Zeilen: Badge „TON“ (statt GET/POST) bei Buttons nur mit Ton; Adresse-Spalte „Ton „Name““ bzw. „<Adresse> + Ton“.
+- Sheet S4: nach „Token“-Hinweis „Ton“ | Auswahl („Kein Ton“, Ansagen) + Hinweis 11 `muted` „Spielt die Ansage an der Kamera ab. Mit Adresse laufen Ton und Webhook gleichzeitig.“ – nur bei Kameras mit Lautsprecher. „Adresse“ ist dann optional.
+- Neu nach „Buttons im Popup“: „Ereignisse“ 11/600 `muted`, Karte Radius 9; Zeilen 7/12, 12: Ereignis 600 (90 breit) · Aktionen `muted` gekürzt
+  („home.example/klingel + „Bin gleich da““, „ · nach 20 s“) · „Ändern“; dann „Regel hinzufügen …“ (max. 10); darunter 11 `muted`
+  „Regeln laufen auch ohne Popup und während einer Stummschaltung.“
+- Sheet „Regel“: wie S4 (480, 18/20, Abstand 11, Raster 96): Titel „Neue Regel“ / „Regel „Klingel““ · Ereignis · Methode · Adresse · Token +
+  Hinweis · Ton (nur mit Lautsprecher) · Verzögerung (Feld 64 + „Sekunden (0–600)“) · Ergebnis · Testen | Entfernen | Abbrechen | Sichern.

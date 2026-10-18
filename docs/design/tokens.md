@@ -72,3 +72,6 @@ Fenster, Popup und Menü-Panel: nativer Fensterschatten.
 
 Inline-SVGs der Vorlage, 24er viewBox, als Vektor-Assets `Assets.xcassets/Icons/<name>.imageset`
 (Template-Rendering, Farbe = Vordergrund). Strichstärke je Symbol wie in der Vorlage.
+
+## Phase 5 (nicht in der Vorlage)
+`danger` #D70015 / #FF6961 (macOS systemRed, kontraststarke Variante) – nur für „Kamera entfernen“.

@@ -33,3 +33,14 @@ Fenster randlos, Radius 12, nativer Schatten, Ring 1 `popupRing`. Größe pro Ka
    höchstens Popup-Breite − 20 (gekürzt, voller Text als Tooltip), 6 s sichtbar, Klicks gehen durch.
 7. Ein Klick neben ein offenes Menü schließt erst das Menü. Während gesprochen oder eine Ansage
    gesendet wird, schließt sich das Popup nicht automatisch.
+
+## Phase 5 (Nutzerwunsch, gilt vor der Vorlage)
+- Chip oben links nur, wenn Kameras › Erweitert › „Name und Zeit einblenden“ an ist (Standard: aus); ohne Chip entfällt er ganz.
+- Stummschalten: Symbol Lucide `bell-off` (24er Raster, Strich 2, runde Enden), Tooltip „Diese Kamera stummschalten“.
+- Sprechen statt „Leertaste halten“: 40 hoch, Innenabstand 0/18, Radius 20, `accent`, Mikrofon 16 + 6 + zwei Zeilen:
+  oben 12/700 weiß „Sprechen“ → „Verbinde …“ (Deckkraft 70 %) → „Loslassen zum Beenden“; darunter 10 weiß 80 %
+  „Gedrückt halten zum Sprechen“ (immer). Breite = längster Text. Spricht nur, solange die Maustaste gedrückt ist;
+  Loslassen auch außerhalb beendet. Keine Leertaste. Passt die Leiste nicht 10 innerhalb des Popups: nur Mikrofon, Kreis 40.
+- Buttons des Nutzers können statt/zusätzlich zum Webhook eine Ansage abspielen (nur bei Kameras mit Lautsprecher sichtbar, sonst nur ihr Webhook-Teil).
+- Größe: ≈ 42 % der sichtbaren Bildschirmhöhe, Breite aus dem Seitenverhältnis; mehr Popups als Platz → alle gleichmäßig kleiner
+  (mind. 160 hoch, sonst zweite Spalte), Wechsel 300 ms ease-in-out, „Bewegung reduzieren“ → sofort.

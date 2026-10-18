@@ -141,13 +141,21 @@ struct HelpView: View {
                 + "einen Bearer-Token ein. Die Buttons erscheinen im Popup oben rechts neben den Stummschalt-Buttons. "
                 + "Ein Klick ruft die URL auf (z. B. einen Home-Assistant-Webhook oder ein Shelly-Relais), "
                 + "das Popup bleibt dabei geöffnet. Ein Häkchen bestätigt den Erfolg, ein Warndreieck zeigt einen Fehler – "
-                + "die Details siehst du im Tooltip. Mit „Testen“ in den Einstellungen prüfst du die URL vorab.")
+                + "die Details siehst du im Tooltip. Mit „Testen“ in den Einstellungen prüfst du die URL vorab. "
+                + "Bei Kameras mit Lautsprecher kann ein Button zusätzlich (oder statt des Webhooks) eine Ansage aus dem Reiter Ton an der Kamera abspielen.")
+
+            tip("Ereignisse", "bell.badge",
+                "Unter Einstellungen › Kameras › Ereignisse legst du pro Kamera Regeln an: Bei Klingeln, Bewegung, Person, Fahrzeug, Tier oder Paket "
+                + "ruft die App einen Webhook auf und/oder spielt eine Ansage an der Kamera ab – auf Wunsch mit Verzögerung (bis 600 Sekunden). "
+                + "Regeln laufen auch ohne Popup und während einer Stummschaltung; dieselbe Regel löst höchstens alle 30 Sekunden aus. "
+                + "Ausgeführte Regeln erscheinen im Menü unter den letzten Ereignissen.")
 
             tip("Sprechen und Ansagen", "mic",
-                "Bei Kameras mit Lautsprecher zeigt das Popup unten „Ton abspielen“ und „Leertaste halten“. "
-                + "Halte den Button oder – solange der Mauszeiger über dem Popup ist – die Leertaste gedrückt und sprich; "
-                + "Loslassen beendet. Im Modus „Umschalten“ tippst du einmal zum Starten und einmal zum Beenden. Unter Einstellungen › Ton wählst du Mikrofon, Sprech-Modus und Lautstärke und verwaltest "
-                + "die Ansagen (MP3 oder Text mit einer macOS-Stimme, erzeugt auf diesem Mac). Die mitgelieferten Ansagen "
+                "Bei Kameras mit Lautsprecher zeigt das Popup unten „Ton abspielen“ und „Sprechen“. "
+                + "Halte „Sprechen“ mit der Maus gedrückt und sprich; Loslassen beendet – auch wenn der Zeiger dabei das Popup verlässt. "
+                + "Die App gleicht dein Mikrofon automatisch an die Lautstärke der Ansagen an. Unter Einstellungen › Ton wählst du das Mikrofon, "
+                + "regelst „Lautstärke Sprechen“ und „Lautstärke Ansagen“ getrennt und verwaltest "
+                + "die Ansagen (MP3 oder Text, gesprochen von der macOS-Stimme Anna, erzeugt auf diesem Mac). Die mitgelieferten Ansagen "
                 + "„Bin gleich da“ und „Paket bitte abstellen“ wurden mit Piper und der Stimme „Thorsten“ erzeugt "
                 + "(Datensatz CC0, gemeinfrei). Klappt etwas nicht, steht der Ablauf in "
                 + "~/Library/Logs/UniFi Camera Popup/talkback.log.")

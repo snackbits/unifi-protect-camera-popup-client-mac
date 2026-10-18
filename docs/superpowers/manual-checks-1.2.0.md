@@ -94,3 +94,24 @@ Universal-Build wie Task 6 Step 6 wiederholen; die gebaute App auf einem Intel-M
 - [ ] **Step 10: Abschluss**
 
 Alle Prüfpunkte abgehakt, Befunde behoben und committet. `git status --short` zeigt nur ` M UniFiCameraPopup/AppConfig.swift` (lokale Änderung des Nutzers) und keine unversionierten Dateien außer gitignorierten. Kein Merge, kein Push.
+
+## Phase 5: Nutzer-Feedback (an echter Kamera, Debug-Build; installierte App vorher beenden)
+
+Vorher: `defaults export com.snackbits.UniFiCameraPopup ~/ucp-backup-phase5.plist`; `tail -f ~/Library/Logs/UniFi\ Camera\ Popup/talkback.log` in einem Terminal.
+
+- [ ] Erster Start über den 1.2.0-Einstellungen: Kameras mit 480 × 270 haben leere Größenfelder (Platzhalter ≈ 42 % der Bildschirmhöhe), andere Größen stehen weiter drin; kein Popup zeigt den Chip; Reiter Ton: beide Regler auf dem alten Wert, keine Zeile „Sprechen“.
+- [ ] Alte installierte Version kurz starten und wieder beenden, dann den Debug-Build: Größen, „Name und Zeit einblenden“, Button-Töne und Regeln sind unverändert da.
+- [ ] Popup: Glocke vollständig durchgestrichen, Tooltip „Diese Kamera stummschalten“; „Name und Zeit einblenden“ an → Chip erscheint beim nächsten Popup.
+- [ ] Zwei Kameras auslösen („Alle aktiven Kameras zeigen“ an): passen untereinander ohne Verkleinerung. Vier auslösen (Test-Popups): alle werden gleichmäßig kleiner und bleiben vollständig sichtbar; ab sechs (bzw. < 160 pt) zweite Spalte. Eins schließen → die übrigen wachsen in 0,3 s weich zurück. „Bewegung reduzieren“ an → ohne Animation. Position „Unten links“ und „Bildschirmmitte“ prüfen, zweiter Bildschirm über „Bildschirm: Maus“.
+- [ ] Größe nur Breite 800 eintragen → Höhe folgt (Platzhalter), Popup 800 breit; Feld leeren → wieder automatisch.
+- [ ] Sprechen: Button gedrückt halten → „Verbinde …“ → „Loslassen zum Beenden“, an der Kamera hörbar; Maus bei gedrückter Taste aus dem Popup und über eine andere App ziehen, dort loslassen → Log „Mikrofon zu“, keine weiteren Pakete. Kurz antippen (vor „Live“) → nichts wird gesendet. Leertaste über dem Popup tut nichts (tippt in der App darunter).
+- [ ] Popup mit 160 pt Höhe (sechs Popups): Sprech-Button ist der Mikrofon-Kreis, Halten funktioniert, Fenster wird nicht breiter.
+- [ ] Lautstärke: „Bin gleich da“, eine laute eigene MP3 und Sprechen mit normaler Stimme klingen an der Kamera etwa gleich laut; geflüstert wird hörbar lauter angehoben, Schreien nicht übersteuert. Regler „Lautstärke Ansagen“ ganz links/rechts → leiser/lauter, „Lautstärke Sprechen“ unabhängig davon.
+- [ ] Stimme: Feld zeigt „Anna · macOS“ (deaktiviert). „Ansage aus Text …“ + „Übernehmen“ → spricht Anna. Mitgelieferte Ansage: „Übernehmen“ ohne Textänderung → danach Anna statt Thorsten. Ohne installierte Anna (Systemeinstellungen › Bedienungshilfen › Gesprochene Inhalte: Anna entfernen) → anderer Name + orange Hinweiszeile.
+- [ ] Button mit Ton und ohne Adresse: Sichern geht; im Popup der Türklingel spielt er die Ansage; an einer Kamera ohne Lautsprecher fehlt er. Button mit Adresse + Ton: Webhook und Ansage gleichzeitig. Ansage löschen → Button mit Adresse zeigt nur noch den Webhook-Teil, Sheet „Gelöschte Ansage“.
+- [ ] Ereignisse: Regel „Klingel → Webhook (Home Assistant) + „Bin gleich da“, Verzögerung 0“ – klingeln → Webhook kommt an, Ansage an der Kamera, Menü-Panel zeigt „Klingel → Webhook + „Bin gleich da““. Auch bei globaler Stummschaltung und ohne Popup (Auslöser „Klingel“ aus).
+- [ ] Ereignisse: Regel „Bewegung → Webhook, Verzögerung 20“: vor der Kamera bewegen → Webhook nach ≈ 20 s; erneut innerhalb von 30 s → kein zweiter Aufruf; nach 30 s wieder.
+- [ ] Ereignisse unterwegs (Phase-4-Tunnel aktiv): Webhook an eine LAN-Adresse im Tunnel kommt an.
+- [ ] Regel mit Token: Konfiguration exportieren → `grep -c "<Token>" export.json` → 0, `grep -c eventRules export.json` → ≥ 1; Import auf demselben Mac → Token ist noch da (Regel „Testen“ → HTTP 2xx).
+- [ ] Menü-Panel: „Version 1.2.0 (<Build>)“ über „Einstellungen …“. Mit einem Test-Manifest höheren Builds auf dem Server (nur wenn ohnehin ein Release ansteht – sonst „nicht prüfbar“ notieren): Button „Update auf … installieren“ → bestehende Rückfrage.
+- [ ] Kameras: „Kamera entfernen“ rot neben „Erweitert“, auch eingeklappt; Rückfrage erscheint; „Ton des Livebilds“ steht in der oberen Karte.

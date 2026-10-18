@@ -32,3 +32,9 @@ Inhalt Innenabstand 14/40, Abstand 10, Schrift 13. Scrollt, wenn der Inhalt höh
    - „Lautstärke an der Kamera“ | Regler: Spur 180 × 4 Radius 2 `toggleOff`, Füllung bis zum Wert `accent`,
      Knopf 16 weiß mittig auf dem Ende der Füllung, Schatten 0 1 3 rgba(0,0,0,.35).
      Vorlagenstellung 2/3 (Füllung 120, Knopf x 112) = unveränderte Lautstärke, ganz rechts × 1,5.
+
+## Phase 5 (Nutzerwunsch, gilt vor der Vorlage)
+- Stimme: Auswahlfeld deaktiviert, zeigt „Anna · macOS“; ohne Anna „<beste deutsche Stimme> · macOS“ und darunter 11 System-Orange
+  „Anna ist auf diesem Mac nicht installiert – es spricht „<Name>“. …“. „Thorsten · mitgeliefert“ wird nicht mehr angeboten.
+- Karte 3: „Mikrofon“ · „Lautstärke Sprechen“ · „Lautstärke Ansagen“ (beide Regler wie „Lautstärke an der Kamera“, 2/3 = unverändert);
+  die Zeile „Sprechen“ (Leertaste halten · Umschalten) entfällt.

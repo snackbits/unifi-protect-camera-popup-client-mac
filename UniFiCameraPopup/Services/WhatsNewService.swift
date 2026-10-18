@@ -28,8 +28,11 @@ enum WhatsNewService {
             "Stream-Adressen holt die App selbst. Webhooks gibt es weiterhin unter „Erweitert“.",
             "Neue Einstellungen mit den Reitern Allgemein, Kameras, Ton und Unterwegs – hell, dunkel oder wie das System.",
             "Stummschalten pro Kamera direkt im Popup und für alle Kameras im Menü; die Dauern legst du selbst fest, und eine Stummschaltung bleibt auch nach einem Neustart bestehen.",
-            "Das Popup zeigt Ereignis, Kamera und Uhrzeit, deine Buttons (z. B. „Tür öffnen“) haben jetzt Symbole.",
-            "Sprechen und Ansagen: Bei Kameras mit Lautsprecher hältst du im Popup die Leertaste (oder den Button) und sprichst über die Kamera – im Modus „Umschalten“ tippst du einmal zum Starten und einmal zum Beenden. Fertige Ansagen spielst du als MP3 oder mit einer macOS-Stimme aus eigenem Text ab – einzurichten im Reiter Ton.",
+            "Deine Buttons im Popup (z. B. „Tür öffnen“) haben Symbole und können auch eine Ansage an der Kamera abspielen. Name und Uhrzeit blendet das Popup nur noch auf Wunsch ein (Kameras › Erweitert) – die Kamera zeigt beides ohnehin.",
+            "Sprechen und Ansagen: Bei Kameras mit Lautsprecher hältst du im Popup den Button „Sprechen“ gedrückt und sprichst über die Kamera; Loslassen beendet. Fertige Ansagen spielst du als MP3 oder mit der macOS-Stimme Anna aus eigenem Text ab. Sprechen und Ansagen kommen gleich laut an, die Lautstärke regelst du für beides getrennt im Reiter Ton.",
+            "Popups passen sich dem Bildschirm an: Zwei Kameras passen untereinander. Öffnen sich mehr, werden alle gleichmäßig kleiner und wachsen danach wieder auf ihre Größe.",
+            "Ereignisse: Pro Kamera lösen Klingeln, Bewegung, Person, Fahrzeug, Tier oder Paket auf Wunsch einen Webhook und/oder eine Ansage aus – auch ohne Popup, während einer Stummschaltung und mit Verzögerung.",
+            "Im Menü siehst du jetzt die Version und installierst ein Update direkt von dort.",
             "Unterwegs: Mit der WireGuard-Datei deines Gateways erreicht die App deine Kameras auch außer Haus – "
                 + "über einen eigenen Tunnel nur für die App, ganz ohne VPN in den Systemeinstellungen.",
         ]),

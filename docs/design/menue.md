@@ -12,3 +12,8 @@ Schatten, Innenabstand 14, Abstand 10, Schrift 13. 8 unter der Menüleiste.
    12/600, Innenabstand 6/0, Radius 7, `accSoft`/`accText`.
 4. Trennlinie 1 `mainBorder`.
 5. Zeile verteilt, 12: „Einstellungen …“ · „⌘,“ `muted`.
+
+## Phase 5 (Nutzerwunsch, gilt vor der Vorlage)
+Nach der Trennlinie (4) und vor „Einstellungen …“: „Version 1.2.0 (29)“ 11 `muted`. Bei einem Update darunter (Abstand 6)
+Button volle Breite wie die Stumm-Buttons (12/600, 6/0, Radius 7, `accSoft`/`accText`): „Update auf 1.3.0 installieren“
+(gleiche Version, neuerer Build: „Update auf 1.2.0 (30) installieren“); während des Ladens „Lade neue Version …“ / „Installiere …“, gesperrt.
