@@ -40,6 +40,7 @@
 		A10000000000000000000013 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000013 /* Assets.xcassets */; };
 		A10000000000000000000014 /* VLCKitSPM in Frameworks */ = {isa = PBXBuildFile; productRef = A50000000000000000000001 /* VLCKitSPM */; };
 		A10000000000000000000015 /* ProtectKit in Frameworks */ = {isa = PBXBuildFile; productRef = A50000000000000000000002 /* ProtectKit */; };
+		A10000000000000000000070 /* AppCore in Frameworks */ = {isa = PBXBuildFile; productRef = A50000000000000000000003 /* AppCore */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -85,6 +86,7 @@
 			files = (
 				A10000000000000000000014 /* VLCKitSPM in Frameworks */,
 				A10000000000000000000015 /* ProtectKit in Frameworks */,
+				A10000000000000000000070 /* AppCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -196,6 +198,7 @@
 			packageProductDependencies = (
 				A50000000000000000000001 /* VLCKitSPM */,
 				A50000000000000000000002 /* ProtectKit */,
+				A50000000000000000000003 /* AppCore */,
 			);
 			productName = UniFiCameraPopup;
 			productReference = A20000000000000000000015 /* UniFiCameraPopup.app */;
@@ -228,6 +231,7 @@
 			packageReferences = (
 				A90000000000000000000001 /* XCRemoteSwiftPackageReference "vlckit-spm" */,
 				AB0000000000000000000001 /* XCLocalSwiftPackageReference "../Packages/ProtectKit" */,
+				AB0000000000000000000002 /* XCLocalSwiftPackageReference "../Packages/AppCore" */,
 			);
 			productRefGroup = A40000000000000000000003 /* Products */;
 			projectDirPath = "";
@@ -409,6 +413,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../Packages/ProtectKit;
 		};
+		AB0000000000000000000002 /* XCLocalSwiftPackageReference "../Packages/AppCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../Packages/AppCore;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
@@ -431,6 +439,10 @@
 		A50000000000000000000002 /* ProtectKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = ProtectKit;
+		};
+		A50000000000000000000003 /* AppCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = AppCore;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
