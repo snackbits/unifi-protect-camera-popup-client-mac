@@ -12,3 +12,4 @@ UniFiCameraPopup/dist/
 
 # graphify knowledge graph (local artifact)
 graphify-out/
+.superpowers/
