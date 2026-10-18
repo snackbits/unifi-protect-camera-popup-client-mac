@@ -1,8 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-cd "$(dirname "$0")/.."
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SCRIPT_DIR/.."
 
 # ---------------------------------------------------------------------------
 # Configuration (override via environment)
