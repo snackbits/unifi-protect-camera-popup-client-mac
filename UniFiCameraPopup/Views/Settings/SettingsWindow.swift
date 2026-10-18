@@ -122,7 +122,7 @@ struct SettingsRootView: View {
     private var content: some View {
         switch navigation.tab {
         case .general: GeneralTab()
-        case .cameras: SettingsView()
+        case .cameras: CamerasTab(navigation: navigation)
         case .sound: SoundTab()
         case .remote: RemoteTab()
         }

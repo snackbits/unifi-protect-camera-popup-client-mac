@@ -2,7 +2,9 @@ import Foundation
 
 /// Calls the webhook behind a popup action button (e.g. "Tür öffnen").
 enum CameraActionService {
-    static func trigger(_ action: CameraAction) async throws {
+    /// Calls the webhook; returns the HTTP status (2xx) for the sheet's test result.
+    @discardableResult
+    static func trigger(_ action: CameraAction) async throws -> Int {
         guard let url = action.requestURL else {
             throw CameraActionError.invalidURL
         }
@@ -24,6 +26,7 @@ enum CameraActionService {
         guard (200..<300).contains(http.statusCode) else {
             throw CameraActionError.httpStatus(http.statusCode)
         }
+        return http.statusCode
     }
 }
 

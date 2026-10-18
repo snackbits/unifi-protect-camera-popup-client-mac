@@ -1,3 +1,4 @@
+import AppCore
 import ProtectKit
 import SwiftUI
 
@@ -448,32 +449,62 @@ extension OnboardingView {
     }
 }
 
-/// Toggle chips for trigger kinds; shared with the settings view.
+/// Toggle chips for trigger kinds; shared with the settings.
+/// `.regular`: onboarding (13 pt, on 7/14, off 6/13, centered, gap 8).
+/// `.small`: Einstellungen › Kameras (12 pt, on 4/11, off 3/10, leading, gap 6).
 struct TriggerChips: View {
+    enum Size {
+        case regular
+        case small
+    }
+
     let camera: ProtectCamera
     @Binding var selection: Set<TriggerKind>
+    var size: Size = .regular
 
     var body: some View {
-        FlowLayout(spacing: 8) {
-            ForEach(TriggerKind.ordered.filter { camera.supportedTriggers.contains($0) || [.ring, .person, .vehicle, .animal, .package].contains($0) }, id: \.self) { kind in
-                let supported = camera.supportedTriggers.contains(kind)
-                let on = selection.contains(kind)
+        FlowLayout(spacing: size == .regular ? 8 : 6, alignment: size == .regular ? .center : .leading) {
+            ForEach(TriggerKind.chips(supported: camera.supportedTriggers), id: \.kind) { chip in
+                let isOn = chip.isSupported && selection.contains(chip.kind)
                 Button {
-                    if on { selection.remove(kind) } else { selection.insert(kind) }
+                    if isOn { selection.remove(chip.kind) } else { selection.insert(chip.kind) }
                 } label: {
-                    Text(kind.label)
-                        .font(.callout.weight(on ? .semibold : .regular))
-                        .strikethrough(!supported)
-                        .padding(.horizontal, 13).padding(.vertical, 6)
-                        .foregroundStyle(on ? Color.white : (supported ? Color.primary : Color.secondary))
-                        .background(Capsule().fill(on ? Color.accentColor : Color.clear))
-                        .overlay(Capsule().strokeBorder(Color.secondary.opacity(on ? 0 : 0.5),
-                                                        style: StrokeStyle(lineWidth: 1, dash: supported ? [] : [3])))
+                    label(chip.kind.label, isOn: isOn, isSupported: chip.isSupported)
                 }
                 .buttonStyle(.plain)
-                .disabled(!supported)
-                .accessibilityAddTraits(on ? .isSelected : [])
+                .allowsHitTesting(chip.isSupported)
+                .accessibilityAddTraits(isOn ? [.isButton, .isSelected] : .isButton)
+                .accessibilityHint(chip.isSupported ? "" : "Kann diese Kamera nicht")
             }
+        }
+    }
+
+    @ViewBuilder
+    private func label(_ text: String, isOn: Bool, isSupported: Bool) -> some View {
+        let fontSize: CGFloat = size == .regular ? 13 : 12
+        if isOn {
+            Text(text)
+                .font(.system(size: fontSize, weight: .semibold))
+                .foregroundStyle(Color.white)
+                .padding(.vertical, size == .regular ? 7 : 4)
+                .padding(.horizontal, size == .regular ? 14 : 11)
+                .background(Capsule().fill(Tokens.accent.color))
+        } else if isSupported {
+            Text(text)
+                .font(.system(size: fontSize))
+                .foregroundStyle(Tokens.fg.color)
+                .padding(.vertical, size == .regular ? 6 : 3)
+                .padding(.horizontal, size == .regular ? 13 : 10)
+                .background(Capsule().fill((size == .regular ? Tokens.mainChipOff : Tokens.chipOff).color))
+                .overlay(Capsule().strokeBorder(Tokens.chipBorder.color, lineWidth: 1))
+        } else {
+            Text(text)
+                .font(.system(size: fontSize))
+                .strikethrough()
+                .foregroundStyle(Tokens.naFg.color)
+                .padding(.vertical, size == .regular ? 6 : 3)
+                .padding(.horizontal, size == .regular ? 13 : 10)
+                .overlay(Capsule().strokeBorder(Tokens.chipBorder.color, style: StrokeStyle(lineWidth: 1, dash: [3, 3])))
         }
     }
 }
@@ -481,6 +512,7 @@ struct TriggerChips: View {
 /// Minimal wrapping layout (macOS 13+).
 struct FlowLayout: Layout {
     var spacing: CGFloat = 8
+    var alignment: HorizontalAlignment = .center
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         let rows = arrange(width: proposal.width ?? .infinity, subviews: subviews)
@@ -491,7 +523,7 @@ struct FlowLayout: Layout {
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
         var y = bounds.minY
         for row in arrange(width: bounds.width, subviews: subviews) {
-            var x = bounds.minX + (bounds.width - row.width) / 2
+            var x = alignment == .leading ? bounds.minX : bounds.minX + (bounds.width - row.width) / 2
             for index in row.indices {
                 let size = subviews[index].sizeThatFits(.unspecified)
                 subviews[index].place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
