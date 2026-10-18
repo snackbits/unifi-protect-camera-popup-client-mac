@@ -52,6 +52,11 @@
 		A10000000000000000000074 /* GeneralTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000074 /* GeneralTab.swift */; };
 		A10000000000000000000080 /* PopupOverlayViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000080 /* PopupOverlayViews.swift */; };
 		A10000000000000000000078 /* SoundAndRemoteTabs.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000078 /* SoundAndRemoteTabs.swift */; };
+		C31000000000000000000001 /* SoundStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C32000000000000000000001 /* SoundStore.swift */; };
+		C31000000000000000000002 /* PreviewPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C32000000000000000000002 /* PreviewPlayer.swift */; };
+		C31000000000000000000003 /* TalkbackLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = C32000000000000000000003 /* TalkbackLog.swift */; };
+		C31000000000000000000009 /* bin-gleich-da.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = C32000000000000000000009 /* bin-gleich-da.mp3 */; };
+		C31000000000000000000010 /* paket-abstellen.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = C32000000000000000000010 /* paket-abstellen.mp3 */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -99,6 +104,11 @@
 		A20000000000000000000074 /* GeneralTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneralTab.swift; sourceTree = "<group>"; };
 		A20000000000000000000080 /* PopupOverlayViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopupOverlayViews.swift; sourceTree = "<group>"; };
 		A20000000000000000000078 /* SoundAndRemoteTabs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundAndRemoteTabs.swift; sourceTree = "<group>"; };
+		C32000000000000000000001 /* SoundStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundStore.swift; sourceTree = "<group>"; };
+		C32000000000000000000002 /* PreviewPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewPlayer.swift; sourceTree = "<group>"; };
+		C32000000000000000000003 /* TalkbackLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalkbackLog.swift; sourceTree = "<group>"; };
+		C32000000000000000000009 /* bin-gleich-da.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = "bin-gleich-da.mp3"; sourceTree = "<group>"; };
+		C32000000000000000000010 /* paket-abstellen.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = "paket-abstellen.mp3"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -140,6 +150,7 @@
 				A40000000000000000000004 /* Models */,
 				A40000000000000000000005 /* Services */,
 				A40000000000000000000006 /* Views */,
+				C34000000000000000000001 /* Sounds */,
 				A40000000000000000000074 /* Debug */,
 				A20000000000000000000013 /* Assets.xcassets */,
 				A20000000000000000000014 /* Info.plist */,
@@ -183,6 +194,9 @@
 				A20000000000000000000024 /* AccessibilityHelper.swift */,
 				A20000000000000000000019 /* DoNotDisturbChecker.swift */,
 				A20000000000000000000020 /* FocusMonitor.swift */,
+				C32000000000000000000001 /* SoundStore.swift */,
+				C32000000000000000000002 /* PreviewPlayer.swift */,
+				C32000000000000000000003 /* TalkbackLog.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -250,6 +264,15 @@
 				A40000000000000000000073 /* StatusPanel */,
 			);
 			path = Views;
+			sourceTree = "<group>";
+		};
+		C34000000000000000000001 /* Sounds */ = {
+			isa = PBXGroup;
+			children = (
+				C32000000000000000000009 /* bin-gleich-da.mp3 */,
+				C32000000000000000000010 /* paket-abstellen.mp3 */,
+			);
+			path = "Resources/Sounds";
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -321,6 +344,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10000000000000000000013 /* Assets.xcassets in Resources */,
+				C31000000000000000000009 /* bin-gleich-da.mp3 in Resources */,
+				C31000000000000000000010 /* paket-abstellen.mp3 in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -372,6 +397,9 @@
 				A10000000000000000000078 /* SoundAndRemoteTabs.swift in Sources */,
 				A10000000000000000000080 /* PopupOverlayViews.swift in Sources */,
 				A10000000000000000000090 /* SnapshotRenderer.swift in Sources */,
+				C31000000000000000000001 /* SoundStore.swift in Sources */,
+				C31000000000000000000002 /* PreviewPlayer.swift in Sources */,
+				C31000000000000000000003 /* TalkbackLog.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
