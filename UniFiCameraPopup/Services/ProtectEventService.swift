@@ -1,3 +1,4 @@
+import AppKit
 import Combine
 import Foundation
 import ProtectKit
@@ -12,9 +13,14 @@ final class ProtectEventService: ObservableObject {
     private var task: URLSessionWebSocketTask?
     private var loop: Task<Void, Never>?
     private var clientChange: AnyCancellable?
+    private var wakeObserver: NSObjectProtocol?
     private var dedup = EventDeduplicator()
     private var backoff = Backoff(base: 2, max: 60)
 
+    /// Keepalive interval while connected; a dead socket is otherwise never noticed.
+    private let pingInterval: UInt64 = 30_000_000_000
+    /// A ping without a pong in this time cancels the socket and triggers a reconnect.
+    private let pongTimeout: UInt64 = 10_000_000_000
     func start() {
         stop()
         // `ProtectSession.reconnect()` invalidates the old client and publishes a new one.
@@ -26,11 +32,26 @@ final class ProtectEventService: ObservableObject {
             .sink { [weak self] _ in
                 Task { @MainActor in self?.restartLoop() }
             }
+        // Sockets do not survive sleep reliably; reconnect right away on wake.
+        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                NSLog("System wake – reconnecting Protect events")
+                self?.restartLoop()
+            }
+        }
         startLoop()
     }
 
     func stop() {
         clientChange = nil
+        if let wakeObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(wakeObserver)
+            self.wakeObserver = nil
+        }
         stopLoop()
         status = .disconnected
     }
@@ -66,10 +87,13 @@ final class ProtectEventService: ObservableObject {
             let ws = client.eventsWebSocket()
             task = ws
             ws.resume()
+            var heartbeat: Task<Void, Never>?
             do {
                 // Protect may stay silent for a long time; a pong confirms the connection.
                 try await ping(ws)
+                try Task.checkCancellation()  // superseded loops never touch status
                 markConnected()
+                heartbeat = keepAlive(ws)
                 while !Task.isCancelled {
                     let message = try await ws.receive()
                     guard !Task.isCancelled else { break }
@@ -85,6 +109,7 @@ final class ProtectEventService: ObservableObject {
             } catch {
                 NSLog("Protect events websocket closed: \(error.localizedDescription)")
             }
+            heartbeat?.cancel()
             // A restarted loop owns `status` and `task` now.
             guard !Task.isCancelled else { return }
             ws.cancel(with: .goingAway, reason: nil)
@@ -101,14 +126,39 @@ final class ProtectEventService: ObservableObject {
         }
     }
 
-    private func ping(_ ws: URLSessionWebSocketTask) async throws {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            ws.sendPing { error in
-                if let error {
-                    continuation.resume(throwing: error)
-                } else {
-                    continuation.resume()
+    /// Pings every `pingInterval`. A failed or unanswered ping cancels the socket, so
+    /// `receive()` throws and the loop's backoff/reconnect path runs. Never touches `status`.
+    private func keepAlive(_ ws: URLSessionWebSocketTask) -> Task<Void, Never> {
+        Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: self?.pingInterval ?? 0)
+                guard !Task.isCancelled, let self else { return }
+                do {
+                    try await self.ping(ws)
+                } catch {
+                    NSLog("Protect events ping failed: \(error.localizedDescription)")
+                    ws.cancel(with: .goingAway, reason: nil)
+                    return
                 }
+            }
+        }
+    }
+
+    /// Sends a ping and waits for the pong. After `pongTimeout` the socket is cancelled
+    /// and `PongTimeout` is thrown.
+    private func ping(_ ws: URLSessionWebSocketTask) async throws {
+        let wait = PongWait()
+        let timeout = pongTimeout
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            wait.continuation = continuation
+            wait.timer = Task { @MainActor in
+                try? await Task.sleep(nanoseconds: timeout)
+                guard !Task.isCancelled, wait.continuation != nil else { return }
+                ws.cancel(with: .goingAway, reason: nil)
+                wait.finish(PongTimeout())
+            }
+            ws.sendPing { error in
+                Task { @MainActor in wait.finish(error) }
             }
         }
     }
@@ -126,6 +176,28 @@ final class ProtectEventService: ObservableObject {
                 mappingId: mapping.entryId,
                 kinds: trigger.kinds
             ))
+        }
+    }
+}
+
+private struct PongTimeout: LocalizedError {
+    var errorDescription: String? { "Keine Antwort auf Ping" }
+}
+
+/// Resumes a pong wait exactly once (pong, error or timeout, whichever comes first).
+@MainActor
+private final class PongWait {
+    var continuation: CheckedContinuation<Void, Error>?
+    var timer: Task<Void, Never>?
+
+    func finish(_ error: Error?) {
+        guard let continuation else { return }
+        self.continuation = nil
+        timer?.cancel()
+        if let error {
+            continuation.resume(throwing: error)
+        } else {
+            continuation.resume()
         }
     }
 }
