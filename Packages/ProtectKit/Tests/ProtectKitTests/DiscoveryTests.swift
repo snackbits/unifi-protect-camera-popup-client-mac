@@ -36,4 +36,19 @@ final class DiscoveryTests: XCTestCase {
         XCTAssertEqual(DiscoveredConsole(ip: "10.0.0.1", mac: nil, hostname: "ck", model: nil).displayName, "ck")
         XCTAssertEqual(DiscoveredConsole(ip: "10.0.0.1", mac: nil, hostname: nil, model: nil).displayName, "10.0.0.1")
     }
+
+    func testProbeAcceptsConsoleSystemInfo() throws {
+        let json = Data(#"{"hardware":{"shortname":"UDMPROSE"},"name":"snackbits","mac":"70A741B5EF8D"}"#.utf8)
+        let candidate = DiscoveredConsole(ip: "172.2.4.1", mac: nil, hostname: nil, model: nil)
+        let c = try XCTUnwrap(ConsoleProbe.parse(json, candidate: candidate))
+        XCTAssertEqual(c.displayName, "snackbits (UDMPROSE)")
+        XCTAssertEqual(c.mac, "70:a7:41:b5:ef:8d")
+        XCTAssertEqual(c.ip, "172.2.4.1")
+    }
+
+    func testProbeRejectsNonConsoleAnswers() {
+        let candidate = DiscoveredConsole(ip: "1.2.3.4", mac: nil, hostname: "SchuppenFeld", model: "Unifi-Protect-UAP-Bridge")
+        XCTAssertNil(ConsoleProbe.parse(Data("<html></html>".utf8), candidate: candidate))
+        XCTAssertNil(ConsoleProbe.parse(Data(#"{"name":"x"}"#.utf8), candidate: candidate))
+    }
 }

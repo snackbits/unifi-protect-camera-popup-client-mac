@@ -1,5 +1,6 @@
 import Darwin
 import Foundation
+import SystemConfiguration
 
 public struct DiscoveredConsole: Equatable, Hashable, Sendable {
     public let ip: String
@@ -48,12 +49,36 @@ public enum DiscoveryPacket {
     }
 }
 
-/// Broadcasts a discovery request and collects answers for `duration` seconds.
+/// Finds UniFi OS consoles. Broadcast discovery alone is not enough: consoles such as the
+/// UDM Pro SE do not answer it, while Protect devices (cameras, UAP bridges) do. So the
+/// broadcast answers plus the default gateway become candidates, and only those that answer
+/// the console endpoint `/api/system` are returned.
 public final class ConsoleDiscovery {
     public init() {}
 
     public func scan(duration: TimeInterval = 3) async -> [DiscoveredConsole] {
-        await Task.detached { Self.blockingScan(duration: duration) }.value
+        let broadcast = await Task.detached { Self.blockingScan(duration: duration) }.value
+        var candidates = Dictionary(broadcast.map { ($0.ip, $0) }, uniquingKeysWith: { a, _ in a })
+        if let gateway = Self.defaultGateway(), candidates[gateway] == nil {
+            candidates[gateway] = DiscoveredConsole(ip: gateway, mac: nil, hostname: nil, model: nil)
+        }
+        let consoles = await withTaskGroup(of: DiscoveredConsole?.self) { group in
+            for candidate in candidates.values {
+                group.addTask { await ConsoleProbe.probe(candidate) }
+            }
+            var result: [DiscoveredConsole] = []
+            for await console in group { if let console { result.append(console) } }
+            return result
+        }
+        return consoles.sorted { $0.ip < $1.ip }
+    }
+
+    /// IPv4 router of the primary network service, e.g. "192.168.1.1".
+    static func defaultGateway() -> String? {
+        guard let store = SCDynamicStoreCreate(nil, "UniFiCameraPopup" as CFString, nil, nil),
+              let dict = SCDynamicStoreCopyValue(store, "State:/Network/Global/IPv4" as CFString) as? [String: Any]
+        else { return nil }
+        return dict["Router"] as? String
     }
 
     private static func blockingScan(duration: TimeInterval) -> [DiscoveredConsole] {
@@ -100,5 +125,72 @@ public final class ConsoleDiscovery {
             }
         }
         return found.values.sorted { $0.ip < $1.ip }
+    }
+}
+
+/// Asks a candidate for `/api/system`, which every UniFi OS console serves without login.
+/// No credentials are sent, so the console's self-signed certificate is accepted here;
+/// pinning starts when the user picks a console and the API key is sent.
+enum ConsoleProbe {
+    static func probe(_ candidate: DiscoveredConsole) async -> DiscoveredConsole? {
+        guard let url = URL(string: "https://\(candidate.ip)/api/system") else { return nil }
+        let config = URLSessionConfiguration.ephemeral
+        config.timeoutIntervalForRequest = 3
+        config.httpCookieStorage = nil
+        let delegate = AcceptAnyCertificate()
+        let session = URLSession(configuration: config, delegate: delegate, delegateQueue: nil)
+        defer { session.finishTasksAndInvalidate() }
+        guard let (data, response) = try? await session.data(from: url),
+              (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+        return parse(data, candidate: candidate)
+    }
+
+    static func parse(_ data: Data, candidate: DiscoveredConsole) -> DiscoveredConsole? {
+        struct System: Decodable {
+            struct Hardware: Decodable { let shortname: String? }
+            let name: String?
+            let mac: String?
+            let hardware: Hardware?
+        }
+        guard let system = try? JSONDecoder().decode(System.self, from: data),
+              let shortname = system.hardware?.shortname, !shortname.isEmpty else { return nil }
+        let name = system.name.flatMap { $0.isEmpty ? nil : $0 }
+        return DiscoveredConsole(
+            ip: candidate.ip,
+            mac: candidate.mac ?? system.mac.map(Self.formatMAC),
+            hostname: name ?? candidate.hostname,
+            model: name.map { "\($0) (\(shortname))" } ?? shortname
+        )
+    }
+
+    static func formatMAC(_ raw: String) -> String {
+        let hex = raw.lowercased().filter(\.isHexDigit)
+        guard hex.count == 12 else { return raw.lowercased() }
+        return stride(from: 0, to: 12, by: 2).map { i -> String in
+            let start = hex.index(hex.startIndex, offsetBy: i)
+            return String(hex[start..<hex.index(start, offsetBy: 2)])
+        }.joined(separator: ":")
+    }
+}
+
+private final class AcceptAnyCertificate: NSObject, URLSessionTaskDelegate {
+    func urlSession(
+        _ session: URLSession, didReceive challenge: URLAuthenticationChallenge,
+        completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
+    ) {
+        if challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust,
+           let trust = challenge.protectionSpace.serverTrust {
+            completionHandler(.useCredential, URLCredential(trust: trust))
+        } else {
+            completionHandler(.performDefaultHandling, nil)
+        }
+    }
+
+    func urlSession(
+        _ session: URLSession, task: URLSessionTask,
+        willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest,
+        completionHandler: @escaping (URLRequest?) -> Void
+    ) {
+        completionHandler(nil)
     }
 }
