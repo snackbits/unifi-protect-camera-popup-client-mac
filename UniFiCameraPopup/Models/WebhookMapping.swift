@@ -245,6 +245,13 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
     }
 }
 
+extension WebhookMapping {
+    /// A popup can open: a manual RTSP URL is set or a Protect camera is linked.
+    var hasStreamSource: Bool {
+        !rtspsURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || protectCameraId != nil
+    }
+}
+
 struct TriggerEvent: Equatable {
     let webhookId: String
     let thumbnail: String?

@@ -221,8 +221,8 @@ final class SettingsStore: ObservableObject {
         mappings.first { $0.entryId == id }
     }
 
-    func saveZoom(for webhookId: String, scale: CGFloat, panOffset: CGPoint) {
-        guard let index = mappings.firstIndex(where: { $0.webhookId == webhookId }) else { return }
+    func saveZoom(for entryId: UUID, scale: CGFloat, panOffset: CGPoint) {
+        guard let index = mappings.firstIndex(where: { $0.entryId == entryId }) else { return }
         guard mappings[index].rememberZoom else { return }
 
         mappings[index].savedZoom = SavedCameraZoom(

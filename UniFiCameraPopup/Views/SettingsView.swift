@@ -435,8 +435,7 @@ struct SettingsView: View {
     }
 
     private func canTestPopup(_ mapping: WebhookMapping) -> Bool {
-        !mapping.webhookId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && !mapping.rtspsURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        mapping.hasStreamSource
     }
 
     private func hotkeyConflictMessage(for mapping: WebhookMapping) -> String? {

@@ -8,7 +8,9 @@ final class PopupController {
     /// stacking order and is kept stable: a re-triggering camera only restarts
     /// its timeout, it is never moved within the stack.
     private struct ActivePopup {
-        let webhookId: String
+        /// The mapping entry shown. Protect-only entries have no webhook slug,
+        /// so popups are keyed by entry, never by webhook id.
+        let entryId: UUID
         let window: PopupWindow
         let size: CGSize
         /// The position used when only a single popup is shown.
@@ -35,40 +37,50 @@ final class PopupController {
     }
 
     private func present(event: TriggerEvent) {
-        guard let mapping = settings.mapping(for: event.webhookId) else {
-            NSLog("No mapping for webhook id: \(event.webhookId)")
+        let found = event.mappingId.flatMap(settings.mapping(forEntry:)) ?? settings.mapping(for: event.webhookId)
+        guard let mapping = found else {
+            NSLog("No mapping for event: \(event.webhookId) \(String(describing: event.mappingId))")
             return
         }
-
-        let streamURL = mapping.rtspsURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !streamURL.isEmpty else { return }
 
         // The same camera triggering again only restarts its auto-close timer.
         // The popup keeps its place in the stack so windows never jump around.
-        if let existing = activePopups.first(where: { $0.webhookId == event.webhookId }) {
-            existing.window.extendAutoClose(seconds: settings.autoCloseTimeout)
-            return
-        }
+        if extendExistingPopup(for: mapping.entryId) { return }
 
-        // Without the "show all" option a new camera replaces the current popup.
-        if !settings.showAllActiveCameras {
-            dismiss()
-        }
+        Task { @MainActor in
+            guard let streamURL = await ProtectSession.shared.streamURL(for: mapping) else {
+                NSLog("No stream URL for \(mapping.label)")
+                return
+            }
+            // Another trigger for this entry may have opened it while the URL resolved.
+            if extendExistingPopup(for: mapping.entryId) { return }
 
-        let window = makeAlarmWindow(event: event, mapping: mapping, streamURL: streamURL)
-        activePopups.append(
-            ActivePopup(
-                webhookId: event.webhookId,
-                window: window,
-                size: CGSize(width: CGFloat(mapping.width), height: CGFloat(mapping.height)),
-                position: mapping.positionOverride ?? settings.defaultPosition
+            // Without the "show all" option a new camera replaces the current popup.
+            if !settings.showAllActiveCameras {
+                dismiss()
+            }
+
+            let window = makeAlarmWindow(event: event, mapping: mapping, streamURL: streamURL)
+            activePopups.append(
+                ActivePopup(
+                    entryId: mapping.entryId,
+                    window: window,
+                    size: CGSize(width: CGFloat(mapping.width), height: CGFloat(mapping.height)),
+                    position: mapping.positionOverride ?? settings.defaultPosition
+                )
             )
-        )
 
-        relayout()
-        // Show without stealing focus so the user can keep typing in other apps.
-        window.orderFrontRegardless()
-        window.startPlayback()
+            relayout()
+            // Show without stealing focus so the user can keep typing in other apps.
+            window.orderFrontRegardless()
+            window.startPlayback()
+        }
+    }
+
+    private func extendExistingPopup(for entryId: UUID) -> Bool {
+        guard let existing = activePopups.first(where: { $0.entryId == entryId }) else { return false }
+        existing.window.extendAutoClose(seconds: settings.autoCloseTimeout)
+        return true
     }
 
     private func makeAlarmWindow(
@@ -76,7 +88,7 @@ final class PopupController {
         mapping: WebhookMapping,
         streamURL: String
     ) -> PopupWindow {
-        let webhookId = event.webhookId
+        let entryId = mapping.entryId
         return PopupWindow(
             frame: NSRect(x: 0, y: 0, width: CGFloat(mapping.width), height: CGFloat(mapping.height)),
             streamURL: streamURL,
@@ -88,10 +100,10 @@ final class PopupController {
             autoCloseSeconds: settings.autoCloseTimeout,
             actions: mapping.actions.filter(\.isConfigured),
             onWillClose: { [weak self] scale, panOffset in
-                self?.settings.saveZoom(for: webhookId, scale: scale, panOffset: panOffset)
+                self?.settings.saveZoom(for: entryId, scale: scale, panOffset: panOffset)
             }
         ) { [weak self] in
-            self?.removePopup(webhookId: webhookId)
+            self?.removePopup(entryId: entryId)
         }
     }
 
@@ -128,8 +140,8 @@ final class PopupController {
         }
     }
 
-    private func removePopup(webhookId: String) {
-        activePopups.removeAll { $0.webhookId == webhookId }
+    private func removePopup(entryId: UUID) {
+        activePopups.removeAll { $0.entryId == entryId }
         relayout()
     }
 
@@ -138,12 +150,16 @@ final class PopupController {
     }
 
     func showCropSelection(for mapping: WebhookMapping) {
-        let streamURL = mapping.rtspsURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !streamURL.isEmpty else {
-            NSLog("RTSP URL required to set crop.")
-            return
+        Task { @MainActor in
+            guard let streamURL = await ProtectSession.shared.streamURL(for: mapping) else {
+                NSLog("Stream URL required to set crop.")
+                return
+            }
+            openCropSelection(for: mapping, streamURL: streamURL)
         }
+    }
 
+    private func openCropSelection(for mapping: WebhookMapping, streamURL: String) {
         // Crop selection is a focused editing mode, so clear any open popups.
         dismiss()
 
@@ -160,7 +176,6 @@ final class PopupController {
         )
 
         let entryId = mapping.entryId
-        let webhookId = mapping.webhookId
         let originalWidth = mapping.width
         let originalHeight = mapping.height
 
@@ -183,12 +198,12 @@ final class PopupController {
             },
             onCropCancel: nil
         ) { [weak self] in
-            self?.removePopup(webhookId: webhookId)
+            self?.removePopup(entryId: entryId)
         }
 
         activePopups.append(
             ActivePopup(
-                webhookId: webhookId,
+                entryId: entryId,
                 window: window,
                 size: CGSize(width: width, height: height),
                 position: position
@@ -202,25 +217,15 @@ final class PopupController {
         showManualPopup(for: mapping, alarmNameFallback: "Hotkey")
     }
 
+    /// Works for every entry, including Protect-only ones without a webhook slug.
     private func showManualPopup(for mapping: WebhookMapping, alarmNameFallback: String) {
-        let webhookId = mapping.webhookId.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !webhookId.isEmpty else {
-            NSLog("Webhook slug required to open popup.")
-            return
-        }
-
-        let streamURL = mapping.rtspsURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !streamURL.isEmpty else {
-            NSLog("RTSP URL required to open popup.")
-            return
-        }
-
         let alarmName = mapping.label.trimmingCharacters(in: .whitespacesAndNewlines)
         let event = TriggerEvent(
-            webhookId: webhookId,
+            webhookId: mapping.webhookId,
             thumbnail: nil,
             alarmName: alarmName.isEmpty ? alarmNameFallback : alarmName,
-            timestamp: Date()
+            timestamp: Date(),
+            mappingId: mapping.entryId
         )
         // Manual popups bypass mute / Do Not Disturb so they always appear.
         present(event: event)

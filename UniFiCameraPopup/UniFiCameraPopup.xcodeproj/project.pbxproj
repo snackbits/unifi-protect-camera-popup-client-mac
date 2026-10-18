@@ -17,6 +17,8 @@
 		A10000000000000000000007 /* WebSocketClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000007 /* WebSocketClient.swift */; };
 		A10000000000000000000017 /* UpdateService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000017 /* UpdateService.swift */; };
 		A10000000000000000000043 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000043 /* KeychainStore.swift */; };
+		A10000000000000000000044 /* ProtectSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000044 /* ProtectSession.swift */; };
+		A10000000000000000000045 /* ProtectEventService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000045 /* ProtectEventService.swift */; };
 		A10000000000000000000041 /* WhatsNewService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000041 /* WhatsNewService.swift */; };
 		A10000000000000000000040 /* CameraActionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000040 /* CameraActionService.swift */; };
 		A10000000000000000000008 /* WindowPositioner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000008 /* WindowPositioner.swift */; };
@@ -49,6 +51,8 @@
 		A20000000000000000000007 /* WebSocketClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketClient.swift; sourceTree = "<group>"; };
 		A20000000000000000000017 /* UpdateService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateService.swift; sourceTree = "<group>"; };
 		A20000000000000000000043 /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
+		A20000000000000000000044 /* ProtectSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProtectSession.swift; sourceTree = "<group>"; };
+		A20000000000000000000045 /* ProtectEventService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProtectEventService.swift; sourceTree = "<group>"; };
 		A20000000000000000000041 /* WhatsNewService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhatsNewService.swift; sourceTree = "<group>"; };
 		A20000000000000000000040 /* CameraActionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraActionService.swift; sourceTree = "<group>"; };
 		A20000000000000000000008 /* WindowPositioner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowPositioner.swift; sourceTree = "<group>"; };
@@ -135,6 +139,8 @@
 				A20000000000000000000040 /* CameraActionService.swift */,
 				A20000000000000000000008 /* WindowPositioner.swift */,
 				A20000000000000000000009 /* PopupController.swift */,
+				A20000000000000000000044 /* ProtectSession.swift */,
+				A20000000000000000000045 /* ProtectEventService.swift */,
 				A20000000000000000000022 /* GlobalHotkeyManager.swift */,
 				A20000000000000000000024 /* AccessibilityHelper.swift */,
 				A20000000000000000000019 /* DoNotDisturbChecker.swift */,
@@ -248,6 +254,8 @@
 				A10000000000000000000040 /* CameraActionService.swift in Sources */,
 				A10000000000000000000008 /* WindowPositioner.swift in Sources */,
 				A10000000000000000000009 /* PopupController.swift in Sources */,
+				A10000000000000000000044 /* ProtectSession.swift in Sources */,
+				A10000000000000000000045 /* ProtectEventService.swift in Sources */,
 				A10000000000000000000010 /* VLCPlayerView.swift in Sources */,
 				A10000000000000000000011 /* PopupWindow.swift in Sources */,
 				A10000000000000000000012 /* SettingsView.swift in Sources */,

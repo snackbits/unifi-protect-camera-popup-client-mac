@@ -10,6 +10,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var whatsNewWindow: NSWindow?
     private let settings = SettingsStore.shared
     private let webSocketClient = WebSocketClient()
+    private let protectEvents = ProtectEventService()
+    /// The relay WebSocket only runs while at least one entry uses webhook triggers.
+    private var isRelayRunning = false
     private let updateService = UpdateService()
     private var statusMenuItem: NSMenuItem?
     private var versionMenuItem: NSMenuItem?
@@ -21,6 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var dndCheckTimer: Timer?
     private var focusMonitor: FocusMonitor?
     private var connectionStatus: ConnectionStatus = .disconnected
+    private var protectStatus: ConnectionStatus = .disconnected
     /// Prevents retry loops when an automatic install fails.
     private var autoInstallAttemptedVersionId: String?
 
@@ -32,13 +36,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         setupStatusItem()
         setupWebSocket()
         setupHotkeys()
-        webSocketClient.start()
+        syncRelayConnection(mappings: settings.mappings)
         startUpdateChecks()
         showWhatsNewIfNeeded()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         webSocketClient.stop()
+        protectEvents.stop()
         GlobalHotkeyManager.shared.stop()
         updateCheckTimer?.invalidate()
         muteExpiryTimer?.invalidate()
@@ -51,6 +56,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         webSocketClient.onTrigger = { event in
             PopupController.shared.show(event: event)
         }
+        protectEvents.onTrigger = { event in
+            PopupController.shared.show(event: event)
+        }
+        ProtectSession.shared.reconnect()
+        protectEvents.start()
+    }
+
+    /// Starts or stops the relay WebSocket when entries gain or lose webhook triggers.
+    private func syncRelayConnection(mappings: [WebhookMapping]) {
+        let needed = mappings.contains(where: \.webhookTriggerEnabled)
+        if needed, !isRelayRunning {
+            isRelayRunning = true
+            webSocketClient.start()
+        } else if !needed, isRelayRunning {
+            isRelayRunning = false
+            webSocketClient.stop()
+        }
+        updateStatusMenu()
     }
 
     private func setupHotkeys() {
@@ -72,6 +95,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func observeHotkeyMappings() async {
         for await mappings in settings.$mappings.values {
             GlobalHotkeyManager.shared.sync(mappings: mappings)
+            syncRelayConnection(mappings: mappings)
         }
     }
 
@@ -158,6 +182,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             await observeConnectionStatus()
         }
         Task {
+            await observeProtectStatus()
+        }
+        Task {
             await observeUpdateState()
         }
         Task {
@@ -169,7 +196,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func observeConnectionStatus() async {
         for await status in webSocketClient.$status.values {
-            updateStatusMenu(status)
+            connectionStatus = status
+            updateStatusMenu()
             // The server dropped us for being outdated → a newer build exists.
             if status == .outdated {
                 Task { await updateService.checkForUpdates() }
@@ -183,10 +211,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func updateStatusMenu(_ status: ConnectionStatus) {
-        connectionStatus = status
-        statusMenuItem?.title = "Status: \(status.menuLabel)"
+    private func observeProtectStatus() async {
+        for await status in protectEvents.$status.values {
+            protectStatus = status
+            updateStatusMenu()
+        }
+    }
+
+    private func updateStatusMenu() {
+        var parts = [protectStatusLabel]
+        if isRelayRunning {
+            parts.append("Status: \(connectionStatus.menuLabel)")
+        }
+        statusMenuItem?.title = parts.joined(separator: " · ")
         updateStatusBarIcon()
+    }
+
+    private var protectStatusLabel: String {
+        switch protectStatus {
+        case .connected: "Protect: verbunden"
+        case .connecting: "Protect: verbinde …"
+        case .disconnected, .outdated: "Protect: getrennt"
+        }
+    }
+
+    /// The icon shows the worst of the connections in use (Protect once configured,
+    /// the relay while webhook triggers exist).
+    private var iconStatus: ConnectionStatus {
+        var statuses: [ConnectionStatus] = []
+        if ProtectSession.shared.client != nil { statuses.append(protectStatus) }
+        if isRelayRunning { statuses.append(connectionStatus) }
+        if let failed = statuses.first(where: { $0 == .disconnected || $0 == .outdated }) { return failed }
+        if statuses.contains(.connecting) { return .connecting }
+        return statuses.isEmpty ? .disconnected : .connected
     }
 
     private var showPopupSuppressedBadge: Bool {
@@ -197,7 +254,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func updateStatusBarIcon() {
         statusItem?.button?.image = makeStatusBarIcon(
-            tintedWith: statusColor(for: connectionStatus),
+            tintedWith: statusColor(for: iconStatus),
             showSuppressedBadge: showPopupSuppressedBadge
         )
     }
@@ -523,8 +580,7 @@ extension AppDelegate: NSMenuDelegate {
     }
 
     private func canOpenCameraPopup(_ mapping: WebhookMapping) -> Bool {
-        !mapping.webhookId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && !mapping.rtspsURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        mapping.hasStreamSource
     }
 
     private func updateMuteMenuItem() {
