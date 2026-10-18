@@ -29,6 +29,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             relay: webSocketClient,
             protect: ProtectSession.shared,
             clock: clock,
+            updates: updateService,
             actions: StatusPanelActions(
                 openSettings: { [weak self] in
                     self?.statusPanel.close()
@@ -42,6 +43,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 openCamera: { [weak self] id in
                     self?.statusPanel.close()
                     self?.openCamera(entryId: id)
+                },
+                installUpdate: { [weak self] in
+                    self?.statusPanel.close()
+                    self?.installUpdate()
                 },
                 close: { [weak self] in self?.statusPanel.close() },
                 resize: { [weak self] size in self?.statusPanel.resize(to: size) }
@@ -555,6 +560,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             sender.performClick(nil)
             statusItem?.menu = nil
         } else {
+            // Like the former menu: every opening looks for a newer build in the background.
+            if !statusPanel.isShown { Task { await updateService.checkForUpdates() } }
             statusPanel.toggle(from: sender)
         }
     }
