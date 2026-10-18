@@ -1,7 +1,14 @@
 import Foundation
 
 /// Calls the webhook behind a popup action button (e.g. "Tür öffnen").
+///
+/// Redirects are never followed, at home or away: a webhook is one endpoint, and a 3xx could
+/// downgrade https to http or send the Bearer token on to another host. The 3xx response is
+/// the result (shown as its HTTP status).
 enum CameraActionService {
+    /// Own session: `URLSession.shared` would follow redirects. Ephemeral: no cookies, no cache.
+    private static let session = URLSession(configuration: .ephemeral, delegate: NoRedirects(), delegateQueue: nil)
+
     /// Calls the webhook; returns the HTTP status (2xx) for the sheet's test result.
     @discardableResult
     static func trigger(_ action: CameraAction) async throws -> Int {
@@ -27,9 +34,9 @@ enum CameraActionService {
         let response: URLResponse
         if let host = routed.tunneledHost {
             // TLS stays end to end; the certificate is checked against the original address.
-            (_, response) = try await URLSession.shared.data(for: request, delegate: ForwardedTLSCheck(host: host))
+            (_, response) = try await session.data(for: request, delegate: ForwardedTLSCheck(host: host))
         } else {
-            (_, response) = try await URLSession.shared.data(for: request)
+            (_, response) = try await session.data(for: request)
         }
         guard let http = response as? HTTPURLResponse else {
             throw CameraActionError.badResponse
@@ -61,13 +68,37 @@ enum CameraActionError: LocalizedError {
     }
 }
 
+/// Refuses every redirect: the 3xx response itself is handed back to the caller.
+private final class NoRedirects: NSObject, URLSessionTaskDelegate {
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        willPerformHTTPRedirection response: HTTPURLResponse,
+        newRequest request: URLRequest,
+        completionHandler: @escaping (URLRequest?) -> Void
+    ) {
+        completionHandler(nil)
+    }
+}
+
 /// Server trust for a webhook dialed on 127.0.0.1:<forward>: evaluated with the default
 /// policy against the original host, so a forward changes nothing about TLS validation.
+/// As the task's delegate it also answers redirects – refused, like `NoRedirects`.
 private final class ForwardedTLSCheck: NSObject, URLSessionTaskDelegate {
     private let host: String
 
     init(host: String) {
         self.host = host
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        willPerformHTTPRedirection response: HTTPURLResponse,
+        newRequest request: URLRequest,
+        completionHandler: @escaping (URLRequest?) -> Void
+    ) {
+        completionHandler(nil)
     }
 
     func urlSession(

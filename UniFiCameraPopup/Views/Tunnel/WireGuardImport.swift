@@ -39,15 +39,29 @@ enum WireGuardImport {
     }
 
     static func importFile(_ url: URL) async -> ImportFeedback {
-        // Never read a huge file into memory just to reject it.
-        let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
-        guard size <= WireGuardFile.maxBytes else {
-            return .failed(WireGuardFile.Problem.tooLarge.localizedDescription)
-        }
-        guard let data = try? Data(contentsOf: url) else {
+        guard let data = readBounded(url) else {
             return .failed("Die Datei lässt sich nicht lesen.")
         }
+        // One byte more than allowed was asked for: getting it means the file is too large.
+        guard data.count <= WireGuardFile.maxBytes else {
+            return .failed(WireGuardFile.Problem.tooLarge.localizedDescription)
+        }
         return ImportFeedback(await ConnectionRouter.shared.importTunnel(data: data, fileName: url.lastPathComponent))
+    }
+
+    /// At most `maxBytes + 1` bytes of a regular file: never a huge file (or a device, a pipe
+    /// that never ends) read into memory just to reject it. nil when it is no regular file or
+    /// cannot be read.
+    private static func readBounded(_ url: URL) -> Data? {
+        guard (try? url.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true,
+              let handle = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? handle.close() }
+        do {
+            // nil at end of file: an empty file (the importer reports it as such).
+            return try handle.read(upToCount: WireGuardFile.maxBytes + 1) ?? Data()
+        } catch {
+            return nil
+        }
     }
 
     static func importClipboard() async -> ImportFeedback {

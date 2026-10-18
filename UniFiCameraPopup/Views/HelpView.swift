@@ -156,9 +156,9 @@ struct HelpView: View {
                 "Mit der WireGuard-Datei deines Gateways erreicht die App die Konsole auch außer Haus. "
                 + "Webhook-Buttons mit „http“ funktionieren dann nur, wenn ihre Ziel-IP im Tunnel liegt; "
                 + "Buttons mit „https“ gehen direkt. Namen auf „.local“ lassen sich unterwegs nicht auflösen. "
-                + "Sprichst du kurz (etwa 3 Sekunden) nach einer vorherigen Durchsage, kann der Anfang abgeschnitten werden. "
-                + "Solange der Tunnel läuft, können andere Programme auf diesem Mac die weitergeleiteten Kamera-Stream-Ports erreichen; "
-                + "die Protect-API bleibt durch Zertifikats-Pin und API-Schlüssel geschützt.")
+                + "Solange der Tunnel läuft, können andere Programme auf diesem Mac alles erreichen, was die App weiterleitet: "
+                + "die Konsole (meist Port 443), die Kamera-Streams und die Webhook-Ziele im Heimnetz. "
+                + "Die Protect-API bleibt durch Zertifikats-Pin und API-Schlüssel geschützt.")
         }
     }
 

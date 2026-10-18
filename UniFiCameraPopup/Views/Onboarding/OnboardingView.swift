@@ -259,7 +259,8 @@ struct OnboardingView: View {
         HStack(spacing: 6) {
             ForEach(OnboardingModel.Step.allCases, id: \.self) { s in
                 Circle()
-                    .fill(s == model.step ? Color.accentColor : Color.secondary.opacity(0.35))
+                    // docs/design/einrichtung-unterwegs.md 9: current `accent`, others `dotOff`.
+                    .fill(s == model.step ? Tokens.accent.color : Tokens.dotOff.color)
                     .frame(width: 7, height: 7)
             }
         }

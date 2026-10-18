@@ -10,6 +10,7 @@ struct GeneralTab: View {
     @EnvironmentObject private var webSocketClient: WebSocketClient
     @EnvironmentObject private var protectEvents: ProtectEventService
     @ObservedObject private var protect = ProtectSession.shared
+    @ObservedObject private var router = ConnectionRouter.shared
 
     @State private var advancedExpanded = false
     @State private var dndHasFullDiskAccess = true
@@ -132,7 +133,9 @@ struct GeneralTab: View {
                 .font(.system(size: 12))
                 .foregroundStyle(Color(nsColor: .systemOrange))
                 .fixedSize(horizontal: false, vertical: true)
-            if error == ProtectError.certificateChanged.errorDescription {
+            // Only once the route is settled: before that the certificate may be a foreign
+            // device's on the current network, which must never be offered for trust.
+            if error == ProtectError.certificateChanged.errorDescription, router.isRouteSettled {
                 HStack(spacing: 8) {
                     Button(probingCertificate ? "Prüfe …" : "Neuem Zertifikat vertrauen") {
                         probeNewCertificate()
@@ -449,7 +452,8 @@ struct GeneralTab: View {
             defer { probingCertificate = false }
             do {
                 // Away: through the tunnel (no key is sent, only the certificate is read).
-                guard let probeHost = await ConnectionRouter.shared.resolveAPIHost(for: host) else {
+                guard ConnectionRouter.shared.isRouteSettled,
+                      let probeHost = await ConnectionRouter.shared.resolveAPIHost(for: host) else {
                     throw TunnelRouteError.apiUnreachable
                 }
                 pendingFingerprint = try await ProtectClient.probeFingerprint(host: probeHost)
