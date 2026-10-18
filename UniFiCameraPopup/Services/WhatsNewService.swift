@@ -29,6 +29,7 @@ enum WhatsNewService {
             "Neue Einstellungen mit den Reitern Allgemein, Kameras, Ton und Unterwegs – hell, dunkel oder wie das System.",
             "Stummschalten pro Kamera direkt im Popup und für alle Kameras im Menü; die Dauern legst du selbst fest, und eine Stummschaltung bleibt auch nach einem Neustart bestehen.",
             "Das Popup zeigt Ereignis, Kamera und Uhrzeit, deine Buttons (z. B. „Tür öffnen“) haben jetzt Symbole.",
+            "Sprechen und Ansagen: Bei Kameras mit Lautsprecher hältst du im Popup die Leertaste (oder den Button) und sprichst über die Kamera. Fertige Ansagen spielst du als MP3 oder mit einer macOS-Stimme aus eigenem Text ab – einzurichten im Reiter Ton.",
         ]),
         ChangelogEntry(version: "1.1.1", items: [
             "Mehr Sicherheit: Die Bearer-Tokens der Aktions-Buttons werden jetzt im macOS-Schlüsselbund "
