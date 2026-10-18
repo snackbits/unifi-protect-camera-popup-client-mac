@@ -4,7 +4,7 @@ import SwiftUI
 
 @MainActor
 final class OnboardingModel: ObservableObject {
-    enum Step: Int, CaseIterable { case welcome, console, key, cameras, triggers }
+    enum Step: Int, CaseIterable { case welcome, console, key, cameras, triggers, travel }
 
     @Published var step: Step = .welcome
     @Published var consoles: [DiscoveredConsole] = []
@@ -232,6 +232,7 @@ struct OnboardingView: View {
             case .key: key
             case .cameras: camerasStep
             case .triggers: triggersStep
+            case .travel: OnboardingTunnelStep(onLater: { model.finish() }, onDone: { model.finish() })
             }
             dots
         }
@@ -431,7 +432,7 @@ struct OnboardingView: View {
             Spacer()
             HStack {
                 Button("Zurück") { model.step = .cameras }.controlSize(.large)
-                primary("Fertig") { model.finish() }
+                primary("Weiter") { model.step = .travel }
             }
         }
     }

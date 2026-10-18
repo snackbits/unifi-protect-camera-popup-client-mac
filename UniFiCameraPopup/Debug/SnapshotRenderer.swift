@@ -31,6 +31,9 @@ enum SnapshotRenderer {
     nonisolated(unsafe) static var expandCameraAdvanced = false
     /// Read by `SoundTab` to show an error line (S5 empty-list variant).
     nonisolated(unsafe) static var soundTabError: String?
+    /// Read by `OnboardingTunnelStep` as its initial feedback line (Einrichtung step 6).
+    /// Fixed sample strings only; no import runs and nothing touches the keychain in snapshot mode.
+    nonisolated(unsafe) static var tunnelStepFeedback: ImportFeedback?
 
     /// Call first in `applicationDidFinishLaunching`; renders and terminates when requested.
     @MainActor
@@ -143,6 +146,29 @@ enum SnapshotRenderer {
             SoundStore.shared.settings.announcements = savedSounds
             write(window: settingsWindow(tab: .remote), appearance: appearance,
                   to: directory.appendingPathComponent("S6-unterwegs-\(suffix).png"))
+
+            // Einrichtung step 6 "Unterwegs": empty drop zone, after import, warning, error.
+            let tunnelStates: [(name: String, feedback: ImportFeedback?)] = [
+                ("leer", nil),
+                ("importiert", .imported(endpoint: "vpn.example.net:51820", warning: nil)),
+                ("warnung", .imported(endpoint: "vpn.example.net:51820",
+                                      warning: "Achtung: Konsole 192.168.1.1 liegt nicht in „AllowedIPs“.")),
+                ("fehler", .failed("Keine gültige WireGuard-Datei: Es fehlt der Abschnitt [Peer].")),
+            ]
+            for state in tunnelStates {
+                tunnelStepFeedback = state.feedback
+                let onboarding = OnboardingModel()
+                onboarding.step = .travel
+                let host = NSHostingController(rootView: OnboardingView(model: onboarding))
+                let onboardingWindow = NSWindow(contentViewController: host)
+                onboardingWindow.title = "Camera Popup einrichten"
+                onboardingWindow.styleMask = [.titled, .closable, .fullSizeContentView]
+                onboardingWindow.titlebarAppearsTransparent = true
+                onboardingWindow.setContentSize(NSSize(width: 560, height: 420))
+                write(window: onboardingWindow, appearance: appearance,
+                      to: directory.appendingPathComponent("E6-unterwegs-\(state.name)-\(suffix).png"))
+            }
+            tunnelStepFeedback = nil
 
             // S4 – button sheet. A sheet needs an on-screen window, so it is composed over a dimmed Kameras tab.
             let navigation = SettingsNavigation()

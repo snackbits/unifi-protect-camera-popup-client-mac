@@ -25,7 +25,7 @@ enum OnboardingWindow {
         case .key:
             model.selectedHost = settings.protectHost
             model.step = .key
-        case .cameras, .triggers:
+        case .cameras, .triggers, .travel:
             model.selectedHost = settings.protectHost
             model.apiKey = settings.protectAPIKey
             model.step = .key

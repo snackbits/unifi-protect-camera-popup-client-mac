@@ -68,6 +68,9 @@
 		D41000000000000000000011 /* TunnelImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D42000000000000000000011 /* TunnelImporter.swift */; };
 		D41000000000000000000012 /* TunnelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D42000000000000000000012 /* TunnelController.swift */; };
 		D41000000000000000000013 /* ConnectionRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D42000000000000000000013 /* ConnectionRouter.swift */; };
+		D41000000000000000000020 /* WireGuardImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = D42000000000000000000020 /* WireGuardImport.swift */; };
+		D41000000000000000000021 /* WireGuardGuideView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D42000000000000000000021 /* WireGuardGuideView.swift */; };
+		D41000000000000000000022 /* OnboardingTunnelStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = D42000000000000000000022 /* OnboardingTunnelStep.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -131,6 +134,9 @@
 		D42000000000000000000011 /* TunnelImporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TunnelImporter.swift; sourceTree = "<group>"; };
 		D42000000000000000000012 /* TunnelController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TunnelController.swift; sourceTree = "<group>"; };
 		D42000000000000000000013 /* ConnectionRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionRouter.swift; sourceTree = "<group>"; };
+		D42000000000000000000020 /* WireGuardImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WireGuardImport.swift; sourceTree = "<group>"; };
+		D42000000000000000000021 /* WireGuardGuideView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WireGuardGuideView.swift; sourceTree = "<group>"; };
+		D42000000000000000000022 /* OnboardingTunnelStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingTunnelStep.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -287,6 +293,7 @@
 				A20000000000000000000018 /* HelpView.swift */,
 				A20000000000000000000042 /* WhatsNewView.swift */,
 				A40000000000000000000060 /* Onboarding */,
+				D44000000000000000000002 /* Tunnel */,
 				A40000000000000000000070 /* Design */,
 				A40000000000000000000071 /* Settings */,
 				A40000000000000000000072 /* Popup */,
@@ -312,6 +319,16 @@
 				D42000000000000000000011 /* TunnelImporter.swift */,
 				D42000000000000000000010 /* TunnelStore.swift */,
 				D42000000000000000000001 /* TunnelBridge.swift */,
+			);
+			path = Tunnel;
+			sourceTree = "<group>";
+		};
+		D44000000000000000000002 /* Tunnel */ = {
+			isa = PBXGroup;
+			children = (
+				D42000000000000000000022 /* OnboardingTunnelStep.swift */,
+				D42000000000000000000021 /* WireGuardGuideView.swift */,
+				D42000000000000000000020 /* WireGuardImport.swift */,
 			);
 			path = Tunnel;
 			sourceTree = "<group>";
@@ -418,6 +435,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D41000000000000000000022 /* OnboardingTunnelStep.swift in Sources */,
+				D41000000000000000000021 /* WireGuardGuideView.swift in Sources */,
+				D41000000000000000000020 /* WireGuardImport.swift in Sources */,
 				D41000000000000000000013 /* ConnectionRouter.swift in Sources */,
 				D41000000000000000000012 /* TunnelController.swift in Sources */,
 				D41000000000000000000011 /* TunnelImporter.swift in Sources */,

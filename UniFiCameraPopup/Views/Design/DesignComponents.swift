@@ -11,6 +11,7 @@ enum TemplateIcon: String, CaseIterable {
     case chevronUpDown, chevronRight, chevronDown
     case close, bellSlash, speakerMute, check, play, shieldCheck
     case actionDoor, actionBulb, actionHouse, actionBolt
+    case fileDownload
     case mic, soundPlay
 
     func image(size: CGFloat) -> some View {
