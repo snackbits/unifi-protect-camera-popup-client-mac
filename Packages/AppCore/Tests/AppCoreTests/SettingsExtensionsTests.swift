@@ -40,6 +40,28 @@ final class SettingsExtensionsTests: XCTestCase {
         XCTAssertTrue(decoded.actions.isEmpty)
     }
 
+    func testPhase5FieldsRoundTripAndStayLenient() throws {
+        let rule = EventRule(kind: "ring", webhook: EventRuleWebhook(url: "https://ha.local/x"), bearerToken: "t0k3n", delaySeconds: 5)
+        let ext = SettingsExtensions(
+            mappings: ["A": .init(showNameAndTime: true, size: PopupSizeOverride(width: 640), eventRules: EventRuleList([rule]))],
+            actions: ["X": .init(icon: "door", soundId: "6F0C6A52-4C4B-4E58-9B1E-2F3C1C0A0001")]
+        )
+        let data = try JSONEncoder().encode(ext)
+        XCTAssertFalse(String(decoding: data, as: UTF8.self).contains("t0k3n"))
+        let back = try XCTUnwrap(SettingsExtensions.decode(data))
+        XCTAssertEqual(back.mappings["A"]?.showNameAndTime, true)
+        XCTAssertEqual(back.mappings["A"]?.size, PopupSizeOverride(width: 640))
+        XCTAssertEqual(back.mappings["A"]?.eventRules?.rules.map(\.id), [rule.id])
+        XCTAssertEqual(back.actions["X"]?.soundId, "6F0C6A52-4C4B-4E58-9B1E-2F3C1C0A0001")
+
+        // Written by the Phase-2–4 build: no new keys → nil (caller migrates); garbage → nil, rest kept.
+        let old = try XCTUnwrap(SettingsExtensions.decode(Data(#"{"mappings":{"A":{"chimeOnOpen":true,"size":"big","eventRules":7}}}"#.utf8)))
+        XCTAssertEqual(old.mappings["A"]?.chimeOnOpen, true)
+        XCTAssertNil(old.mappings["A"]?.showNameAndTime)
+        XCTAssertNil(old.mappings["A"]?.size)
+        XCTAssertNil(old.mappings["A"]?.eventRules)
+    }
+
     func testPrunedDropsStaleIds() {
         let pruned = sample().pruned(validMappings: ["B"], validActions: ["X"])
         XCTAssertTrue(pruned.mappings.isEmpty)

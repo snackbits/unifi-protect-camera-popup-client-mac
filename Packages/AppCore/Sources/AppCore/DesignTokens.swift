@@ -103,4 +103,7 @@ public enum Tokens {
     public static let stripeA = ThemeColor.fixed(RGBA(0x2A2D36))
     public static let stripeB = ThemeColor.fixed(RGBA(0x30343E))
     public static let popupRing = ThemeColor.fixed(RGBA(0xFFFFFF, alpha: 0.1))
+
+    // Phase 5 (not in the template): red link „Kamera entfernen“ – macOS systemRed, accessible variant.
+    public static let danger = ThemeColor(0xD70015, 0xFF6961)
 }

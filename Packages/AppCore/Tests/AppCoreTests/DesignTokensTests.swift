@@ -12,6 +12,7 @@ final class DesignTokensTests: XCTestCase {
         XCTAssertEqual(Tokens.pill.dark, RGBA(0x141518, alpha: 0.84))
         XCTAssertEqual(Tokens.overlay.light, RGBA(0x000000, alpha: 0.62))
         XCTAssertEqual(Tokens.overlay.light, Tokens.overlay.dark)
+        XCTAssertEqual(Tokens.danger, ThemeColor(0xD70015, 0xFF6961))
     }
 
     func testDynamicColorFollowsAppearance() throws {

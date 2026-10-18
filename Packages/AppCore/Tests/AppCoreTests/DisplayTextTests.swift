@@ -60,3 +60,20 @@ final class DisplayTextTests: XCTestCase {
         XCTAssertEqual(DisplayText.actionAddress("  ftp://x  "), "ftp://x")
     }
 }
+
+final class DisplayTextPhase5Tests: XCTestCase {
+    func testVersionAndUpdateTexts() {
+        XCTAssertEqual(DisplayText.version(short: "1.2.0", build: 29), "Version 1.2.0 (29)")
+        XCTAssertEqual(DisplayText.updateButton(targetShort: "1.3.0", targetBuild: 31, currentShort: "1.2.0"), "Update auf 1.3.0 installieren")
+        XCTAssertEqual(DisplayText.updateButton(targetShort: "1.2.0", targetBuild: 30, currentShort: "1.2.0"), "Update auf 1.2.0 (30) installieren")
+        XCTAssertEqual(DisplayText.updateButton(targetShort: nil, targetBuild: 30, currentShort: "1.2.0"), "Update auf 1.2.0 (30) installieren")
+        XCTAssertEqual(DisplayText.updateButton(targetShort: " ", targetBuild: 30, currentShort: "1.2.0"), "Update auf 1.2.0 (30) installieren")
+    }
+
+    func testActionTarget() {
+        XCTAssertEqual(DisplayText.actionTarget(url: "https://ha.local/x", soundName: nil), "ha.local/x")
+        XCTAssertEqual(DisplayText.actionTarget(url: "https://ha.local/x", soundName: "Gong"), "ha.local/x + Ton")
+        XCTAssertEqual(DisplayText.actionTarget(url: " ", soundName: "Gong"), "Ton „Gong“")
+        XCTAssertEqual(DisplayText.actionTarget(url: "", soundName: nil), "")
+    }
+}

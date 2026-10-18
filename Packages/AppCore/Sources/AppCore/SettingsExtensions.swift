@@ -14,21 +14,34 @@ public struct SettingsExtensions: Codable, Equatable, Sendable {
         public var triggers: [String]?
         public var webhookTriggerEnabled: Bool?
         public var chimeOnOpen: Bool?
+        /// Phase 5: „Name und Zeit einblenden“ (nil = not written yet → off).
+        public var showNameAndTime: Bool?
+        /// Phase 5: „Größe“; nil = not written yet (migrated from the main blob's width/height).
+        public var size: PopupSizeOverride?
+        /// Phase 5: Kameras › Ereignisse (without tokens).
+        public var eventRules: EventRuleList?
 
         public init(
             protectCameraId: String? = nil,
             triggers: [String]? = nil,
             webhookTriggerEnabled: Bool? = nil,
-            chimeOnOpen: Bool? = nil
+            chimeOnOpen: Bool? = nil,
+            showNameAndTime: Bool? = nil,
+            size: PopupSizeOverride? = nil,
+            eventRules: EventRuleList? = nil
         ) {
             self.protectCameraId = protectCameraId
             self.triggers = triggers
             self.webhookTriggerEnabled = webhookTriggerEnabled
             self.chimeOnOpen = chimeOnOpen
+            self.showNameAndTime = showNameAndTime
+            self.size = size
+            self.eventRules = eventRules
         }
 
         private enum CodingKeys: String, CodingKey {
             case protectCameraId, triggers, webhookTriggerEnabled, chimeOnOpen
+            case showNameAndTime, size, eventRules
         }
 
         public init(from decoder: Decoder) throws {
@@ -37,6 +50,9 @@ public struct SettingsExtensions: Codable, Equatable, Sendable {
             triggers = (try? c.decodeIfPresent([String].self, forKey: .triggers)) ?? nil
             webhookTriggerEnabled = (try? c.decodeIfPresent(Bool.self, forKey: .webhookTriggerEnabled)) ?? nil
             chimeOnOpen = (try? c.decodeIfPresent(Bool.self, forKey: .chimeOnOpen)) ?? nil
+            showNameAndTime = (try? c.decodeIfPresent(Bool.self, forKey: .showNameAndTime)) ?? nil
+            size = (try? c.decodeIfPresent(PopupSizeOverride.self, forKey: .size)) ?? nil
+            eventRules = (try? c.decodeIfPresent(EventRuleList.self, forKey: .eventRules)) ?? nil
         }
     }
 
@@ -44,18 +60,22 @@ public struct SettingsExtensions: Codable, Equatable, Sendable {
         /// `ActionIcon` raw value.
         public var icon: String?
         public var confirmBeforeRun: Bool?
+        /// Phase 5: announcement id (UUID string) the button plays; nil = no sound.
+        public var soundId: String?
 
-        public init(icon: String? = nil, confirmBeforeRun: Bool? = nil) {
+        public init(icon: String? = nil, confirmBeforeRun: Bool? = nil, soundId: String? = nil) {
             self.icon = icon
             self.confirmBeforeRun = confirmBeforeRun
+            self.soundId = soundId
         }
 
-        private enum CodingKeys: String, CodingKey { case icon, confirmBeforeRun }
+        private enum CodingKeys: String, CodingKey { case icon, confirmBeforeRun, soundId }
 
         public init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
             icon = (try? c.decodeIfPresent(String.self, forKey: .icon)) ?? nil
             confirmBeforeRun = (try? c.decodeIfPresent(Bool.self, forKey: .confirmBeforeRun)) ?? nil
+            soundId = (try? c.decodeIfPresent(String.self, forKey: .soundId)) ?? nil
         }
     }
 
