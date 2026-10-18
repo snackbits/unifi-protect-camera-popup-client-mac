@@ -427,6 +427,7 @@ final class SettingsStore: ObservableObject {
                 if let raw = m.triggers { mapping.triggers = Set(raw.compactMap(TriggerKind.init(rawValue:))) }
                 if let enabled = m.webhookTriggerEnabled { mapping.webhookTriggerEnabled = enabled }
                 if let chime = m.chimeOnOpen { mapping.chimeOnOpen = chime }
+                if let show = m.showNameAndTime { mapping.showNameAndTime = show }
             }
             mapping.actions = mapping.actions.map { action in
                 var action = action
@@ -448,7 +449,8 @@ final class SettingsStore: ObservableObject {
                 protectCameraId: mapping.protectCameraId,
                 triggers: TriggerKind.ordered.filter(mapping.triggers.contains).map(\.rawValue),
                 webhookTriggerEnabled: mapping.webhookTriggerEnabled,
-                chimeOnOpen: mapping.chimeOnOpen
+                chimeOnOpen: mapping.chimeOnOpen,
+                showNameAndTime: mapping.showNameAndTime
             )
             for action in mapping.actions {
                 actionValues[action.id.uuidString] = .init(

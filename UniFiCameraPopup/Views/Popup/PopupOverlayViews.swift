@@ -3,7 +3,8 @@ import AppKit
 
 /// What the popup chrome shows (template B). nil in crop selection mode.
 struct PopupOverlayContent {
-    let chipText: String
+    /// „Klingel · Haustür · 10:41“; nil = „Name und Zeit einblenden“ is off (no chip).
+    let chipText: String?
     let cameraName: String
     let muteOptions: [MuteDuration]
     let onMute: (MuteDuration) -> Void

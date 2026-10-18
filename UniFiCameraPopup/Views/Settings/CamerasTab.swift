@@ -179,13 +179,18 @@ struct CameraDetail: View {
                         optionsCard
                         buttonsSection
                         Spacer(minLength: 0)
-                        DisclosureButton(title: "Erweitert", expanded: $advancedExpanded)
-                            .id("advanced")
+                        // „Kamera entfernen“ stays visible with „Erweitert“ collapsed (Phase 5).
+                        HStack {
+                            DisclosureButton(title: "Erweitert", expanded: $advancedExpanded)
+                            Spacer()
+                            Button("Kamera entfernen") { confirmRemoval = true }
+                                .buttonStyle(LinkButtonStyle(color: Tokens.danger))
+                        }
+                        .id("advanced")
                         if advancedExpanded {
                             CameraAdvancedSection(
                                 mapping: $mapping,
-                                lastTriggered: events.lastTriggered(entryId: mapping.entryId),
-                                onRemove: { confirmRemoval = true }
+                                lastTriggered: events.lastTriggered(entryId: mapping.entryId)
                             )
                         }
                     }
@@ -272,6 +277,8 @@ struct CameraDetail: View {
             CardToggleRow(title: "Hinweiston beim Öffnen", isOn: $mapping.chimeOnOpen, vertical: 8, horizontal: 12)
             CardDivider()
             CardToggleRow(title: "Zoom und Ausschnitt merken", isOn: $mapping.rememberZoom, vertical: 8, horizontal: 12)
+            CardDivider()
+            CardToggleRow(title: "Ton des Livebilds", isOn: $mapping.soundEnabled, vertical: 8, horizontal: 12)
         }
     }
 

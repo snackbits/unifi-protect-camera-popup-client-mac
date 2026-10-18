@@ -7,7 +7,6 @@ import SwiftUI
 struct CameraAdvancedSection: View {
     @Binding var mapping: WebhookMapping
     let lastTriggered: Date?
-    let onRemove: () -> Void
 
     @EnvironmentObject private var settings: SettingsStore
     @ObservedObject private var protect = ProtectSession.shared
@@ -27,8 +26,6 @@ struct CameraAdvancedSection: View {
                     .font(.system(size: 11))
                     .foregroundStyle(Tokens.muted.color)
             }
-            Button("Kamera entfernen …", action: onRemove)
-                .buttonStyle(LinkButtonStyle(color: Tokens.muted))
         }
     }
 
@@ -125,7 +122,7 @@ struct CameraAdvancedSection: View {
                     Spacer(minLength: 0)
                 }
                 CardDivider()
-                CardToggleRow(title: "Ton des Livebilds", isOn: $mapping.soundEnabled, vertical: 9, horizontal: 12)
+                CardToggleRow(title: "Name und Zeit einblenden", isOn: $mapping.showNameAndTime, vertical: 9, horizontal: 12)
                 CardDivider()
                 HStack(spacing: 8) {
                     if mapping.crop != nil {

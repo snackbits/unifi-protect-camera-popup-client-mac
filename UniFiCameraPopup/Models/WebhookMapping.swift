@@ -179,6 +179,8 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
     var webhookTriggerEnabled: Bool
     /// "Hinweiston beim Öffnen": system sound when a triggered popup opens.
     var chimeOnOpen: Bool
+    /// „Name und Zeit einblenden“: the app's own chip (camera OSD shows the same). Default off.
+    var showNameAndTime: Bool
 
     enum CodingKeys: String, CodingKey {
         case entryId
@@ -198,6 +200,7 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
         case triggers
         case webhookTriggerEnabled
         case chimeOnOpen
+        case showNameAndTime
         case widthOverride
         case heightOverride
     }
@@ -219,7 +222,8 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
         protectCameraId: String? = nil,
         triggers: Set<TriggerKind> = [.ring, .person],
         webhookTriggerEnabled: Bool = false,
-        chimeOnOpen: Bool = false
+        chimeOnOpen: Bool = false,
+        showNameAndTime: Bool = false
     ) {
         self.entryId = entryId
         self.webhookId = webhookId
@@ -238,6 +242,7 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
         self.triggers = triggers
         self.webhookTriggerEnabled = webhookTriggerEnabled
         self.chimeOnOpen = chimeOnOpen
+        self.showNameAndTime = showNameAndTime
     }
 
     init(from decoder: Decoder) throws {
@@ -270,6 +275,8 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
         webhookTriggerEnabled = (try? container.decodeIfPresent(Bool.self, forKey: .webhookTriggerEnabled))
             ?? !webhookId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         chimeOnOpen = (try? container.decodeIfPresent(Bool.self, forKey: .chimeOnOpen)) ?? false
+        // Phase 5: existing cameras start without the chip, too.
+        showNameAndTime = (try? container.decodeIfPresent(Bool.self, forKey: .showNameAndTime)) ?? false
     }
 
     func encode(to encoder: Encoder) throws {
@@ -291,6 +298,7 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
         try container.encode(TriggerKind.ordered.filter(triggers.contains), forKey: .triggers)
         try container.encode(webhookTriggerEnabled, forKey: .webhookTriggerEnabled)
         try container.encode(chimeOnOpen, forKey: .chimeOnOpen)
+        try container.encode(showNameAndTime, forKey: .showNameAndTime)
     }
 }
 

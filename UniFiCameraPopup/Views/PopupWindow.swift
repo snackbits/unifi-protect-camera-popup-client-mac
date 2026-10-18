@@ -244,13 +244,12 @@ final class PopupWindow: NSPanel {
         content.layer?.borderColor = Tokens.popupRing.light.nsColor.cgColor
         guard let overlay else { return }
 
-        let chip = OverlayChipView(text: overlay.chipText)
         let close = CircleIconButton(icon: .close, iconSize: 11, diameter: 24,
                                      fill: Tokens.overlay, tint: Tokens.white, label: "Schließen")
         close.target = self
         close.action = #selector(closeTapped)
         let mute = CircleIconButton(icon: .bellSlash, iconSize: 13, diameter: 24,
-                                    fill: Tokens.overlay, tint: Tokens.white, label: "\(overlay.cameraName) stummschalten")
+                                    fill: Tokens.overlay, tint: Tokens.white, label: "Diese Kamera stummschalten")
         mute.target = self
         mute.action = #selector(muteTapped)
         let menu = PopupMuteMenuView(cameraName: overlay.cameraName, options: overlay.muteOptions)
@@ -260,18 +259,23 @@ final class PopupWindow: NSPanel {
             self?.closePopup()
         }
 
-        content.addSubview(chip)
         content.addSubview(close)
         content.addSubview(mute)
         var constraints = [
-            chip.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 10),
-            chip.topAnchor.constraint(equalTo: content.topAnchor, constant: 10),
-            chip.trailingAnchor.constraint(lessThanOrEqualTo: mute.leadingAnchor, constant: -8),
             close.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -10),
             close.topAnchor.constraint(equalTo: content.topAnchor, constant: 10),
             mute.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -40),
             mute.topAnchor.constraint(equalTo: content.topAnchor, constant: 10),
         ]
+        if let chipText = overlay.chipText {
+            let chip = OverlayChipView(text: chipText)
+            content.addSubview(chip)
+            constraints += [
+                chip.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 10),
+                chip.topAnchor.constraint(equalTo: content.topAnchor, constant: 10),
+                chip.trailingAnchor.constraint(lessThanOrEqualTo: mute.leadingAnchor, constant: -8),
+            ]
+        }
         var leading: [NSView] = []
         if let talk = overlay.talk {
             let controls = PopupTalkControls(content: talk)

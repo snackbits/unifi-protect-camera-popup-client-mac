@@ -259,7 +259,21 @@ enum SnapshotRenderer {
             write(window: updateWindow, appearance: appearance, includeFrame: false,
                   to: directory.appendingPathComponent("7-panel-update-\(suffix).png"))
 
-            // 8 – popup chrome, mute menu closed and open.
+            // 8 – popup chrome, mute menu closed and open; Phase 5 default: no chip.
+            let plain = PopupWindow(
+                frame: NSRect(x: 0, y: 0, width: 470, height: 300),
+                streamURL: "", soundEnabled: false,
+                thumbnailDataURI: placeholderDataURI(size: CGSize(width: 470, height: 300)),
+                autoCloseSeconds: 0,
+                actions: sample.door.actions,
+                overlay: PopupOverlayContent(
+                    chipText: nil, cameraName: "Haustür",
+                    muteOptions: sample.settings.muteOptions, onMute: { _ in }
+                ),
+                onClose: {}
+            )
+            write(window: plain, appearance: appearance, includeFrame: false,
+                  to: directory.appendingPathComponent("8-popup-ohne-chip-\(suffix).png"))
             for menuOpen in [false, true] {
                 let popup = PopupWindow(
                     frame: NSRect(x: 0, y: 0, width: 470, height: 300),
