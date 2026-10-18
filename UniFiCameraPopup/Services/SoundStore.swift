@@ -3,7 +3,7 @@ import AVFoundation
 import Combine
 import Foundation
 
-/// Einstellungen › Ton: announcements, microphone, talk mode, the two volumes.
+/// Einstellungen › Ton: announcements, microphone, the two volumes.
 /// Own UserDefaults key and files in Application Support – not part of the configuration export.
 @MainActor
 final class SoundStore: ObservableObject {
@@ -58,33 +58,37 @@ final class SoundStore: ObservableObject {
 
     // MARK: Loudness
 
-    /// Measures the common-loudness factor of `buffer`, stores it on the entry and returns it.
-    @discardableResult
-    func storeLoudness(of buffer: AVAudioPCMBuffer, for id: UUID) -> Float {
-        let gain = (try? AnnouncementAudio.loudnessGain(of: buffer)) ?? 1
-        if var entry = settings.announcement(id: id), entry.loudnessGain == nil {
-            entry.loudnessGain = Double(gain)
-            settings.update(entry)
+    /// Files whose measurement failed this session: played with factor 1, not measured again.
+    private var failedLoudness: Set<String> = []
+    private var measuring: Set<UUID> = []
+
+    /// Writes a factor measured off the main thread, only if the entry still has the same file.
+    func recordLoudness(_ gain: Float?, id: UUID, fileName: String?) {
+        measuring.remove(id)
+        guard var entry = settings.announcement(id: id), entry.fileName == fileName else { return }
+        guard let gain else {
+            if let fileName { failedLoudness.insert(fileName) }
+            return
         }
-        return gain
+        guard entry.loudnessGain == nil else { return }
+        entry.loudnessGain = Double(gain)
+        settings.update(entry)
     }
 
-    /// Entries from before Phase 5 (and the bundled recordings): measured once in the background.
-    private func measureMissingLoudness() {
-        let pending = settings.announcements.compactMap { entry -> (UUID, URL)? in
-            guard entry.loudnessGain == nil, let url = audioURL(for: entry) else { return nil }
-            return (entry.id, url)
+    /// Entries without a factor (before Phase 5, bundled, just imported): measured once in the background.
+    func measureMissingLoudness() {
+        let pending = settings.announcements.compactMap { entry -> (UUID, String?, URL)? in
+            guard entry.loudnessGain == nil, !measuring.contains(entry.id),
+                  !(entry.fileName.map(failedLoudness.contains) ?? false),
+                  let url = audioURL(for: entry) else { return nil }
+            return (entry.id, entry.fileName, url)
         }
         guard !pending.isEmpty else { return }
+        for (id, _, _) in pending { measuring.insert(id) }
         Task.detached(priority: .utility) {
-            for (id, url) in pending {
-                guard let buffer = try? AnnouncementAudio.load(url),
-                      let gain = try? AnnouncementAudio.loudnessGain(of: buffer) else { continue }
-                await MainActor.run {
-                    guard var entry = SoundStore.shared.settings.announcement(id: id), entry.loudnessGain == nil else { return }
-                    entry.loudnessGain = Double(gain)
-                    SoundStore.shared.settings.update(entry)
-                }
+            for (id, fileName, url) in pending {
+                let gain = (try? AnnouncementAudio.load(url)).flatMap { try? AnnouncementAudio.loudnessGain(of: $0) }
+                await MainActor.run { SoundStore.shared.recordLoudness(gain, id: id, fileName: fileName) }
             }
         }
     }
@@ -130,8 +134,7 @@ final class SoundStore: ObservableObject {
         let name = "\(UUID().uuidString).aiff"
         guard let target = resolve(name),
               (try? FileManager.default.copyItem(at: Self.systemGong, to: target)) != nil else { return }
-        let level = (try? AnnouncementAudio.load(target)).flatMap { try? AnnouncementAudio.loudnessGain(of: $0) }
-        settings.add(Announcement(name: "Gong", kind: .file, fileName: name, duration: duration, loudnessGain: level.map(Double.init)))
+        settings.add(Announcement(name: "Gong", kind: .file, fileName: name, duration: duration))
         save()
     }
 
@@ -242,10 +245,9 @@ final class SoundStore: ObservableObject {
         var updated = entry
         updated.fileName = name
         updated.duration = duration
-        // Measured once here (a 5-minute MP3 decodes in well under a second).
-        updated.loudnessGain = (try? AnnouncementAudio.load(target))
-            .flatMap { try? AnnouncementAudio.loudnessGain(of: $0) }
-            .map(Double.init)
+        // The new file is measured in the background once the caller has stored the entry.
+        updated.loudnessGain = nil
+        Task { @MainActor [weak self] in self?.measureMissingLoudness() }
         return updated
     }
 

@@ -190,13 +190,22 @@ final class TalkbackService: ObservableObject {
         let entryId = mapping.entryId
         let name = announcement.name
         do {
-            let loading = Task.detached { () throws -> PCMBox in PCMBox(buffer: try AnnouncementAudio.load(url)) }
+            let known = announcement.loudnessGain.map(Float.init)
+            let needsMeasuring = known == nil
+            let loading = Task.detached { () throws -> (box: PCMBox, measured: Float?) in
+                let buffer = try AnnouncementAudio.load(url)
+                let measured = needsMeasuring ? (try? AnnouncementAudio.loudnessGain(of: buffer)) : nil
+                return (PCMBox(buffer: buffer), measured)
+            }
             let target = try await openSession(for: mapping)
-            let audio = try await loading.value.buffer
+            let loaded = try await loading.value
+            let audio = loaded.box.buffer
             guard run == token else { return }
             // Common loudness (measured on import; older entries now), then „Lautstärke Ansagen“.
-            let level = announcement.loudnessGain.map(Float.init)
-                ?? SoundStore.shared.storeLoudness(of: audio, for: announcement.id)
+            let level = known ?? loaded.measured ?? 1
+            if needsMeasuring {
+                SoundStore.shared.recordLoudness(loaded.measured, id: announcement.id, fileName: announcement.fileName)
+            }
             let streamer = try makeStreamer(
                 target: target,
                 entryId: entryId,
