@@ -1,3 +1,4 @@
+import AppCore
 import Foundation
 import ProtectKit
 
@@ -181,6 +182,9 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
     var chimeOnOpen: Bool
     /// „Name und Zeit einblenden“: the app's own chip (camera OSD shows the same). Default off.
     var showNameAndTime: Bool
+    /// „Größe“ (Phase 5): empty = automatic (42 % of the screen height). `width`/`height` stay the
+    /// last concrete size (crop, older builds) and give the aspect ratio of a crop.
+    var sizeOverride: PopupSizeOverride
 
     enum CodingKeys: String, CodingKey {
         case entryId
@@ -201,6 +205,7 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
         case webhookTriggerEnabled
         case chimeOnOpen
         case showNameAndTime
+        case sizeOverride
         case widthOverride
         case heightOverride
     }
@@ -223,7 +228,8 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
         triggers: Set<TriggerKind> = [.ring, .person],
         webhookTriggerEnabled: Bool = false,
         chimeOnOpen: Bool = false,
-        showNameAndTime: Bool = false
+        showNameAndTime: Bool = false,
+        sizeOverride: PopupSizeOverride = .automatic
     ) {
         self.entryId = entryId
         self.webhookId = webhookId
@@ -243,6 +249,7 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
         self.webhookTriggerEnabled = webhookTriggerEnabled
         self.chimeOnOpen = chimeOnOpen
         self.showNameAndTime = showNameAndTime
+        self.sizeOverride = sizeOverride
     }
 
     init(from decoder: Decoder) throws {
@@ -277,6 +284,9 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
         chimeOnOpen = (try? container.decodeIfPresent(Bool.self, forKey: .chimeOnOpen)) ?? false
         // Phase 5: existing cameras start without the chip, too.
         showNameAndTime = (try? container.decodeIfPresent(Bool.self, forKey: .showNameAndTime)) ?? false
+        // Written before Phase 5: the old default 480 × 270 becomes automatic, other sizes stay.
+        sizeOverride = ((try? container.decodeIfPresent(PopupSizeOverride.self, forKey: .sizeOverride)) ?? nil)
+            ?? .migrated(width: width, height: height)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -299,6 +309,7 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
         try container.encode(webhookTriggerEnabled, forKey: .webhookTriggerEnabled)
         try container.encode(chimeOnOpen, forKey: .chimeOnOpen)
         try container.encode(showNameAndTime, forKey: .showNameAndTime)
+        try container.encode(sizeOverride, forKey: .sizeOverride)
     }
 }
 

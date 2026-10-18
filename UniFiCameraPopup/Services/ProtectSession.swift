@@ -14,6 +14,9 @@ final class ProtectSession: ObservableObject {
     @Published private(set) var client: ProtectClient?
     private var streamCache: [String: String] = [:]
     private var snapshotCache: [String: (image: NSImage, date: Date)] = [:]
+    /// Width / height of each camera's picture, learned from snapshots (automatic popup size).
+    /// Kept across reconnects: a camera's picture format does not depend on the route.
+    @Published private(set) var aspectRatios: [String: Double] = [:]
     private let settings = SettingsStore.shared
 
     private init() {}
@@ -78,6 +81,7 @@ final class ProtectSession: ObservableObject {
             guard client === self.client else { return }
             cameras = result
             lastError = nil
+            prefetchAspectRatios()
         } catch {
             guard client === self.client else { return }
             lastError = error.localizedDescription
@@ -112,6 +116,25 @@ final class ProtectSession: ObservableObject {
         if client === self.client {
             snapshotCache[cameraId] = (image, Date())
         }
+        if let rep = image.representations.first, rep.pixelsWide > 0, rep.pixelsHigh > 0 {
+            aspectRatios[cameraId] = Double(rep.pixelsWide) / Double(rep.pixelsHigh)
+        }
         return image
+    }
+
+    /// nil until a snapshot of the camera was seen.
+    func aspectRatio(cameraId: String) -> Double? {
+        aspectRatios[cameraId]
+    }
+
+    /// One snapshot per linked camera whose picture format is still unknown (once per launch).
+    private func prefetchAspectRatios() {
+        let missing = Set(settings.mappings.compactMap(\.protectCameraId)).filter { aspectRatios[$0] == nil }
+        guard !missing.isEmpty else { return }
+        Task {
+            for cameraId in missing {
+                _ = await snapshot(cameraId: cameraId)
+            }
+        }
     }
 }
