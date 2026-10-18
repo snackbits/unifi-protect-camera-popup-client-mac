@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"net"
 	"net/netip"
 	"strconv"
@@ -19,11 +20,16 @@ func (k Key) Hex() string    { return hex.EncodeToString(k[:]) }
 func (k Key) Base64() string { return base64.StdEncoding.EncodeToString(k[:]) }
 func (k Key) IsZero() bool   { return k == Key{} }
 
-// String and GoString keep key bytes out of %v, %+v, %#v, %s and %x, so a
-// formatted Config (log line, test failure) never shows a key. Use Hex or
-// Base64 where the key is really needed.
-func (k Key) String() string   { return "<redacted>" }
-func (k Key) GoString() string { return "<redacted>" }
+// A Key never shows its bytes when formatted or encoded: Format covers every
+// fmt verb (%v, %+v, %#v, %s, %x, %d, %o, %b …, also inside structs and
+// slices), MarshalText covers encoding/json and friends. Use Hex or Base64
+// where the key is really needed.
+const redacted = "<redacted>"
+
+func (k Key) String() string               { return redacted }
+func (k Key) GoString() string             { return redacted }
+func (k Key) Format(f fmt.State, _ rune)   { io.WriteString(f, redacted) }
+func (k Key) MarshalText() ([]byte, error) { return []byte(redacted), nil }
 
 type Interface struct {
 	PrivateKey Key

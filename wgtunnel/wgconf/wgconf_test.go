@@ -1,6 +1,7 @@
 package wgconf
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/netip"
@@ -171,19 +172,47 @@ func TestKeyFormattingIsRedacted(t *testing.T) {
 	}
 	secrets := []string{k1, k2, k3,
 		c.Interface.PrivateKey.Hex(), c.Peers[0].PublicKey.Hex(), c.Peers[0].PresharedKey.Hex()}
+	// What fmt would print for the bare bytes, per integer verb ("[201 9 …]").
+	for _, key := range []Key{c.Interface.PrivateKey, c.Peers[0].PublicKey, c.Peers[0].PresharedKey} {
+		for _, verb := range []string{"%d", "%o", "%b", "%x", "%X", "%v"} {
+			raw := [32]byte(key)
+			secrets = append(secrets, strings.Trim(fmt.Sprintf(verb, raw), "[]"))
+		}
+	}
 	k := c.Interface.PrivateKey
-	for _, out := range []string{
+	outs := []string{
 		fmt.Sprintf("%+v", c), fmt.Sprintf("%v", c), fmt.Sprintf("%#v", c),
 		fmt.Sprintf("%+v", *c), fmt.Sprintf("%#v", *c), fmt.Sprintf("%+v", c.Peers),
 		fmt.Sprintf("%v", k), fmt.Sprintf("%s", k), fmt.Sprintf("%x", k), fmt.Sprintf("%#v", k),
-	} {
+		fmt.Sprintf("%d", k), fmt.Sprintf("%o", k), fmt.Sprintf("%b", k), fmt.Sprintf("%X", k),
+		fmt.Sprintln(c.Interface), string(mustJSON(t, c)), string(mustJSON(t, k)),
+	}
+	// Integer verbs on whole structs: vet rejects them as constants, so loop.
+	for _, verb := range []string{"%d", "%o", "%b", "%x", "%X", "%+d", "%#x"} {
+		outs = append(outs, fmt.Sprintf(verb, *c), fmt.Sprintf(verb, c), fmt.Sprintf(verb, c.Peers),
+			fmt.Sprintf(verb, c.Interface), fmt.Sprintf(verb, k))
+	}
+	for _, out := range outs {
 		for _, s := range secrets {
 			if strings.Contains(out, s) {
 				t.Fatal("formatted config contains key material") // never print out: it holds the key
 			}
 		}
 	}
+	var decoded string
+	if err := json.Unmarshal(mustJSON(t, k), &decoded); err != nil || decoded != "<redacted>" {
+		t.Fatalf("key JSON decodes to %d bytes (err %v), want <redacted>", len(decoded), err)
+	}
 	if got := fmt.Sprintf("%+v", k); got != "<redacted>" {
 		t.Fatalf("key formats as %d bytes, want <redacted>", len(got))
 	}
+}
+
+func mustJSON(t *testing.T, v any) []byte {
+	t.Helper()
+	b, err := json.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
 }

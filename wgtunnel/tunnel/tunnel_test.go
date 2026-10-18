@@ -1,6 +1,7 @@
 package tunnel
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
@@ -10,6 +11,8 @@ import (
 	"net/netip"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -378,13 +381,36 @@ func udpRoundTrip(t *testing.T, c *net.UDPConn, msg string, wait time.Duration) 
 	return true
 }
 
-func TestUDPForwardLocksToFirstSender(t *testing.T) {
-	tun := startApp(t, startHome(t, ""))
+// fakeClock drives the UDP sender lock so idle handover needs no real waiting.
+type fakeClock struct {
+	mu  sync.Mutex
+	now time.Time
+}
+
+func (c *fakeClock) Now() time.Time {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.now
+}
+
+func (c *fakeClock) Advance(d time.Duration) {
+	c.mu.Lock()
+	c.now = c.now.Add(d)
+	c.mu.Unlock()
+}
+
+// startUDP opens a UDP forward to the home echo on a fake clock and returns it
+// with a first local sender that already holds the lock.
+func startUDP(t *testing.T) (tun *Tunnel, clock *fakeClock, port int, first *net.UDPConn) {
+	t.Helper()
+	tun = startApp(t, startHome(t, ""))
+	clock = &fakeClock{now: time.Unix(1_000_000, 0)}
+	tun.now = clock.Now
 	port, err := tun.AddUDPForward(0, "192.168.1.1", 7449)
 	if err != nil {
 		t.Fatal(err)
 	}
-	first := udpSender(t, port)
+	first = udpSender(t, port)
 	// The first datagram may race the handshake; retry until any warm-up echo
 	// arrives, then drain late echoes of earlier retries.
 	buf := make([]byte, 2048)
@@ -406,6 +432,12 @@ func TestUDPForwardLocksToFirstSender(t *testing.T) {
 			break
 		}
 	}
+	return tun, clock, port, first
+}
+
+func TestUDPForwardRejectsSecondSenderWhileFirstIsActive(t *testing.T) {
+	tun, clock, port, first := startUDP(t)
+	clock.Advance(UDPRelockIdle - time.Millisecond) // just short of idle
 	other := udpSender(t, port)
 	if udpRoundTrip(t, other, "intruder", time.Second) {
 		t.Fatal("a second local sender got a reply")
@@ -416,5 +448,88 @@ func TestUDPForwardLocksToFirstSender(t *testing.T) {
 	// The first sender keeps working and does not receive the intruder's echo.
 	if !udpRoundTrip(t, first, "first-again", 5*time.Second) {
 		t.Fatal("first sender lost its forward")
+	}
+}
+
+func TestUDPForwardRelocksAfterFirstSenderIsIdle(t *testing.T) {
+	tun, clock, port, first := startUDP(t)
+	clock.Advance(UDPRelockIdle)
+	next := udpSender(t, port) // next talkback session: new socket, new source port
+	if !udpRoundTrip(t, next, "next-session", 5*time.Second) {
+		t.Fatal("new sender not accepted after the first went idle")
+	}
+	// Now the old sender is the foreign one.
+	if udpRoundTrip(t, first, "stale", time.Second) {
+		t.Fatal("old sender still answered after the handover")
+	}
+	if got := tun.UDPForeignDropped.Load(); got != 1 {
+		t.Fatalf("dropped %d foreign datagrams, want 1", got)
+	}
+}
+
+func TestResetConnectionsClearsUDPLock(t *testing.T) {
+	tun, _, port, _ := startUDP(t)
+	tun.ResetConnections()
+	next := udpSender(t, port) // clock unchanged: only the reset frees the lock
+	if !udpRoundTrip(t, next, "after-reset", 5*time.Second) {
+		t.Fatal("new sender not accepted after ResetConnections")
+	}
+	if got := tun.UDPForeignDropped.Load(); got != 0 {
+		t.Fatalf("dropped %d datagrams, want 0", got)
+	}
+}
+
+func TestIPv4MappedTargetsFollowAllowedIPs(t *testing.T) {
+	tun := startApp(t, startHome(t, ""))
+	if _, err := tun.AddForward(0, "::ffff:10.0.0.1", 7448); err == nil {
+		t.Error("TCP ::ffff:10.0.0.1 accepted")
+	}
+	if _, err := tun.AddUDPForward(0, "::ffff:10.0.0.1", 7449); err == nil {
+		t.Error("UDP ::ffff:10.0.0.1 accepted")
+	}
+	tp, err := tun.AddForward(0, "::ffff:192.168.1.1", 7448)
+	if err != nil {
+		t.Fatalf("TCP ::ffff:192.168.1.1 rejected: %v", err)
+	}
+	if p, _ := tun.AddForward(0, "192.168.1.1", 7448); p != tp {
+		t.Errorf("mapped and plain address got different TCP ports: %d vs %d", tp, p)
+	}
+	echoOnce(t, tp)
+	up, err := tun.AddUDPForward(0, "::ffff:192.168.1.1", 7449)
+	if err != nil {
+		t.Fatalf("UDP ::ffff:192.168.1.1 rejected: %v", err)
+	}
+	if p, _ := tun.AddUDPForward(0, "192.168.1.1", 7449); p != up {
+		t.Errorf("mapped and plain address got different UDP ports: %d vs %d", up, p)
+	}
+}
+
+func TestHostNameTargetsFollowAllowedIPs(t *testing.T) {
+	tun := startApp(t, startHome(t, ""))
+	var lookups atomic.Int32
+	tun.lookupHost = func(_ context.Context, host string) ([]string, error) {
+		lookups.Add(1)
+		switch host {
+		case "outside.test":
+			return []string{"10.0.0.5"}, nil
+		case "konsole.test":
+			return []string{"10.0.0.5", "192.168.1.1"}, nil // pinned to the allowed answer
+		}
+		return nil, fmt.Errorf("no such host")
+	}
+	if _, err := tun.AddForward(0, "outside.test", 7448); err == nil {
+		t.Fatal("host name resolving outside AllowedIPs accepted")
+	}
+	port, err := tun.AddForward(0, "konsole.test", 7448)
+	if err != nil {
+		t.Fatal(err)
+	}
+	echoOnce(t, port)
+	before := lookups.Load()
+	if p, err := tun.AddForward(0, "konsole.test", 7448); err != nil || p != port {
+		t.Fatalf("repeat AddForward: port %d err %v, want %d", p, err, port)
+	}
+	if lookups.Load() != before {
+		t.Error("repeat AddForward for a known host name resolved again")
 	}
 }

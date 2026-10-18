@@ -17,10 +17,11 @@ void WgStop(void);
 /// Local port on 127.0.0.1, or -1 (see WgLastError). Same remote -> same port.
 /// remoteHost must be (or resolve to) an address inside the peer's AllowedIPs.
 int WgAddForward(int localPort, const char *remoteHost, int remotePort);
-/// UDP; remoteHost must be an IP literal inside AllowedIPs. Answers only the
-/// first local sender, datagrams from other local addresses are dropped.
+/// UDP; remoteHost must be an IP literal inside AllowedIPs. One local sender at
+/// a time: others are dropped until it was silent for 3 s or a reset ran.
 int WgAddUDPForward(int localPort, const char *remoteHost, int remotePort);
-/// Number of relayed TCP connections closed (listeners stay open).
+/// Number of relayed TCP connections closed (listeners stay open); also
+/// unlocks every UDP forward for the next local sender.
 int WgResetConnections(void);
 /// NULL on success, otherwise an error message.
 char *WgRebind(void);

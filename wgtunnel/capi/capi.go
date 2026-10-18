@@ -109,7 +109,8 @@ func WgAddForward(localPort C.int, remoteHost *C.char, remotePort C.int) C.int {
 }
 
 // WgAddUDPForward: same for UDP (remoteHost must be an IP literal inside
-// AllowedIPs). Only the first local sender is answered; others are dropped.
+// AllowedIPs). One local sender at a time: others are dropped until it has been
+// silent for 3 s or WgResetConnections ran.
 //
 //export WgAddUDPForward
 func WgAddUDPForward(localPort C.int, remoteHost *C.char, remotePort C.int) C.int {
@@ -117,7 +118,8 @@ func WgAddUDPForward(localPort C.int, remoteHost *C.char, remotePort C.int) C.in
 	return withTunnel(func(t *tunnel.Tunnel) (int, error) { return t.AddUDPForward(int(localPort), h, int(remotePort)) })
 }
 
-// WgResetConnections closes all relayed TCP connections (listeners stay).
+// WgResetConnections closes all relayed TCP connections (listeners stay) and
+// unlocks every UDP forward for the next local sender.
 // Returns the number closed, 0 when the tunnel is not running.
 //
 //export WgResetConnections
