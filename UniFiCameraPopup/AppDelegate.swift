@@ -6,7 +6,6 @@ import SwiftUI
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
-    private var settingsWindow: NSWindow?
     private var helpWindow: NSWindow?
     private var whatsNewWindow: NSWindow?
     private let settings = SettingsStore.shared
@@ -36,6 +35,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         settings.pruneMutes()
+        AppActions.openHelp = { [weak self] in self?.openHelp() }
         settings.reconcileLaunchAtLogin()
         setupStatusItem()
         if !settings.isProtectConfigured && settings.mappings.isEmpty {
@@ -474,25 +474,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func openOnboarding() { OnboardingWindow.show() }
 
     @objc private func openSettings() {
-        if settingsWindow == nil {
-            let view = SettingsView()
-                .environmentObject(settings)
-                .environmentObject(webSocketClient)
-
-            settingsWindow = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 720, height: 560),
-                styleMask: [.titled, .closable, .resizable],
-                backing: .buffered,
-                defer: false
-            )
-            settingsWindow?.title = "UniFi Camera Popup"
-            settingsWindow?.center()
-            settingsWindow?.contentView = NSHostingView(rootView: view)
-            settingsWindow?.isReleasedWhenClosed = false
-        }
-
-        settingsWindow?.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
+        SettingsWindowController.shared.show(webSocketClient: webSocketClient, protectEvents: protectEvents)
     }
 
     private var currentVersionLabel: String {
