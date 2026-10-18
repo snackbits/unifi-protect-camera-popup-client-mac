@@ -7,6 +7,8 @@ import Security
 enum KeychainStore {
     static let actionTokenService = "com.snackbits.UniFiCameraPopup.action-token"
     static let protectAPIKeyService = "com.snackbits.UniFiCameraPopup.protect-api-key"
+    /// Bearer tokens of event rules (Kameras › Ereignisse); account = rule id. Never exported.
+    static let ruleTokenService = "com.snackbits.UniFiCameraPopup.rule-token"
     /// Full wg-quick text of the WireGuard tunnel (contains the private key).
     static let wireGuardConfigService = "com.snackbits.UniFiCameraPopup.wireguard-config"
 

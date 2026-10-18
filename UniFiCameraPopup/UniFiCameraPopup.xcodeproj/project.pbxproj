@@ -71,6 +71,8 @@
 		D41000000000000000000021 /* WireGuardGuideView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D42000000000000000000021 /* WireGuardGuideView.swift */; };
 		D41000000000000000000022 /* OnboardingTunnelStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = D42000000000000000000022 /* OnboardingTunnelStep.swift */; };
 		D41000000000000000000023 /* TunnelSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D42000000000000000000023 /* TunnelSettingsView.swift */; };
+		E51000000000000000000001 /* EventRuleService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E52000000000000000000001 /* EventRuleService.swift */; };
+		E51000000000000000000002 /* EventRulesSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = E52000000000000000000002 /* EventRulesSection.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -137,6 +139,8 @@
 		D42000000000000000000021 /* WireGuardGuideView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WireGuardGuideView.swift; sourceTree = "<group>"; };
 		D42000000000000000000022 /* OnboardingTunnelStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingTunnelStep.swift; sourceTree = "<group>"; };
 		D42000000000000000000023 /* TunnelSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TunnelSettingsView.swift; sourceTree = "<group>"; };
+		E52000000000000000000001 /* EventRuleService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventRuleService.swift; sourceTree = "<group>"; };
+		E52000000000000000000002 /* EventRulesSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventRulesSection.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -208,6 +212,7 @@
 		A40000000000000000000005 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				E52000000000000000000001 /* EventRuleService.swift */,
 				A20000000000000000000006 /* SettingsStore.swift */,
 				A20000000000000000000007 /* WebSocketClient.swift */,
 				A20000000000000000000017 /* UpdateService.swift */,
@@ -271,6 +276,7 @@
 		A40000000000000000000071 /* Settings */ = {
 			isa = PBXGroup;
 			children = (
+				E52000000000000000000002 /* EventRulesSection.swift */,
 				A20000000000000000000073 /* SettingsWindow.swift */,
 				A20000000000000000000074 /* GeneralTab.swift */,
 				A20000000000000000000078 /* SoundAndRemoteTabs.swift */,
@@ -435,6 +441,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E51000000000000000000002 /* EventRulesSection.swift in Sources */,
+				E51000000000000000000001 /* EventRuleService.swift in Sources */,
 				D41000000000000000000023 /* TunnelSettingsView.swift in Sources */,
 				D41000000000000000000022 /* OnboardingTunnelStep.swift in Sources */,
 				D41000000000000000000021 /* WireGuardGuideView.swift in Sources */,

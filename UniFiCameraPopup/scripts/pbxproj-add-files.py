@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Adds files to the app target of UniFiCameraPopup.xcodeproj (hand-maintained pbxproj).
 
-usage: scripts/pbxproj-add-files.py <group> <first-id> <file> [<file> ...]
+usage: scripts/pbxproj-add-files.py [--prefix XY] <group> <first-id> <file> [<file> ...]
 
-  group     Services/Tunnel | Views/Tunnel | Source (top-level group, for resources)
-  first-id  two hex digits; file n gets PBXBuildFile D41…<id+n> and PBXFileReference D42…<id+n>
+  --prefix  two characters for new ids (default D4 = Phase 4; Phase 5 uses E5)
+  group     Services | Views/Settings | Services/Tunnel | Views/Tunnel | Source (top-level group, for resources)
+  first-id  two hex digits; file n gets PBXBuildFile <prefix>1…<id+n> and PBXFileReference <prefix>2…<id+n>
   file      file name inside the group's folder
 
 *.swift goes to the Sources phase, everything else to Resources. The groups
@@ -26,11 +27,17 @@ GROUPS = {
     "Views/Tunnel": ("D44000000000000000000002", "A40000000000000000000006",
                      "A40000000000000000000060 /* Onboarding */"),
     "Source": ("A40000000000000000000002", None, None),
+    "Services": ("A40000000000000000000005", None, None),
+    "Views/Settings": ("A40000000000000000000071", None, None),
 }
 
 
 def main():
-    group, first, *files = sys.argv[1:]
+    args = sys.argv[1:]
+    prefix = "D4"
+    if args[:1] == ["--prefix"]:
+        prefix, args = args[1], args[2:]
+    group, first, *files = args
     s = open(PROJECT, encoding="utf-8").read()
     group_id, parent_id, after_child = GROUPS[group]
 
@@ -74,8 +81,8 @@ def main():
             print("already in project:", name)
             n += 1
             continue
-        build_id = f"D41{n:021X}"
-        ref_id = f"D42{n:021X}"
+        build_id = f"{prefix}1{n:021X}"
+        ref_id = f"{prefix}2{n:021X}"
         if build_id in s or ref_id in s:
             sys.exit(f"id {build_id}/{ref_id} already used – pick another first-id")
         n += 1

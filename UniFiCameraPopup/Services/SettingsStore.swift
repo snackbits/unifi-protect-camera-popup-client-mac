@@ -250,6 +250,10 @@ final class SettingsStore: ObservableObject {
             if let ext {
                 mappings = Self.overlay(ext, onto: mappings)
             }
+            // After the overlay: the extension may carry rules the main blob lost.
+            let rules = Self.loadRuleTokens(into: mappings)
+            mappings = rules.mappings
+            keychainRuleTokens = rules.fromKeychain
 
             // Decode succeeded: rewrite the (possibly migrated/normalized) payload.
             persist()
@@ -436,6 +440,7 @@ final class SettingsStore: ObservableObject {
                 if let chime = m.chimeOnOpen { mapping.chimeOnOpen = chime }
                 if let show = m.showNameAndTime { mapping.showNameAndTime = show }
                 if let size = m.size { mapping.sizeOverride = size }
+                if let rules = m.eventRules { mapping.eventRules = rules.rules }
             }
             mapping.actions = mapping.actions.map { action in
                 var action = action
@@ -461,7 +466,8 @@ final class SettingsStore: ObservableObject {
                 webhookTriggerEnabled: mapping.webhookTriggerEnabled,
                 chimeOnOpen: mapping.chimeOnOpen,
                 showNameAndTime: mapping.showNameAndTime,
-                size: mapping.sizeOverride
+                size: mapping.sizeOverride,
+                eventRules: EventRuleList(mapping.eventRules)
             )
             for action in mapping.actions {
                 actionValues[action.id.uuidString] = .init(
@@ -485,6 +491,7 @@ final class SettingsStore: ObservableObject {
     }
 
     private func persist() {
+        syncRuleTokensToKeychain()
         let plaintextTokenIDs = syncActionTokensToKeychain()
         let encoder = JSONEncoder()
         encoder.userInfo[.plaintextActionTokenIDs] = plaintextTokenIDs
@@ -555,6 +562,52 @@ final class SettingsStore: ObservableObject {
         return failed
     }
 
+    // MARK: - Event rule tokens (keychain only)
+
+    /// Rule tokens as last written to the keychain.
+    private var keychainRuleTokens: [UUID: String] = [:]
+
+    /// Fills in each rule's bearer token from the keychain.
+    private static func loadRuleTokens(
+        into mappings: [WebhookMapping]
+    ) -> (mappings: [WebhookMapping], fromKeychain: [UUID: String]) {
+        var found: [UUID: String] = [:]
+        let filled = mappings.map { mapping in
+            var updated = mapping
+            updated.eventRules = mapping.eventRules.map { rule in
+                var rule = rule
+                if rule.bearerToken.isEmpty,
+                   let token = KeychainStore.string(service: KeychainStore.ruleTokenService, account: rule.id.uuidString) {
+                    rule.bearerToken = token
+                    found[rule.id] = token
+                }
+                return rule
+            }
+            return updated
+        }
+        return (filled, found)
+    }
+
+    /// Writes changed rule tokens, removes those of deleted rules or cleared fields. A token the
+    /// keychain refuses is only kept in memory (rules never carry tokens in plain text).
+    private func syncRuleTokensToKeychain() {
+        var current: [UUID: String] = [:]
+        for rule in mappings.flatMap(\.eventRules) where !rule.bearerToken.isEmpty {
+            current[rule.id] = rule.bearerToken
+        }
+        for (id, token) in current where keychainRuleTokens[id] != token {
+            if KeychainStore.set(token, service: KeychainStore.ruleTokenService, account: id.uuidString) {
+                keychainRuleTokens[id] = token
+            } else {
+                NSLog("SettingsStore: event rule token could not be stored in the keychain")
+            }
+        }
+        for id in keychainRuleTokens.keys where current[id] == nil {
+            KeychainStore.delete(service: KeychainStore.ruleTokenService, account: id.uuidString)
+            keychainRuleTokens[id] = nil
+        }
+    }
+
     // MARK: - Configuration export / import
 
     /// Bumped whenever the exported envelope format changes incompatibly.
@@ -614,7 +667,10 @@ final class SettingsStore: ObservableObject {
         if let id = saved.installationId, !id.isEmpty {
             installationId = id
         }
-        mappings = saved.mappings
+        // Exports carry no rule tokens: keep the ones this Mac already has for the same rules.
+        let rules = Self.loadRuleTokens(into: saved.mappings)
+        keychainRuleTokens.merge(rules.fromKeychain) { _, new in new }
+        mappings = rules.mappings
         defaultPosition = saved.defaultPosition
         edgeMargin = saved.edgeMargin
         autoCloseTimeout = saved.autoCloseTimeout

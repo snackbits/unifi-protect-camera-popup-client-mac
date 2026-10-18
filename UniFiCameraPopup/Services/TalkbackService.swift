@@ -154,6 +154,15 @@ final class TalkbackService: ObservableObject {
         Task { await runAnnouncement(url: url, announcement: announcement, mapping: mapping, token: token) }
     }
 
+    /// Event rules: plays only while nothing else is sent – never cuts off talking or another
+    /// announcement. false = skipped.
+    @discardableResult
+    func playAutomatically(_ announcement: Announcement, entryId: UUID) -> Bool {
+        guard activity == nil else { return false }
+        play(announcement, entryId: entryId)
+        return activity?.entryId == entryId
+    }
+
     func stopPlayback() {
         guard let activity, case .announcement = activity.purpose else { return }
         self.activity = nil

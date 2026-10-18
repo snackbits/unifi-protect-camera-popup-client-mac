@@ -180,6 +180,8 @@ final class ProtectEventService: ObservableObject {
 
     private func handle(_ data: Data) {
         guard let trigger = EventMessage.parse(data), dedup.isNew(trigger.eventId) else { return }
+        // Kameras › Ereignisse: independent of popups, mutes and Focus.
+        EventRuleService.shared.handle(trigger)
         for mapping in settings.mappings(forProtectCamera: trigger.cameraId)
         where !mapping.triggers.isDisjoint(with: trigger.kinds) {
             let label = TriggerKind.ordered.first { trigger.kinds.contains($0) && mapping.triggers.contains($0) }?.label

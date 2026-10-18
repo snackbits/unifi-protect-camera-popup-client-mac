@@ -179,6 +179,9 @@ struct CameraDetail: View {
                         triggersSection
                         optionsCard
                         buttonsSection
+                        if mapping.protectCameraId != nil {
+                            EventRulesSection(mapping: $mapping, camera: camera)
+                        }
                         Spacer(minLength: 0)
                         // „Kamera entfernen“ stays visible with „Erweitert“ collapsed (Phase 5).
                         HStack {

@@ -2,15 +2,46 @@ import AppCore
 import AppKit
 import SwiftUI
 
-/// Edits one popup button (template "Button bearbeiten (Sheet)").
-struct ActionEditorSheet: View {
-    private enum TestState: Equatable {
-        case idle
-        case running
-        case succeeded(Int)
-        case failed(String)
+/// „Testen“ of a webhook (button and event rule sheets).
+enum WebhookTestState: Equatable {
+    case idle
+    case running
+    case succeeded(Int)
+    case failed(String)
+}
+
+/// Result line under a webhook test (template S4 item 4); nothing while idle or running.
+struct WebhookTestResult: View {
+    let state: WebhookTestState
+
+    var body: some View {
+        switch state {
+        case .idle, .running:
+            EmptyView()
+        case .succeeded(let status):
+            box(icon: true, text: "Test erfolgreich · HTTP \(status)", foreground: Tokens.ok.color, background: Tokens.okBg.color)
+        case .failed(let message):
+            box(icon: false, text: message, foreground: Color(nsColor: .systemOrange),
+                background: Color(nsColor: .systemOrange).opacity(0.12))
+        }
     }
 
+    private func box(icon: Bool, text: String, foreground: Color, background: Color) -> some View {
+        HStack(spacing: 6) {
+            if icon { TemplateIcon.check.image(size: 13) }
+            Text(text).fixedSize(horizontal: false, vertical: true)
+        }
+        .font(.system(size: 12))
+        .foregroundStyle(foreground)
+        .padding(.vertical, 7)
+        .padding(.horizontal, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 7).fill(background))
+    }
+}
+
+/// Edits one popup button (template "Button bearbeiten (Sheet)").
+struct ActionEditorSheet: View {
     @State private var draft: CameraAction
     private let originalTitle: String
     private let onSave: (CameraAction) -> Void
@@ -18,7 +49,7 @@ struct ActionEditorSheet: View {
     /// Announcements for „Ton“; the line only shows on a camera with speaker.
     private let sounds: [Announcement]
     private let canPlaySound: Bool
-    @State private var test: TestState = .idle
+    @State private var test: WebhookTestState = .idle
     @Environment(\.dismiss) private var dismiss
 
     init(
@@ -103,7 +134,7 @@ struct ActionEditorSheet: View {
                 Text("Vor dem Ausführen nachfragen").frame(maxWidth: .infinity, alignment: .leading)
                 TokenSwitch(isOn: $draft.confirmBeforeRun, label: "Vor dem Ausführen nachfragen")
             }
-            testResult
+            WebhookTestResult(state: test)
             HStack(spacing: 8) {
                 Button(test == .running ? "Teste …" : "Testen", action: runTest)
                     .buttonStyle(FieldButtonStyle(fontSize: 13, vertical: 5, horizontal: 12))
@@ -134,32 +165,6 @@ struct ActionEditorSheet: View {
         .background(Tokens.win.color)
         .foregroundStyle(Tokens.fg.color)
         .font(.system(size: 13))
-    }
-
-    @ViewBuilder
-    private var testResult: some View {
-        switch test {
-        case .idle, .running:
-            EmptyView()
-        case .succeeded(let status):
-            resultBox(icon: true, text: "Test erfolgreich · HTTP \(status)", foreground: Tokens.ok.color, background: Tokens.okBg.color)
-        case .failed(let message):
-            resultBox(icon: false, text: message, foreground: Color(nsColor: .systemOrange),
-                      background: Color(nsColor: .systemOrange).opacity(0.12))
-        }
-    }
-
-    private func resultBox(icon: Bool, text: String, foreground: Color, background: Color) -> some View {
-        HStack(spacing: 6) {
-            if icon { TemplateIcon.check.image(size: 13) }
-            Text(text).fixedSize(horizontal: false, vertical: true)
-        }
-        .font(.system(size: 12))
-        .foregroundStyle(foreground)
-        .padding(.vertical, 7)
-        .padding(.horizontal, 10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 7).fill(background))
     }
 
     /// „Kein Ton“ + the announcements; a deleted one stays listed as such until changed.

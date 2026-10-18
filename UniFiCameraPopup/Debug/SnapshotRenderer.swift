@@ -70,8 +70,13 @@ enum SnapshotRenderer {
             CameraAction(id: UUID(), title: "Gleich da", url: "", method: .post,
                          bearerToken: "", icon: .house, confirmBeforeRun: false, soundId: SoundSettings.bundledBinGleichDa.id),
         ]
+        let rules = [
+            EventRule(kind: "ring", webhook: EventRuleWebhook(method: "POST", url: "https://home.example/klingel"),
+                      soundId: SoundSettings.bundledBinGleichDa.id),
+            EventRule(kind: "package", soundId: SoundSettings.bundledPaket.id, delaySeconds: 20),
+        ]
         let door = WebhookMapping(label: "Haustür", actions: actions, protectCameraId: "cam-door",
-                                  triggers: [.ring, .person], chimeOnOpen: true)
+                                  triggers: [.ring, .person], chimeOnOpen: true, eventRules: rules)
         let garage = WebhookMapping(label: "Garage", protectCameraId: "cam-garage", triggers: [.vehicle, .motion])
         let garden = WebhookMapping(label: "Garten", protectCameraId: "cam-garden", triggers: [.person, .animal])
         settings.mappings = [door, garage, garden]
@@ -211,6 +216,27 @@ enum SnapshotRenderer {
             sheetWindow.title = "Kameras"
             write(window: sheetWindow, appearance: appearance,
                   to: directory.appendingPathComponent("S4-button-sheet-\(suffix).png"))
+
+            // Phase 5: event rule sheet over the same dimmed Kameras tab.
+            let ruleRoot = ZStack {
+                SettingsRootView(navigation: navigation)
+                Color.black.opacity(0.3).frame(width: 760, height: 540)
+                EventRuleEditorSheet(
+                    rule: sample.door.eventRules[0], isNew: false,
+                    kinds: [.ring, .person, .package, .animal, .vehicle, .motion],
+                    sounds: SoundStore.shared.settings.announcements, canPlaySound: true,
+                    onSave: { _ in }, onDelete: {}
+                )
+                .background(Tokens.win.color)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+            }
+            .environmentObject(sample.settings)
+            .environmentObject(relay)
+            .environmentObject(protectEvents)
+            let ruleWindow = SettingsWindowController.makeWindow(rootView: ruleRoot)
+            ruleWindow.title = "Kameras"
+            write(window: ruleWindow, appearance: appearance,
+                  to: directory.appendingPathComponent("S4-regel-sheet-\(suffix).png"))
 
             // Proof for the chip outline: same chips via ImageRenderer (no AppKit cacheDisplay).
             if let camera = ProtectSession.shared.cameras.first {

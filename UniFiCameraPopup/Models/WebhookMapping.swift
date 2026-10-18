@@ -190,6 +190,8 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
     var chimeOnOpen: Bool
     /// „Name und Zeit einblenden“: the app's own chip (camera OSD shows the same). Default off.
     var showNameAndTime: Bool
+    /// Kameras › Ereignisse (Phase 5). Tokens only in memory/keychain, never encoded.
+    var eventRules: [EventRule]
     /// „Größe“ (Phase 5): empty = automatic (42 % of the screen height). `width`/`height` stay the
     /// last concrete size (crop, older builds) and give the aspect ratio of a crop.
     var sizeOverride: PopupSizeOverride
@@ -214,6 +216,7 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
         case chimeOnOpen
         case showNameAndTime
         case sizeOverride
+        case eventRules
         case widthOverride
         case heightOverride
     }
@@ -237,7 +240,8 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
         webhookTriggerEnabled: Bool = false,
         chimeOnOpen: Bool = false,
         showNameAndTime: Bool = false,
-        sizeOverride: PopupSizeOverride = .automatic
+        sizeOverride: PopupSizeOverride = .automatic,
+        eventRules: [EventRule] = []
     ) {
         self.entryId = entryId
         self.webhookId = webhookId
@@ -258,6 +262,7 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
         self.chimeOnOpen = chimeOnOpen
         self.showNameAndTime = showNameAndTime
         self.sizeOverride = sizeOverride
+        self.eventRules = eventRules
     }
 
     init(from decoder: Decoder) throws {
@@ -295,6 +300,7 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
         // Written before Phase 5: the old default 480 × 270 becomes automatic, other sizes stay.
         sizeOverride = ((try? container.decodeIfPresent(PopupSizeOverride.self, forKey: .sizeOverride)) ?? nil)
             ?? .migrated(width: width, height: height)
+        eventRules = ((try? container.decodeIfPresent(EventRuleList.self, forKey: .eventRules)) ?? nil)?.rules ?? []
     }
 
     func encode(to encoder: Encoder) throws {
@@ -318,6 +324,8 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
         try container.encode(chimeOnOpen, forKey: .chimeOnOpen)
         try container.encode(showNameAndTime, forKey: .showNameAndTime)
         try container.encode(sizeOverride, forKey: .sizeOverride)
+        // Part of the configuration export, without tokens (EventRule never encodes them).
+        try container.encode(EventRuleList(eventRules), forKey: .eventRules)
     }
 }
 
