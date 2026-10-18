@@ -31,7 +31,7 @@ struct TalkbackNotice: Equatable {
     let text: String
 }
 
-/// Push-to-talk and announcements: talkback session from Protect, microphone or file,
+/// Talking (while the popup's talk button is held) and announcements: talkback session from Protect, microphone or file,
 /// `TalkbackStreamer` to the camera. Every step is logged (TalkbackLog) for the hardware check.
 @MainActor
 final class TalkbackService: ObservableObject {
@@ -46,8 +46,6 @@ final class TalkbackService: ObservableObject {
     private var draining: [ObjectIdentifier: TalkbackStreamer] = [:]
     /// Token of the start that may still go live; a newer start or a stop replaces it.
     private var run: UUID?
-    private var spaceEntry: UUID?
-    private var disarmAfterRelease = false
 
     private init() {}
 
@@ -69,29 +67,7 @@ final class TalkbackService: ObservableObject {
         activity?.entryId == entryId
     }
 
-    // MARK: Push-to-talk
-
-    /// Talk button pressed or space bar down.
-    func pressTalk(entryId: UUID) {
-        switch SoundStore.shared.settings.talkMode {
-        case .hold:
-            startTalking(entryId: entryId)
-        case .toggle:
-            if activity?.purpose == .talk, activity?.entryId == entryId {
-                stopTalking()
-            } else {
-                startTalking(entryId: entryId)
-            }
-        }
-    }
-
-    /// Talk button or space bar released.
-    func releaseTalk() {
-        guard SoundStore.shared.settings.talkMode == .hold else { return }
-        stopTalking()
-        // Pointer left the popup while the mouse button was held: nothing else frees the space bar.
-        if disarmAfterRelease { disarmSpace() }
-    }
+    // MARK: Talking (only while the talk button is held; the popup never takes the keyboard)
 
     /// VoiceOver press: always toggles.
     func toggleTalk(entryId: UUID) {
@@ -200,47 +176,9 @@ final class TalkbackService: ObservableObject {
         }
     }
 
-    // MARK: Space bar (pointer over a popup that can talk)
-
-    func pointerEntered(entryId: UUID) {
-        spaceEntry = entryId
-        disarmAfterRelease = false
-        PushToTalkKey.shared.arm(
-            onPress: { [weak self] in self?.spacePressed() },
-            onRelease: { [weak self] in self?.spaceReleased() }
-        )
-    }
-
-    func pointerExited(entryId: UUID) {
-        guard spaceEntry == entryId else { return }
-        // Still holding the space bar: keep it until released.
-        if activity?.purpose == .talk, activity?.entryId == entryId, SoundStore.shared.settings.talkMode == .hold {
-            disarmAfterRelease = true
-            return
-        }
-        disarmSpace()
-    }
-
-    /// The popup closes: stop what it started, free the space bar.
+    /// The popup closes: stop what it started.
     func popupClosed(entryId: UUID) {
         if activity?.entryId == entryId { stopCurrent() }
-        if spaceEntry == entryId { disarmSpace() }
-    }
-
-    private func spacePressed() {
-        guard let spaceEntry else { return }
-        pressTalk(entryId: spaceEntry)
-    }
-
-    private func spaceReleased() {
-        releaseTalk()
-        if disarmAfterRelease { disarmSpace() }
-    }
-
-    private func disarmSpace() {
-        PushToTalkKey.shared.disarm()
-        spaceEntry = nil
-        disarmAfterRelease = false
     }
 
     // MARK: Plumbing

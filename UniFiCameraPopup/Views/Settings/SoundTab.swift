@@ -211,19 +211,12 @@ struct SoundTab: View {
         return sound.kind != .speech || trimmedDraft != sound.text || draftVoice != sound.voiceIdentifier
     }
 
-    // MARK: Microphone, mode, volume
+    // MARK: Microphone, volume
 
     private var deviceCard: some View {
         Card {
             CardRow(title: "Mikrofon") {
                 PopUpField(selection: microphone, options: microphoneOptions)
-            }
-            CardDivider()
-            CardRow(title: "Sprechen") {
-                TokenSegmented(
-                    selection: $store.settings.talkMode,
-                    options: TalkMode.allCases.map { (value: $0, title: $0.label) }
-                )
             }
             CardDivider()
             CardRow(title: "Lautstärke an der Kamera") {

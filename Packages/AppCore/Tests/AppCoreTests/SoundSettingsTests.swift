@@ -9,7 +9,6 @@ final class SoundSettingsTests: XCTestCase {
         XCTAssertEqual(settings.announcements.map(\.badge), ["KI-STIMME", "KI-STIMME"])
         XCTAssertEqual(settings.announcements.map(\.menuTag), ["KI-Stimme", "KI-Stimme"])
         XCTAssertTrue(settings.announcements.allSatisfy(\.usesBundledRecording))
-        XCTAssertEqual(settings.talkMode, .hold)
         XCTAssertEqual(settings.gain, 1, accuracy: 0.0001)
     }
 
@@ -17,7 +16,6 @@ final class SoundSettingsTests: XCTestCase {
         let json = #"{"announcements":[{"broken":true},{"id":"6F0C6A52-4C4B-4E58-9B1E-2F3C1C0A0009","name":"Gong","kind":"file","text":"","fileName":"gong.mp3","duration":2}],"talkMode":"shout","cameraVolume":7}"#
         let settings = try JSONDecoder().decode(SoundSettings.self, from: Data(json.utf8))
         XCTAssertEqual(settings.announcements.map(\.name), ["Gong"])
-        XCTAssertEqual(settings.talkMode, .hold)
         XCTAssertEqual(settings.cameraVolume, 1)
         XCTAssertEqual(settings.referencedFiles, ["gong.mp3"])
         let empty = try JSONDecoder().decode(SoundSettings.self, from: Data("{}".utf8))

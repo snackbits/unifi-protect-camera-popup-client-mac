@@ -16,6 +16,7 @@ final class PopupWindow: NSPanel {
     private var autoCloseTimer: Timer?
     private var zoomSaveTimer: Timer?
     private var escapeMonitor: Any?
+    private var resizeObserver: NSObjectProtocol?
     private var autoCloseSeconds: Double = 0
     private var autoCloseDeadline: Date?
     private var mouseInside = false
@@ -171,11 +172,9 @@ final class PopupWindow: NSPanel {
             }
             clickCatcher.onMouseEnter = { [weak self] in
                 self?.pauseAutoClose()
-                self?.talkControls?.pointerInside(true)
             }
             clickCatcher.onMouseExit = { [weak self] in
                 self?.resumeAutoClose()
-                self?.talkControls?.pointerInside(false)
             }
         }
 
@@ -282,6 +281,17 @@ final class PopupWindow: NSPanel {
             leading = [controls.soundButton, controls.talkButton]
             controls.onMenuOpened = { [weak self] in self?.muteMenu?.isHidden = true }
             talkControls = controls
+            // The stack resizes popups (also animated): the talk button follows the width.
+            let circles = 1 + min(actions.count, WebhookMapping.maxActions)
+            controls.fit(popupWidth: frame.width, circles: circles)
+            resizeObserver = NotificationCenter.default.addObserver(
+                forName: NSWindow.didResizeNotification, object: self, queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    self.talkControls?.fit(popupWidth: self.frame.width, circles: circles)
+                }
+            }
         }
         if !actions.isEmpty || !leading.isEmpty {
             let pill = ActionPillView(actions: actions, leadingViews: leading)
@@ -403,6 +413,10 @@ final class PopupWindow: NSPanel {
     }
 
     func closePopup() {
+        if let resizeObserver {
+            NotificationCenter.default.removeObserver(resizeObserver)
+            self.resizeObserver = nil
+        }
         talkControls?.popupClosed()
         autoCloseTimer?.invalidate()
         zoomSaveTimer?.invalidate()

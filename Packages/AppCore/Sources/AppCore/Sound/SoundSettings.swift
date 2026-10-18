@@ -1,20 +1,5 @@
 import Foundation
 
-/// How push-to-talk reacts to the space bar / talk button.
-public enum TalkMode: String, Codable, CaseIterable, Sendable {
-    /// "Leertaste halten": talk while held.
-    case hold
-    /// "Umschalten": first press starts, second press stops.
-    case toggle
-
-    public var label: String {
-        switch self {
-        case .hold: return "Leertaste halten"
-        case .toggle: return "Umschalten"
-        }
-    }
-}
-
 /// Einstellungen › Ton. Stored on this Mac only (not part of the configuration export).
 public struct SoundSettings: Codable, Equatable, Sendable {
     /// Longest file accepted for "MP3 hinzufügen …".
@@ -58,19 +43,16 @@ public struct SoundSettings: Codable, Equatable, Sendable {
     public var announcements: [Announcement]
     /// Core Audio device UID; nil = system default input.
     public var microphoneUID: String?
-    public var talkMode: TalkMode
     /// 0…1 slider; gain = volume × 1.5 (template default 2/3 = 1.0).
     public var cameraVolume: Double
 
     public init(
         announcements: [Announcement] = SoundSettings.bundled,
         microphoneUID: String? = nil,
-        talkMode: TalkMode = .hold,
         cameraVolume: Double = SoundSettings.defaultVolume
     ) {
         self.announcements = announcements
         self.microphoneUID = microphoneUID
-        self.talkMode = talkMode
         self.cameraVolume = min(1, max(0, cameraVolume))
     }
 
@@ -102,10 +84,11 @@ public struct SoundSettings: Codable, Equatable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case announcements, microphoneUID, talkMode, cameraVolume
+        case announcements, microphoneUID, cameraVolume
     }
 
-    /// Lenient: unknown talk modes, broken entries or a missing list fall back to defaults.
+    /// Lenient: broken entries or a missing list fall back to defaults. A stored `talkMode`
+    /// (Phase 3) is ignored and no longer written.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let defaults = SoundSettings()
@@ -115,8 +98,6 @@ public struct SoundSettings: Codable, Equatable, Sendable {
             announcements = defaults.announcements
         }
         microphoneUID = (try? container.decodeIfPresent(String.self, forKey: .microphoneUID)) ?? nil
-        let mode = (try? container.decodeIfPresent(String.self, forKey: .talkMode)) ?? nil
-        talkMode = mode.flatMap(TalkMode.init(rawValue:)) ?? .hold
         let volume = (try? container.decodeIfPresent(Double.self, forKey: .cameraVolume)) ?? nil
         cameraVolume = min(1, max(0, volume ?? Self.defaultVolume))
     }

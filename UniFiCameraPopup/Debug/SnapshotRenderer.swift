@@ -292,7 +292,7 @@ enum SnapshotRenderer {
                       to: directory.appendingPathComponent("8-popup\(menuOpen ? "-menue" : "")-\(suffix).png"))
             }
 
-            // 9 – popup with "Ton abspielen" / "Leertaste halten": idle, announcement menu, connecting, talking, playing, notice.
+            // 9 – popup with "Ton abspielen" / "Sprechen": idle, announcement menu, connecting, talking, playing, notice.
             let doorId = sample.door.entryId
             let notice = TalkbackNotice(entryId: doorId, text: "Kein Zugriff aufs Mikrofon. Erlaube den Zugriff in den Systemeinstellungen unter Datenschutz & Sicherheit.")
             let talkStates: [(name: String, activity: TalkbackActivity?, notice: TalkbackNotice?, openMenu: Bool)] = [
@@ -333,6 +333,23 @@ enum SnapshotRenderer {
                       to: directory.appendingPathComponent("9-popup-sprechen-\(state.name)-\(suffix).png"))
                 TalkbackService.shared.debugApply(activity: nil, notice: nil)
             }
+
+            // 9 – smallest stacked popup (160 high, 16:9): talk button shrinks to the microphone (Phase 5).
+            let narrow = PopupWindow(
+                frame: NSRect(x: 0, y: 0, width: 284, height: 160),
+                streamURL: "", soundEnabled: false,
+                thumbnailDataURI: placeholderDataURI(size: CGSize(width: 284, height: 160)),
+                autoCloseSeconds: 0,
+                actions: sample.door.actions,
+                overlay: PopupOverlayContent(
+                    chipText: nil, cameraName: "Haustür",
+                    muteOptions: sample.settings.muteOptions, onMute: { _ in },
+                    talk: PopupTalkContent(entryId: doorId)
+                ),
+                onClose: {}
+            )
+            write(window: narrow, appearance: appearance, includeFrame: false,
+                  to: directory.appendingPathComponent("9-popup-schmal-\(suffix).png"))
         }
     }
 

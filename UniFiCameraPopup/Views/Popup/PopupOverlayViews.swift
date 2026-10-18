@@ -8,7 +8,7 @@ struct PopupOverlayContent {
     let cameraName: String
     let muteOptions: [MuteDuration]
     let onMute: (MuteDuration) -> Void
-    /// Phase 3: "Ton abspielen" and "Leertaste halten"; nil = camera without speaker.
+    /// "Ton abspielen" and the talk button; nil = camera without speaker.
     var talk: PopupTalkContent? = nil
 }
 
@@ -281,7 +281,7 @@ final class ActionPillView: NSView {
     var onAction: ((CameraAction, CircleIconButton) -> Void)?
     private var buttons: [(button: CircleIconButton, action: CameraAction)] = []
 
-    /// `leadingViews` (Ton abspielen, Leertaste halten) come before the user's buttons.
+    /// `leadingViews` (Ton abspielen, Sprechen) come before the user's buttons.
     init(actions: [CameraAction], leadingViews: [NSView] = []) {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
