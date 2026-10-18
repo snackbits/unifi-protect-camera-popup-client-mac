@@ -119,6 +119,12 @@ public final class ProtectClient: NSObject, URLSessionTaskDelegate, @unchecked S
         try await sendRaw("GET", "/v1/cameras/\(cameraId)/snapshot", body: nil, accept: "image/jpeg")
     }
 
+    /// Asks the camera for a talkback stream (UDP target and codec). Same pin and key as every call.
+    public func talkbackSession(cameraId: String) async throws -> TalkbackSession {
+        let data = try await sendRaw("POST", "/v1/cameras/\(cameraId)/talkback-session", body: nil, accept: "application/json")
+        return try TalkbackSession.parse(data)
+    }
+
     public func eventsWebSocket() -> URLSessionWebSocketTask {
         var comps = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
         comps.scheme = "wss"
