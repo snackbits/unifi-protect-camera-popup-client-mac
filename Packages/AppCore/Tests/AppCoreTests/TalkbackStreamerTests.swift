@@ -119,6 +119,36 @@ final class TalkbackStreamerTests: XCTestCase {
         }
     }
 
+    func testUnreachableTargetFailsInsteadOfFinishing() async throws {
+        let failed = expectation(description: "failed")
+        let box = EventBox()
+        let streamer = try TalkbackStreamer(
+            target: TalkbackTarget(host: "no-such-host.invalid", port: 7004, codec: .opus, sampleRate: 48_000),
+            readyTimeout: 1
+        ) { event in
+            guard event != .ready, box.set(event) else { return }
+            failed.fulfill()
+        }
+        streamer.start()
+        streamer.append(sineBuffer(seconds: 0.2))
+        streamer.finish()
+        await fulfillment(of: [failed], timeout: 6)
+        guard case .failed = try XCTUnwrap(box.value) else { return XCTFail("\(String(describing: box.value))") }
+    }
+
+    func testDroppingStreamerWithoutStopDoesNotCrash() async throws {
+        let sink = try UDPSink()
+        let port = try await sink.start()
+        defer { sink.stop() }
+        var streamer: TalkbackStreamer? = try TalkbackStreamer(
+            target: TalkbackTarget(host: "127.0.0.1", port: port, codec: .opus, sampleRate: 48_000)
+        ) { _ in }
+        streamer?.start()
+        streamer?.append(sineBuffer(seconds: 1))
+        streamer = nil
+        try await Task.sleep(nanoseconds: 400_000_000)
+    }
+
     func testStopDropsPendingPackets() async throws {
         let sink = try UDPSink()
         let port = try await sink.start()

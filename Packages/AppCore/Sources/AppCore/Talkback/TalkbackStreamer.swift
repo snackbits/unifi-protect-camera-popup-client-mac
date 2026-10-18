@@ -25,6 +25,10 @@ public final class TalkbackStreamer: @unchecked Sendable {
     private var stopped = false
     private var finishing = false
     private var outstanding = 0
+    /// Datagrams handed to the connection whose completion has not come back yet.
+    private var inFlight = 0
+    private var isReady = false
+    private let readyTimeout: TimeInterval
     private var sent = 0
     private var reportedFirstPacket = false
 
@@ -32,6 +36,7 @@ public final class TalkbackStreamer: @unchecked Sendable {
     public init(
         target: TalkbackTarget,
         gain: Float = 1,
+        readyTimeout: TimeInterval = 2,
         log: @escaping @Sendable (String) -> Void = { _ in },
         onEvent: @escaping @Sendable (Event) -> Void
     ) throws {
@@ -44,8 +49,13 @@ public final class TalkbackStreamer: @unchecked Sendable {
         pacer = RealtimePacer(sampleRate: target.sampleRate)
         let host = target.host.trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
         connection = NWConnection(host: NWEndpoint.Host(host), port: port, using: .udp)
+        self.readyTimeout = readyTimeout
         self.onEvent = onEvent
         self.log = log
+    }
+
+    deinit {
+        connection.cancel()
     }
 
     public func start() {
@@ -53,6 +63,7 @@ public final class TalkbackStreamer: @unchecked Sendable {
             guard let self else { return }
             switch state {
             case .ready:
+                self.isReady = true
                 self.log("Talkback: UDP bereit → \(self.target.host):\(self.target.port) \(self.target.codec.rawValue) \(self.target.sampleRate) Hz, \(self.encoder.framesPerPacket) Samples/Paket")
                 self.onEvent(.ready)
             case .waiting(let error):
@@ -64,6 +75,12 @@ public final class TalkbackStreamer: @unchecked Sendable {
             }
         }
         connection.start(queue: queue)
+        // `.waiting` (no route, Local Network denied) never resolves by itself: fail instead of
+        // pretending to stream.
+        queue.asyncAfter(deadline: .now() + readyTimeout) { [weak self] in
+            guard let self, !self.isReady else { return }
+            self.fail("UDP-Verbindung zu \(self.target.host):\(self.target.port) kommt nicht zustande")
+        }
     }
 
     /// Takes a copy of the buffer; any PCM format and length.
@@ -137,20 +154,28 @@ public final class TalkbackStreamer: @unchecked Sendable {
     private func send(_ datagram: Data) {
         outstanding -= 1
         guard !stopped else { return }
+        inFlight += 1
         connection.send(content: datagram, completion: .contentProcessed { [weak self] error in
-            guard let self, let error else { return }
-            self.fail(error.localizedDescription)
+            guard let self else { return }
+            self.queue.async {
+                self.inFlight -= 1
+                if let error {
+                    self.fail(error.localizedDescription)
+                    return
+                }
+                guard !self.stopped else { return }
+                self.sent += 1
+                if !self.reportedFirstPacket {
+                    self.reportedFirstPacket = true
+                    self.log("Talkback: erstes Paket gesendet (\(datagram.count) Bytes)")
+                }
+                self.completeIfDone()
+            }
         })
-        sent += 1
-        if !reportedFirstPacket {
-            reportedFirstPacket = true
-            log("Talkback: erstes Paket gesendet (\(datagram.count) Bytes)")
-        }
-        completeIfDone()
     }
 
     private func completeIfDone() {
-        guard finishing, outstanding == 0, !stopped else { return }
+        guard finishing, outstanding == 0, inFlight == 0, !stopped else { return }
         stopped = true
         log("Talkback: fertig, \(sent) Pakete")
         let count = sent
