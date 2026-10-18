@@ -31,7 +31,7 @@ final class PreviewPlayer: ObservableObject {
             let current = generation
             playingId = id
             // Called on the render thread.
-            node.scheduleBuffer(playable) { [weak self] in
+            node.scheduleBuffer(playable, completionCallbackType: .dataPlayedBack) { [weak self] _ in
                 Task { @MainActor in
                     guard let self, self.generation == current else { return }
                     self.playingId = nil

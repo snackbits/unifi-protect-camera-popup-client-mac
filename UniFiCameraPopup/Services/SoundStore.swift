@@ -28,6 +28,9 @@ final class SoundStore: ObservableObject {
     private static let isSnapshot = false
     #endif
 
+    /// Saved settings could not be decoded: no cleanup, and the old blob is backed up before the first save.
+    private var loadFailed = false
+
     private init() {
         if Self.isSnapshot {
             folder = FileManager.default.temporaryDirectory
@@ -36,13 +39,16 @@ final class SoundStore: ObservableObject {
             folder = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
                 .appendingPathComponent("UniFi Camera Popup/Sounds", isDirectory: true)
         }
-        if let data = defaults.data(forKey: Self.storageKey),
-           let saved = try? JSONDecoder().decode(SoundSettings.self, from: data) {
+        let stored = defaults.data(forKey: Self.storageKey)
+        if let stored, let saved = try? JSONDecoder().decode(SoundSettings.self, from: stored) {
             settings = saved
         } else {
             settings = SoundSettings()
+            // A blob exists but is unreadable (corrupt, newer schema): keep files and blob untouched.
+            loadFailed = stored != nil
         }
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        guard !loadFailed else { return }
         removeUnreferencedFiles()
         if !Self.isSnapshot { seedGongIfNeeded() }
     }
@@ -161,17 +167,24 @@ final class SoundStore: ObservableObject {
             entry.fileName = name
             entry.duration = Double(buffer.frameLength) / buffer.format.sampleRate
         }
-        if current.hasAutomaticName {
-            entry.name = Announcement.suggestedName(forText: trimmed)
-        }
         // Deleted while rendering: drop the new file.
-        guard settings.announcement(id: id) != nil else {
+        guard var latest = settings.announcement(id: id) else {
             deleteFile(entry.fileName)
             return
         }
-        settings.update(entry)
-        if current.fileName != entry.fileName {
-            deleteFile(current.fileName)
+        // Edited while rendering (e.g. renamed): apply only the rendered fields to the current state.
+        let previousFile = latest.fileName
+        latest.kind = entry.kind
+        latest.text = entry.text
+        latest.voiceIdentifier = entry.voiceIdentifier
+        latest.fileName = entry.fileName
+        latest.duration = entry.duration
+        if latest.hasAutomaticName {
+            latest.name = Announcement.suggestedName(forText: trimmed)
+        }
+        settings.update(latest)
+        if previousFile != latest.fileName {
+            deleteFile(previousFile)
         }
     }
 
@@ -223,6 +236,13 @@ final class SoundStore: ObservableObject {
 
     private func save() {
         guard let data = try? JSONEncoder().encode(settings) else { return }
+        if loadFailed {
+            loadFailed = false
+            let backupKey = Self.storageKey + ".corrupt-backup"
+            if defaults.data(forKey: backupKey) == nil, let old = defaults.data(forKey: Self.storageKey) {
+                defaults.set(old, forKey: backupKey)
+            }
+        }
         defaults.set(data, forKey: Self.storageKey)
     }
 }
