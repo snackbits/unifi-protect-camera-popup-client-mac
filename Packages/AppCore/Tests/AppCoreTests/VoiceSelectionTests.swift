@@ -53,6 +53,19 @@ final class VoiceSelectionTests: XCTestCase {
         XCTAssertFalse(AnnouncementVoice.canApply(entry, text: "Neu", selection: PiperVoiceRef(voiceId: "de_DE-pavoque-low")))
     }
 
+    func testOutOfRangeSpeakerStartsClampedAndNothingToApply() {
+        let entry = Announcement(name: "X", kind: .speech, text: "Hallo.",
+                                 voiceIdentifier: "piper:de_DE-thorsten_emotional-medium#99", fileName: "x.wav", duration: 1)
+        let neutral = PiperVoiceRef(voiceId: "de_DE-thorsten_emotional-medium", speaker: 4)
+        XCTAssertEqual(AnnouncementVoice.initialSelection(for: entry), neutral)
+        // Nothing changed in the editor: „Übernehmen“ stays inactive.
+        XCTAssertFalse(AnnouncementVoice.canApply(entry, text: "Hallo.", selection: AnnouncementVoice.initialSelection(for: entry)))
+        XCTAssertTrue(AnnouncementVoice.canApply(entry, text: "Hallo.", selection: emotional))
+        // A text entry not rendered yet keeps its (clamped) voice too.
+        let fresh = Announcement(name: Announcement.newName, kind: .speech, voiceIdentifier: "piper:de_DE-mls-medium#500")
+        XCTAssertEqual(AnnouncementVoice.initialSelection(for: fresh), PiperVoiceRef(voiceId: "de_DE-mls-medium", speaker: 0))
+    }
+
     func testRemovedVoiceStillPlaysButAsksForRerendering() {
         let entry = Announcement(name: "X", kind: .speech, text: "Hallo.",
                                  voiceIdentifier: "piper:de_DE-pavoque-low#0", fileName: "x.wav", duration: 1)

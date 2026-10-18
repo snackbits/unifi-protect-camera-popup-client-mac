@@ -25,10 +25,7 @@ public struct SoundSettings: Codable, Equatable, Sendable {
     )
 
     public static var bundled: [Announcement] { [bundledBinGleichDa, bundledPaket] }
-    /// Label of the voice of the bundled recordings (Piper, Thorsten, CC0).
-    public static let bundledVoiceLabel = "Thorsten · mitgeliefert"
-
-    /// The shipped original an entry was made from (also after it was re-rendered with a macOS voice).
+    /// The shipped original an entry was made from (also after it was rendered again).
     public static func bundledOriginal(for entry: Announcement) -> Announcement? {
         guard let resource = entry.bundledResource else { return nil }
         return bundled.first { $0.bundledResource == resource }

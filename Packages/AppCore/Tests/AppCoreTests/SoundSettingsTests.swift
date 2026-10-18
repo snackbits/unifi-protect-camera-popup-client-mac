@@ -92,8 +92,8 @@ final class SoundSettingsTests: XCTestCase {
         XCTAssertTrue(SoundSettings.offersBundledVoice(for: original, text: " Bin gleich da! Einen kleinen Moment, bitte. "))
         XCTAssertFalse(SoundSettings.offersBundledVoice(for: original, text: "Bin gleich da."))
         var rerendered = original
-        rerendered.fileName = "x.caf"
-        rerendered.voiceIdentifier = "com.apple.voice.premium.de-DE.Anna"
+        rerendered.fileName = "x.wav"
+        rerendered.voiceIdentifier = "piper:de_DE-thorsten_emotional-medium#4"
         XCTAssertFalse(rerendered.usesBundledRecording)
         XCTAssertEqual(SoundSettings.bundledOriginal(for: rerendered), original)
         XCTAssertFalse(SoundSettings.offersBundledVoice(for: Announcement(name: "Gong", kind: .file), text: ""))
@@ -115,36 +115,6 @@ final class SoundSettingsTests: XCTestCase {
         XCTAssertEqual(float.format.commonFormat, .pcmFormatFloat32)
         XCTAssertEqual(float.frameLength, 100)
         XCTAssertEqual(float.floatChannelData![0][10], 0.5, accuracy: 0.001)
-    }
-
-    func testSpeechRendersIntoBuffer() async throws {
-        guard let voice = AnnouncementAudio.voices().first else { throw XCTSkip("Keine deutsche macOS-Stimme installiert") }
-        XCTAssertTrue(AnnouncementAudio.label(for: voice).hasSuffix(" · macOS"))
-        let buffer = try await AnnouncementAudio.render(text: "Bin gleich da.", voiceIdentifier: voice.identifier)
-        XCTAssertGreaterThan(Double(buffer.frameLength) / buffer.format.sampleRate, 0.3)
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("speech-\(UUID().uuidString).caf")
-        defer { try? FileManager.default.removeItem(at: url) }
-        try AnnouncementAudio.write(buffer, to: url)
-        XCTAssertEqual(try AnnouncementAudio.duration(of: url), Double(buffer.frameLength) / buffer.format.sampleRate, accuracy: 0.05)
-        XCTAssertEqual(Double(try AnnouncementAudio.load(url).frameLength), Double(buffer.frameLength), accuracy: Double(buffer.frameLength) * 0.02)
-    }
-
-    func testRenderRejectsEmptyText() async {
-        do {
-            _ = try await AnnouncementAudio.render(text: "   ", voiceIdentifier: nil)
-            XCTFail("expected throw")
-        } catch {
-            XCTAssertEqual(error as? TalkbackError, .speechFailed)
-        }
-    }
-
-    func testRenderTimesOut() async throws {
-        do {
-            _ = try await AnnouncementAudio.render(text: "Bin gleich da, ich muss noch etwas Längeres sagen.", voiceIdentifier: nil, timeout: 0.001)
-            XCTFail("expected throw")
-        } catch {
-            XCTAssertEqual(error as? TalkbackError, .speechFailed)
-        }
     }
 
     func testAnnouncementDecodingKeepsEntryAndSanitizesFileName() throws {

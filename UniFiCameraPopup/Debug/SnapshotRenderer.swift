@@ -31,6 +31,8 @@ enum SnapshotRenderer {
     nonisolated(unsafe) static var expandCameraAdvanced = false
     /// Read by `SoundTab` to show an error line (S5 empty-list variant).
     nonisolated(unsafe) static var soundTabError: String?
+    /// Read by `SoundTab` as the voice of the selected entry (S5 voice variants).
+    nonisolated(unsafe) static var soundTabVoice: PiperVoiceRef?
     /// Read by `OnboardingTunnelStep` as its initial feedback line (Einrichtung step 6).
     /// Fixed sample strings only; no import runs and nothing touches the keychain in snapshot mode.
     nonisolated(unsafe) static var tunnelStepFeedback: ImportFeedback?

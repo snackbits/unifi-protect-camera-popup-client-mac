@@ -43,6 +43,11 @@ public struct PiperVoiceRef: Equatable, Hashable, Sendable {
         return (voice, speaker)
     }
 
+    /// Same voice with the speaker clamped (what Piper is actually called with); nil = unknown voice.
+    public var normalized: PiperVoiceRef? {
+        resolved.map { PiperVoiceRef(voiceId: $0.voice.id, speaker: $0.speaker) }
+    }
+
     /// „Thorsten emotional · mittel · neutral“ / „Thorsten · mittel“; „Unbekannte Stimme“ when gone.
     public var label: String {
         guard let (voice, speaker) = resolved else { return "Unbekannte Stimme" }
@@ -71,11 +76,10 @@ public enum AnnouncementVoice: Equatable, Sendable {
         return entry.fileName == nil ? .none : .legacyMacOS
     }
 
-    /// Voice the picker starts with for this entry: its own Piper voice, else Thorsten (medium).
+    /// Voice the picker starts with for this entry: its own Piper voice (speaker clamped into the
+    /// voice's range, like the speaker field shows it), else Thorsten (medium).
     public static func initialSelection(for entry: Announcement) -> PiperVoiceRef {
-        if case .piper(let ref) = of(entry), ref.resolved != nil { return ref }
-        if let ref = PiperVoiceRef(identifier: entry.voiceIdentifier), ref.resolved != nil { return ref }
-        return .standard
+        PiperVoiceRef(identifier: entry.voiceIdentifier)?.normalized ?? .standard
     }
 
     /// Note under the voice field; nil when the audio already matches.
@@ -95,7 +99,7 @@ public enum AnnouncementVoice: Equatable, Sendable {
         guard !trimmed.isEmpty, selection.resolved != nil else { return false }
         guard entry.kind == .speech, trimmed == entry.text else { return true }
         switch of(entry) {
-        case .piper(let ref): return ref != selection
+        case .piper(let ref): return ref.normalized != selection.normalized
         case .bundledRecording: return selection != .standard
         case .legacyMacOS, .none: return true
         }

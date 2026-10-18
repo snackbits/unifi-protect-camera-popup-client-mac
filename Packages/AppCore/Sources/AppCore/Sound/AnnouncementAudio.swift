@@ -1,7 +1,7 @@
 import AVFoundation
 import Foundation
 
-/// Loads announcement audio and renders text with macOS voices (no network, no GPL engines).
+/// Loads, converts, measures and writes announcement audio (MP3, CAF, Piper WAV).
 public enum AnnouncementAudio {
     /// Whole file as one PCM buffer in its processing format.
     public static func load(_ url: URL) throws -> AVAudioPCMBuffer {
@@ -25,67 +25,6 @@ public enum AnnouncementAudio {
             return Double(file.length) / file.processingFormat.sampleRate
         } catch {
             throw TalkbackError.audioFile(error.localizedDescription)
-        }
-    }
-
-    /// German voices first (premium, enhanced, default), then by name.
-    public static func voices(language: String = "de") -> [AVSpeechSynthesisVoice] {
-        AVSpeechSynthesisVoice.speechVoices()
-            .filter { $0.language.lowercased().hasPrefix(language.lowercased()) }
-            .sorted { lhs, rhs in
-                if lhs.quality != rhs.quality { return lhs.quality.rawValue > rhs.quality.rawValue }
-                return lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
-            }
-    }
-
-    /// The voice every new rendering uses (Anna, else the best German voice).
-    public static func preferredVoice() -> AVSpeechSynthesisVoice? {
-        let all = voices()
-        guard let pick = VoiceChoice.pick(from: all.map(candidate)) else { return nil }
-        return all.first { $0.identifier == pick.identifier }
-    }
-
-    public static func candidate(_ voice: AVSpeechSynthesisVoice) -> VoiceChoice.Candidate {
-        let quality: Int
-        switch voice.quality {
-        case .premium: quality = 3
-        case .enhanced: quality = 2
-        default: quality = 1
-        }
-        return VoiceChoice.Candidate(identifier: voice.identifier, name: voice.name, language: voice.language, quality: quality)
-    }
-
-    /// "Anna (Premium) · macOS" – template wording of the voice pop-up.
-    public static func label(for voice: AVSpeechSynthesisVoice) -> String {
-        let quality: String
-        switch voice.quality {
-        case .premium: quality = " (Premium)"
-        case .enhanced: quality = " (Erweitert)"
-        default: quality = ""
-        }
-        return "\(voice.name)\(quality) · macOS"
-    }
-
-    /// Speaks `text` into a buffer (`AVSpeechSynthesizer.write`). Unknown voice = `preferredVoice()`.
-    /// Fails with `.speechFailed` for empty text or when the synthesizer does not finish within `timeout`
-    /// (default 20 s + 0.15 s per character); honours task cancellation.
-    public static func render(text: String, voiceIdentifier: String?, timeout: TimeInterval? = nil) async throws -> AVAudioPCMBuffer {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { throw TalkbackError.speechFailed }
-        let utterance = AVSpeechUtterance(string: trimmed)
-        if let voiceIdentifier, let voice = AVSpeechSynthesisVoice(identifier: voiceIdentifier) {
-            utterance.voice = voice
-        } else {
-            utterance.voice = preferredVoice() ?? AVSpeechSynthesisVoice(language: "de-DE")
-        }
-        let limit = timeout ?? (20 + 0.15 * Double(trimmed.count))
-        let collector = SpeechCollector()
-        return try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { continuation in
-                collector.start(utterance, timeout: limit) { continuation.resume(with: $0) }
-            }
-        } onCancel: {
-            collector.cancel()
         }
     }
 
@@ -128,7 +67,7 @@ public enum AnnouncementAudio {
         Loudness.normalizationGain(try monoSamples(buffer), sampleRate: buffer.format.sampleRate)
     }
 
-    /// Writes a buffer as CAF (used to cache rendered speech).
+    /// Writes a buffer as CAF.
     public static func write(_ buffer: AVAudioPCMBuffer, to url: URL) throws {
         do {
             let file = try AVAudioFile(forWriting: url, settings: buffer.format.settings,
@@ -137,85 +76,5 @@ public enum AnnouncementAudio {
         } catch {
             throw TalkbackError.audioFile(error.localizedDescription)
         }
-    }
-}
-
-/// Keeps the synthesizer alive and concatenates its buffers; a zero-length buffer ends the utterance.
-/// Completes exactly once (result, timeout or cancellation) and then releases the synthesizer.
-private final class SpeechCollector: @unchecked Sendable {
-    private var synthesizer: AVSpeechSynthesizer?
-    private var chunks: [AVAudioPCMBuffer] = []
-    private var done = false
-    private var cancelled = false
-    private var completion: ((Result<AVAudioPCMBuffer, Error>) -> Void)?
-    private let lock = NSLock()
-
-    func start(_ utterance: AVSpeechUtterance, timeout: TimeInterval,
-               completion: @escaping (Result<AVAudioPCMBuffer, Error>) -> Void) {
-        let synth = AVSpeechSynthesizer()
-        let alreadyCancelled: Bool = lock.withLock {
-            self.completion = completion
-            if cancelled { return true }
-            synthesizer = synth
-            return false
-        }
-        if alreadyCancelled { finish(.failure(CancellationError())); return }
-        DispatchQueue.global().asyncAfter(deadline: .now() + timeout) { [weak self] in
-            self?.finish(.failure(TalkbackError.speechFailed))
-        }
-        synth.write(utterance) { [weak self] buffer in
-            guard let self, let pcm = buffer as? AVAudioPCMBuffer else { return }
-            let ended: Bool = self.lock.withLock {
-                guard !self.done else { return false }
-                if pcm.frameLength == 0 { return true }
-                if let copy = pcm.deepCopy() { self.chunks.append(copy) }
-                return false
-            }
-            guard ended else { return }
-            if let joined = Self.join(self.lock.withLock { self.chunks }) {
-                self.finish(.success(joined))
-            } else {
-                self.finish(.failure(TalkbackError.speechFailed))
-            }
-        }
-    }
-
-    func cancel() {
-        lock.withLock { cancelled = true }
-        finish(.failure(CancellationError()))
-    }
-
-    private func finish(_ result: Result<AVAudioPCMBuffer, Error>) {
-        let (callback, synth): (((Result<AVAudioPCMBuffer, Error>) -> Void)?, AVSpeechSynthesizer?) = lock.withLock {
-            guard !done, let callback = completion else { return (nil, nil) }
-            done = true
-            let synth = synthesizer
-            synthesizer = nil
-            completion = nil
-            chunks = []
-            return (callback, synth)
-        }
-        synth?.stopSpeaking(at: .immediate)
-        callback?(result)
-    }
-
-    private static func join(_ parts: [AVAudioPCMBuffer]) -> AVAudioPCMBuffer? {
-        guard let format = parts.first?.format else { return nil }
-        let total = parts.reduce(0) { $0 + $1.frameLength }
-        guard total > 0, let joined = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: total) else { return nil }
-        let bytesPerFrame = Int(format.streamDescription.pointee.mBytesPerFrame)
-        let target = UnsafeMutableAudioBufferListPointer(joined.mutableAudioBufferList)
-        var offset = 0
-        for part in parts where part.format == format {
-            let source = UnsafeMutableAudioBufferListPointer(UnsafeMutablePointer(mutating: part.audioBufferList))
-            let bytes = Int(part.frameLength) * bytesPerFrame
-            for (from, to) in zip(source, target) {
-                guard let src = from.mData, let dst = to.mData else { continue }
-                memcpy(dst.advanced(by: offset), src, bytes)
-            }
-            offset += bytes
-        }
-        joined.frameLength = AVAudioFrameCount(offset / bytesPerFrame)
-        return joined
     }
 }
