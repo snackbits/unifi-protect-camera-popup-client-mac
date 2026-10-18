@@ -72,6 +72,26 @@ enum KeychainStore {
         }
     }
 
+    /// Account names of every item of `service` (attributes only, no secrets are read).
+    static func accounts(service: String) -> [String] {
+        #if DEBUG
+        if SnapshotRenderer.isActive { return [] }
+        #endif
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecReturnAttributes as String: true,
+            kSecMatchLimit as String: kSecMatchLimitAll,
+        ]
+        var result: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        guard status == errSecSuccess, let items = result as? [[String: Any]] else {
+            if status != errSecItemNotFound { NSLog("Keychain listing failed (\(status))") }
+            return []
+        }
+        return items.compactMap { $0[kSecAttrAccount as String] as? String }
+    }
+
     private static func baseQuery(service: String, account: String) -> [String: Any] {
         [
             kSecClass as String: kSecClassGenericPassword,

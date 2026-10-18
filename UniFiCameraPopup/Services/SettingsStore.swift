@@ -183,6 +183,9 @@ final class SettingsStore: ObservableObject {
     /// Phase-2 state under a key of its own: the installed older build rewrites `storageKey`
     /// without the keys it does not know (see `SettingsExtensions`).
     private let extensionsKey = "settingsExtensionsV2"
+    /// Phase-5 fields per camera/button. The installed 1.2.0 build knows `settingsExtensionsV2` and
+    /// rewrites it without them on every launch; this key it has never seen (`SettingsExtensionsV3`).
+    private let extensionsV3Key = "settingsExtensionsV3"
     /// Where raw, undecodable settings are preserved instead of being overwritten.
     private static let backupKey = "unifi.camera.popup.settings.corrupted-backup"
 
@@ -247,13 +250,13 @@ final class SettingsStore: ObservableObject {
             protectConsoleName = ext?.protectConsoleName ?? saved.protectConsoleName
             protectHost = (ext?.protectHost ?? saved.protectHost).map { ProtectClient.canonicalHost($0) ?? $0 } ?? ""
             protectCertificateFingerprint = ext?.protectCertificateFingerprint ?? saved.protectCertificateFingerprint
-            if let ext {
-                mappings = Self.overlay(ext, onto: mappings)
-            }
+            let extV3 = SettingsExtensionsV3.decode(defaults.data(forKey: extensionsV3Key))
+            mappings = Self.overlay(ext, extV3, onto: mappings)
             // After the overlay: the extension may carry rules the main blob lost.
             let rules = Self.loadRuleTokens(into: mappings)
             mappings = rules.mappings
             keychainRuleTokens = rules.fromKeychain
+            deleteOrphanedRuleTokens()
 
             // Decode succeeded: rewrite the (possibly migrated/normalized) payload.
             persist()
@@ -405,7 +408,20 @@ final class SettingsStore: ObservableObject {
     private func currentPersistedSettings() -> PersistedSettings {
         PersistedSettings(
             installationId: installationId,
-            mappings: mappings,
+            // A typed size also goes into the legacy width/height: the older build (and the main
+            // blob's own migration) then keep it even without `sizeOverride`.
+            mappings: mappings.map { mapping in
+                var mapping = mapping
+                let legacy = SettingsMerge.legacyDimensions(
+                    size: mapping.sizeOverride,
+                    hasCrop: mapping.crop != nil,
+                    width: mapping.width,
+                    height: mapping.height
+                )
+                mapping.width = legacy.width
+                mapping.height = legacy.height
+                return mapping
+            },
             defaultPosition: defaultPosition,
             defaultWidth: nil,
             defaultHeight: nil,
@@ -428,32 +444,61 @@ final class SettingsStore: ObservableObject {
         )
     }
 
-    /// Applies extension values to the mappings decoded from the main blob. The extension wins for
-    /// fields an older build cannot write; ids that no longer exist are ignored.
-    private static func overlay(_ ext: SettingsExtensions, onto mappings: [WebhookMapping]) -> [WebhookMapping] {
+    /// Applies extension values to the mappings decoded from the main blob. V2 wins for the Phase-4
+    /// fields, V3 for the Phase-5 fields (`SettingsMerge`); ids that no longer exist are ignored.
+    private static func overlay(
+        _ ext: SettingsExtensions?,
+        _ extV3: SettingsExtensionsV3?,
+        onto mappings: [WebhookMapping]
+    ) -> [WebhookMapping] {
         mappings.map { mapping in
             var mapping = mapping
-            if let m = ext.mappings[mapping.entryId.uuidString] {
+            if let m = ext?.mappings[mapping.entryId.uuidString] {
                 if let id = m.protectCameraId { mapping.protectCameraId = id }
                 if let raw = m.triggers { mapping.triggers = Set(raw.compactMap(TriggerKind.init(rawValue:))) }
                 if let enabled = m.webhookTriggerEnabled { mapping.webhookTriggerEnabled = enabled }
                 if let chime = m.chimeOnOpen { mapping.chimeOnOpen = chime }
-                if let show = m.showNameAndTime { mapping.showNameAndTime = show }
-                if let size = m.size { mapping.sizeOverride = size }
-                if let rules = m.eventRules { mapping.eventRules = rules.rules }
             }
+            let fields = SettingsMerge.mapping(
+                entryId: mapping.entryId.uuidString,
+                base: Phase5MappingFields(
+                    showNameAndTime: mapping.showNameAndTime,
+                    sizeOverride: mapping.sizeOverride,
+                    eventRules: mapping.eventRules
+                ),
+                v2: ext,
+                v3: extV3
+            )
+            mapping.showNameAndTime = fields.showNameAndTime
+            mapping.sizeOverride = fields.sizeOverride
+            mapping.eventRules = fields.eventRules
             mapping.actions = mapping.actions.map { action in
                 var action = action
-                if let a = ext.actions[action.id.uuidString] {
+                if let a = ext?.actions[action.id.uuidString] {
                     if let icon = a.icon.flatMap(ActionIcon.init(rawValue:)) { action.icon = icon }
                     if let confirm = a.confirmBeforeRun { action.confirmBeforeRun = confirm }
-                    // The extension entry is complete: no sound id there means „Kein Ton“.
-                    action.soundId = a.soundId.flatMap(UUID.init(uuidString:))
                 }
+                action.soundId = SettingsMerge.soundId(actionId: action.id.uuidString, base: action.soundId, v2: ext, v3: extV3)
                 return action
             }
             return mapping
         }
+    }
+
+    private func currentExtensionsV3() -> SettingsExtensionsV3 {
+        var mappingValues: [String: SettingsExtensionsV3.Mapping] = [:]
+        var actionValues: [String: SettingsExtensionsV3.Action] = [:]
+        for mapping in mappings {
+            mappingValues[mapping.entryId.uuidString] = .init(
+                showNameAndTime: mapping.showNameAndTime,
+                size: mapping.sizeOverride,
+                eventRules: EventRuleList(mapping.eventRules)
+            )
+            for action in mapping.actions {
+                actionValues[action.id.uuidString] = .init(soundId: action.soundId?.uuidString)
+            }
+        }
+        return SettingsExtensionsV3(mappings: mappingValues, actions: actionValues)
     }
 
     private func currentExtensions() -> SettingsExtensions {
@@ -500,6 +545,9 @@ final class SettingsStore: ObservableObject {
         }
         if let data = try? JSONEncoder().encode(currentExtensions()) {
             defaults.set(data, forKey: extensionsKey)
+        }
+        if let data = try? JSONEncoder().encode(currentExtensionsV3()) {
+            defaults.set(data, forKey: extensionsV3Key)
         }
     }
 
@@ -566,6 +614,18 @@ final class SettingsStore: ObservableObject {
 
     /// Rule tokens as last written to the keychain.
     private var keychainRuleTokens: [UUID: String] = [:]
+    /// Tokens the keychain refused (not retried while unchanged).
+    private var refusedRuleTokens: [UUID: String] = [:]
+    private var loggedRuleTokenRefusal = false
+
+    /// Deletes rule tokens whose rule no longer exists (e.g. lost through an older build rewriting
+    /// the settings): `keychainRuleTokens` only knows the rules found at load.
+    private func deleteOrphanedRuleTokens() {
+        let ruleIds = Set(mappings.flatMap(\.eventRules).map(\.id.uuidString))
+        for account in KeychainStore.accounts(service: KeychainStore.ruleTokenService) where !ruleIds.contains(account) {
+            KeychainStore.delete(service: KeychainStore.ruleTokenService, account: account)
+        }
+    }
 
     /// Fills in each rule's bearer token from the keychain.
     private static func loadRuleTokens(
@@ -595,13 +655,20 @@ final class SettingsStore: ObservableObject {
         for rule in mappings.flatMap(\.eventRules) where !rule.bearerToken.isEmpty {
             current[rule.id] = rule.bearerToken
         }
-        for (id, token) in current where keychainRuleTokens[id] != token {
+        // A token the keychain refused is not retried until it changes (`persist` runs per keystroke).
+        for (id, token) in current where keychainRuleTokens[id] != token && refusedRuleTokens[id] != token {
             if KeychainStore.set(token, service: KeychainStore.ruleTokenService, account: id.uuidString) {
                 keychainRuleTokens[id] = token
+                refusedRuleTokens[id] = nil
             } else {
-                NSLog("SettingsStore: event rule token could not be stored in the keychain")
+                refusedRuleTokens[id] = token
+                if !loggedRuleTokenRefusal {
+                    loggedRuleTokenRefusal = true
+                    NSLog("SettingsStore: event rule token could not be stored in the keychain (kept in memory only)")
+                }
             }
         }
+        refusedRuleTokens = refusedRuleTokens.filter { current[$0.key] == $0.value }
         for id in keychainRuleTokens.keys where current[id] == nil {
             KeychainStore.delete(service: KeychainStore.ruleTokenService, account: id.uuidString)
             keychainRuleTokens[id] = nil

@@ -93,7 +93,8 @@ public struct SoundSettings: Codable, Equatable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        /// `cameraVolume`: the single slider before Phase 5, read once into both new ones.
+        /// `cameraVolume`: the single slider before Phase 5, read into both new ones when they are
+        /// missing; still written (= `talkVolume`) for the installed older build.
         case announcements, microphoneUID, talkVolume, announcementVolume, cameraVolume
     }
 
@@ -121,6 +122,9 @@ public struct SoundSettings: Codable, Equatable, Sendable {
         try container.encodeIfPresent(microphoneUID, forKey: .microphoneUID)
         try container.encode(talkVolume, forKey: .talkVolume)
         try container.encode(announcementVolume, forKey: .announcementVolume)
+        // The installed 1.2.0 build only knows the single slider: give it the talk volume so it
+        // keeps a sane value. Decoding prefers the new keys, so this never overrides them.
+        try container.encode(talkVolume, forKey: .cameraVolume)
     }
 
     private struct LossyAnnouncement: Decodable {

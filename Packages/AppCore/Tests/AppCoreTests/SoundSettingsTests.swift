@@ -31,11 +31,22 @@ final class SoundSettingsTests: XCTestCase {
         var changed = old
         changed.talkVolume = 0.9
         let json = String(decoding: try JSONEncoder().encode(changed), as: UTF8.self)
-        XCTAssertFalse(json.contains("cameraVolume"))
         XCTAssertFalse(json.contains("talkMode"))
         let again = try JSONDecoder().decode(SoundSettings.self, from: Data(json.utf8))
         XCTAssertEqual(again.talkVolume, 0.9)
         XCTAssertEqual(again.announcementVolume, 0.4)
+    }
+
+    /// The installed 1.2.0 build reads only `cameraVolume`: it gets the talk volume, while this
+    /// build keeps preferring the two new keys.
+    func testLegacyVolumeStillWrittenForOldBuild() throws {
+        let settings = SoundSettings(talkVolume: 0.3, announcementVolume: 0.8)
+        let data = try JSONEncoder().encode(settings)
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(object["cameraVolume"] as? Double, 0.3)
+        let again = try JSONDecoder().decode(SoundSettings.self, from: data)
+        XCTAssertEqual(again.talkVolume, 0.3)
+        XCTAssertEqual(again.announcementVolume, 0.8)
     }
 
     func testLoudnessGainIsLenient() throws {
