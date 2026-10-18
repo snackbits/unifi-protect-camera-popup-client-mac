@@ -30,5 +30,12 @@ for file in voices/de_DE-thorsten-medium.onnx voices/de_DE-thorsten-medium.onnx.
     exit 1
   fi
 done
+NOTICES="${APP_PATH}/Contents/Resources/ThirdPartyNotices.txt"
+for marker in "Sprachausgabe (Piper)" "--- espeak-ng" "GPL-3.0-or-later" "--- onnxruntime" "Thorsten-Voice" "M-AILABS" "CC BY 4.0"; do
+  if ! grep -qF -- "${marker}" "${NOTICES}"; then
+    echo "ERROR: ThirdPartyNotices.txt lacks \"${marker}\" – run piper/scripts/collect-notices.sh, then wgtunnel/scripts/collect-notices.sh." >&2
+    exit 1
+  fi
+done
 codesign --verify --deep --strict "${APP_PATH}"
 echo "check-app: Piper ok in ${APP_PATH}"

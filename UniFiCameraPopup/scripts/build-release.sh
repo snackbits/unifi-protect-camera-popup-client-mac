@@ -18,7 +18,8 @@ SERVER_VERSION_FILE="../../server/version.json"
 # app.zip. Check they exist before anything is bumped or packaged, so a failure leaves no half release.
 PIPER_ROOT="${SCRIPT_DIR}/../../piper"
 PIPER_ARCHIVES=("${PIPER_ROOT}/.cache/"piper-* "${PIPER_ROOT}/.cache/"espeak-ng-* "${PIPER_ROOT}/.cache/"fmt-* \
-                "${PIPER_ROOT}/.cache/"spdlog-* "${PIPER_ROOT}/.cache/"onnxruntime-*)
+                "${PIPER_ROOT}/.cache/"spdlog-* "${PIPER_ROOT}/.cache/"onnxruntime-osx-universal2-*.tgz \
+                "${PIPER_ROOT}/.cache/onnxruntime-1.14.1-src.tar.gz")
 for archive in "${PIPER_ARCHIVES[@]}"; do
   if [[ ! -f "$archive" ]]; then
     echo "ERROR: Piper source archive ${archive} missing – run piper/scripts/build-piper.sh first." >&2
