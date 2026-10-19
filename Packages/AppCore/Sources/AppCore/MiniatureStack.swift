@@ -49,7 +49,9 @@ public enum MiniatureTiming {
 ///
 /// - The stack stands still while a miniature is armed and while the expanded popup is still
 ///   growing (`isFrozen`): frames of existing popups are kept, new popups line up below the lowest
-///   one, a closing popup leaves its gap open. Growing only pushes the popups below the growing one.
+///   one, a closing popup leaves its gap open. Growing only pushes the popups below the growing one
+///   – unless it would run below the screen: then it moves up and the miniatures it would cover
+///   line up below it (`PopupStackLayout.liftExpanded`).
 /// - Once growing has finished (`finishGrowing`) or the hover ended, the column closes up again.
 public struct MiniatureStack<ID: Hashable> {
     public struct Item: Equatable {
@@ -232,7 +234,8 @@ public struct MiniatureStack<ID: Hashable> {
     }
 
     /// Frozen column: placed popups keep their top (a size change keeps the top outer corner),
-    /// the growing popup pushes only the popups below it, new popups line up under the lowest one.
+    /// the growing popup pushes only the popups below it (or moves up, see `liftExpanded`), new
+    /// popups line up under the lowest one.
     private func frozenFrames() -> [ID: CGRect] {
         let area = miniatureArea
         var result: [ID: CGRect] = [:]
@@ -257,7 +260,12 @@ public struct MiniatureStack<ID: Hashable> {
             }
             nextTop = min(nextTop, frame.minY - gap)
         }
-        return result
+        let live = items.filter { $0.phase != .leaving }
+        guard let growingID, let g = live.firstIndex(where: { $0.id == growingID }) else { return result }
+        let lifted = PopupStackLayout.liftExpanded(
+            live.compactMap { result[$0.id] }, expandedIndex: g, side: side, area: area, gap: gap
+        )
+        return Dictionary(uniqueKeysWithValues: zip(live.map(\.id), lifted))
     }
 
     private func index(of id: ID) -> Int? { items.firstIndex { $0.id == id } }

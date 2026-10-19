@@ -166,6 +166,7 @@ public enum PopupStackLayout {
     /// except `expandedIndex`, which has its full size (fitted into the visible area minus the
     /// margins, aspect kept) and stays anchored at the top outer corner. Entries that do not fit
     /// run off below `visible.minY`: nothing shrinks and there is no second column.
+    /// An expanded entry that would run below the area moves up instead (`liftExpanded`).
     public static func miniatureFrames(
         fullSizes: [CGSize],
         expandedIndex: Int?,
@@ -177,12 +178,42 @@ public enum PopupStackLayout {
     ) -> [CGRect] {
         let area = miniatureArea(visible: visible, margin: margin)
         var top = area.maxY
-        return fullSizes.enumerated().map { index, full in
+        let frames = fullSizes.enumerated().map { index, full in
             let size = miniatureSize(full: full, expanded: index == expandedIndex, area: area, miniWidth: miniWidth)
             let frame = miniatureFrame(size: size, top: top, side: side, area: area)
             top -= size.height + gap
             return frame
         }
+        guard let expandedIndex else { return frames }
+        return liftExpanded(frames, expandedIndex: expandedIndex, side: side, area: area, gap: gap)
+    }
+
+    /// The expanded entry would run below `area`: it moves up until its bottom is at `area.minY`,
+    /// at most to the top of the area, without covering a miniature. Entries before it that fit
+    /// completely above its new top keep their frames; the other ones before it follow directly
+    /// below it in their order, then the ones after it (they may run off below the screen). The
+    /// order of the entries does not change: once it is small again, the column is as before.
+    static func liftExpanded(
+        _ frames: [CGRect],
+        expandedIndex: Int,
+        side: PopupAnchor.Horizontal,
+        area: CGRect,
+        gap: CGFloat
+    ) -> [CGRect] {
+        guard frames.indices.contains(expandedIndex) else { return frames }
+        let big = frames[expandedIndex]
+        guard big.minY < area.minY else { return frames }
+        let top = max(big.maxY, min(area.maxY, area.minY + big.height))
+        var result = frames
+        result[expandedIndex] = miniatureFrame(size: big.size, top: top, side: side, area: area)
+        let displacedBefore = frames.indices.prefix(expandedIndex).filter { frames[$0].minY < top + gap }
+        let below = displacedBefore + Array(frames.indices.suffix(from: expandedIndex + 1))
+        var cursor = result[expandedIndex].minY - gap
+        for i in below {
+            result[i] = miniatureFrame(size: frames[i].size, top: cursor, side: side, area: area)
+            cursor -= frames[i].height + gap
+        }
+        return result
     }
 
     /// The visible area minus the margin on every side (the miniature column's bounds).

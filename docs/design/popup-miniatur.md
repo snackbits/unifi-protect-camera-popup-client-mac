@@ -34,7 +34,15 @@ Reihenfolge der Abschnitte:
   - Gleichzeitig startet die Füllung `#FFD84D` von oben nach unten, linear in 500 ms.
   - Verlässt die Maus die Miniatur vorher, blendet er in 50 ms aus und die Füllung wird zurückgesetzt.
 - **Wachsen**: Nach 500 ms Hover skaliert das Popup auf seine echte Größe (`popupSize`). Die obere Außenecke bleibt stehen, rechts wächst es also nach unten links (300 ms, ease-in-out). Die Popups darunter rutschen nach unten. Overlays und Aktionen blenden danach ein (180 ms). Es ist immer nur ein Popup groß.
-- **Schneller Klick** auf die Miniatur vor Ablauf der 500 ms schließt sie (Ausschub).
+- **Ausweichen nach oben** (Nutzerwunsch 19.10.2026): Würde das große Popup an der Oberkante seiner Miniatur unter den sichtbaren Bereich ragen (`visible.minY` + Randabstand), rückt es so weit nach oben, dass es ganz sichtbar ist: Unterkante bei `visible.minY` + Randabstand, höchstens bis zur Oberkante des Stapels. Wachsen und Hochrücken sind eine gemeinsame Bewegung (300 ms, ease-in-out). Es überdeckt dabei keine anderen Miniaturen:
+  - Miniaturen davor, die vollständig oberhalb seiner neuen Oberkante passen, bleiben in ihrer Reihenfolge stehen.
+  - Die übrigen davor folgen in ihrer Reihenfolge direkt unter dem großen Popup (Abstand 10 pt), danach die Miniaturen, die ohnehin danach kamen. Sie dürfen unter den Bildschirm hinausragen.
+  - Beim Zurückschrumpfen gilt wieder die ursprüngliche Stapelreihenfolge.
+  - Rutscht das Popup dabei unter der Maus weg, gilt die Schonfrist von 2 s (siehe unten). Ausgewichen wird erst ab dem Wachsen; solange der Hover-Balken läuft, steht der Stapel still.
+- **Klick** (Nutzerwunsch 19.10.2026):
+  - Auf die Miniatur vor Ablauf der 500 ms schließt er sie (Ausschub).
+  - Während das Popup wächst, bewirkt ein Klick nichts.
+  - Ist das Popup ganz offen, schließt ein Klick aufs Video wie im Layout „Voll“ (nicht bei Zoom; ein offenes Menü schließt zuerst nur das Menü). Knöpfe und Menüs schließen das Popup nicht.
 - **Maus verlässt das große Popup**: Es schrumpft sofort zurück zur Miniatur, die Overlays verschwinden sofort. Ausnahme: Solange ein Menü des Popups offen ist oder gesprochen bzw. eine Ansage gesendet wird, bleibt es groß.
 - **Stapel steht still während des Hoverns** (Nutzerwunsch 19.10.2026, 19:05): Solange eine Miniatur gehovert wird, also der 500-ms-Balken läuft, bewegt sich der Stapel nicht. Schließt in dieser Zeit ein Popup darüber, gleitet nur dieses hinaus und die Lücke bleibt offen. Die gehoverte Miniatur und alle darunter bleiben stehen, damit die Maus nicht von der Miniatur rutscht.
   Erst wenn das Popup vollständig geöffnet ist, also das Wachsen abgeschlossen ist, wird nachgeholt: Das Popup darf hochrutschen, die übrigen rücken nach.

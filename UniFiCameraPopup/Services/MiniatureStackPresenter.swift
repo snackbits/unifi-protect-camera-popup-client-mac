@@ -273,7 +273,8 @@ final class MiniatureStackPresenter {
     }
 
     /// 500 ms on the miniature: it grows from its top outer corner (300 ms), the ones below move
-    /// down. Overlays fade in afterwards; then the column catches up.
+    /// down – or, if it would run below the screen, it moves up in the same move and the covered
+    /// miniatures line up below it. Overlays fade in afterwards; then the column catches up.
     private func expand(_ id: UUID) {
         if armTimer?.id == id { armTimer = nil }
         guard stack.phase(of: id) == .armed, var entry = entries[id] else { return }
@@ -281,8 +282,14 @@ final class MiniatureStackPresenter {
         entries[id] = entry
         entry.indicator.stopHoverBar(animated: false)
         let previous = stack.expandedID
+        let miniTop = stack.frame(of: id)?.maxY
         hoverGuard = MiniatureHoverGuard()
         var frames = stack.expand(id)
+        // Moving up instead of running below the screen (same 300 ms as the growing): sliding
+        // away under the pointer starts the grace period, not an immediate collapse.
+        if let grown = frames[id], let miniTop, grown.maxY != miniTop {
+            hoverGuard.noteLayoutMove(now: Date(), duration: MiniatureTiming.move)
+        }
         if let previous, previous != id, let other = entries[previous] {
             other.window.setCompact(true, animated: false)
             other.window.setAutoClosePaused(false)

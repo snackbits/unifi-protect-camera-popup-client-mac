@@ -197,6 +197,56 @@ final class MiniatureStackTests: XCTestCase {
         XCTAssertEqual(s.frame(of: "a"), out?.frame)
     }
 
+    // MARK: Großes Popup weicht nach oben aus
+
+    private func frames(_ sizes: [CGSize], expanded: Int) -> [CGRect] {
+        PopupStackLayout.miniatureFrames(fullSizes: sizes, expandedIndex: expanded, side: .trailing, visible: visible, margin: 20)
+    }
+
+    func testExpandedThatFitsDoesNotMove() {
+        let result = frames(Array(repeating: wide, count: 5), expanded: 4)
+        XCTAssertEqual(result[4], CGRect(x: 860, y: 73, width: 560, height: 315), "top outer corner stays")
+        XCTAssertEqual(result[3], CGRect(x: 1220, y: 398, width: 200, height: 113))
+    }
+
+    func testExpandedMovesUpAndCoveredMiniaturesLineUpBelow() {
+        let big = CGSize(width: 600, height: 600)
+        let result = frames([wide, wide, wide, wide, big, wide], expanded: 4)
+        XCTAssertEqual(result[4], CGRect(x: 820, y: 20, width: 600, height: 600), "bottom at the area's bottom")
+        XCTAssertEqual(result[0], CGRect(x: 1220, y: 767, width: 200, height: 113), "fits above: stays")
+        XCTAssertEqual(result[1], CGRect(x: 1220, y: 644, width: 200, height: 113), "fits above: stays")
+        XCTAssertEqual(result[2], CGRect(x: 1220, y: -103, width: 200, height: 113), "would be covered: below it")
+        XCTAssertEqual(result[3], CGRect(x: 1220, y: -226, width: 200, height: 113))
+        XCTAssertEqual(result[5], CGRect(x: 1220, y: -349, width: 200, height: 113), "the ones after follow")
+    }
+
+    func testExpandedLargerThanTheAreaFillsItFromTheTop() {
+        let huge = CGSize(width: 2000, height: 2000)
+        let result = frames([wide, huge], expanded: 1)
+        XCTAssertEqual(result[1], CGRect(x: 560, y: 20, width: 860, height: 860))
+        XCTAssertEqual(result[0], CGRect(x: 1220, y: -103, width: 200, height: 113), "the miniature above goes below")
+    }
+
+    /// Growing and moving up are one move; small again, the original order returns.
+    func testGrowingMovesUpAtOnceAndCollapseRestoresTheOrder() {
+        var s = stack(["a", "b", "c", "d"])
+        _ = s.append("e", fullSize: CGSize(width: 600, height: 600))
+        XCTAssertEqual(s.frame(of: "e")?.maxY, 388)
+        s.arm("e")
+        let grown = s.expand("e")
+        XCTAssertEqual(grown["e"], CGRect(x: 820, y: 20, width: 600, height: 600))
+        XCTAssertNil(grown["a"])
+        XCTAssertNil(grown["b"])
+        XCTAssertEqual(grown["c"]?.minY, -103)
+        XCTAssertEqual(grown["d"]?.minY, -226)
+        XCTAssertTrue(s.finishGrowing("e").isEmpty, "nothing left to catch up")
+        let small = s.collapse("e")
+        XCTAssertEqual(small["c"]?.minY, 521)
+        XCTAssertEqual(small["d"]?.minY, 398)
+        XCTAssertEqual(small["e"], CGRect(x: 1220, y: 188, width: 200, height: 200))
+        XCTAssertEqual(s.items.map(\.id), ["a", "b", "c", "d", "e"])
+    }
+
     // MARK: Nur eine armierte Miniatur
 
     func testArmingAnotherDisarmsTheFirst() {
