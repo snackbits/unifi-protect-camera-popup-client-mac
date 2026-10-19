@@ -81,6 +81,14 @@ final class PopupController {
     }
 
     /// Event kind for the popup chip and the menu panel ("Klingel"); nil for webhook and manual popups.
+    /// Camera sound switch in the popup: Protect cameras by their microphone; webhook-only or not
+    /// (yet) known cameras get it too, their stream may carry sound.
+    static func mayHaveMicrophone(_ mapping: WebhookMapping) -> Bool {
+        guard SettingsStore.shared.isProtectConfigured, let cameraId = mapping.protectCameraId,
+              let camera = ProtectSession.shared.cameras.first(where: { $0.id == cameraId }) else { return true }
+        return camera.hasMic
+    }
+
     static func kindLabel(for event: TriggerEvent, mapping: WebhookMapping) -> String? {
         TriggerKind.displayOrder.first { event.kinds.contains($0) && mapping.triggers.contains($0) }?.label
     }
@@ -160,8 +168,9 @@ final class PopupController {
             onMute: { [weak self] duration in
                 self?.settings.mute(entryId: entryId, for: duration)
             },
-            talk: TalkbackService.shared.canTalk(mapping)
-                ? PopupTalkContent(entryId: entryId, soundEnabled: mapping.soundEnabled) { [weak self] enabled in
+            talk: TalkbackService.shared.canTalk(mapping) ? PopupTalkContent(entryId: entryId) : nil,
+            sound: Self.mayHaveMicrophone(mapping)
+                ? PopupSoundContent(enabled: mapping.soundEnabled) { [weak self] enabled in
                     self?.settings.setSoundEnabled(enabled, for: entryId)
                 }
                 : nil,
