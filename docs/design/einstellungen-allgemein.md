@@ -4,11 +4,12 @@ Fenster 760 × 540, Fläche `win`. Kopf (`bar`, Rand unten 1 `border`): Titellei
 Titel „Allgemein“ 13/600 mittig (nativ); darunter Reiterleiste.
 
 ## Reiterleiste (alle Reiter gleich)
-Zentriert, Abstand 4, Innenabstand oben 2 unten 8. Reiter-Button 78 breit, Innenabstand 5
-oben/unten, Radius 7, senkrecht Symbol 20 + 3 + Text 11.
-Reihenfolge/Texte/Symbole: Allgemein (tabGeneral) · Kameras (tabCameras) · Ton (tabSound) ·
-Unterwegs (tabRemote). Aktiv: Fläche `tabOn`, Farbe `accText`; sonst transparent, `muted`.
-Fenstertitel je Reiter: „Allgemein“, „Kameras“, „Ton & Sprechen“, „Unterwegs“.
+Zentriert, Abstand 4, Innenabstand oben 2 unten 8. Reiter-Button mindestens 78 breit (längere
+Namen: Innenabstand 10 links/rechts), Innenabstand 5 oben/unten, Radius 7, senkrecht Symbol 20 + 3 + Text 11.
+Reihenfolge/Texte/Symbole: Allgemein (tabGeneral) · Erscheinungsbild (tabAppearance, seit 2.7.0) ·
+Kameras (tabCameras) · Ton (tabSound) · Unterwegs (tabRemote). Aktiv: Fläche `tabOn`, Farbe `accText`;
+sonst transparent, `muted`.
+Fenstertitel je Reiter: „Allgemein“, „Erscheinungsbild“, „Kameras“, „Ton & Sprechen“, „Unterwegs“.
 
 ## Inhalt
 Innenabstand 22 oben/unten, 40 links/rechts; Abstand 16; Schrift 13. Scrollt bei Bedarf.
@@ -19,11 +20,6 @@ Innenabstand 22 oben/unten, 40 links/rechts; Abstand 16; Schrift 13. Scrollt bei
    - „API-Schlüssel“ | „im Schlüsselbund“ (`muted`) | Button „Ersetzen …“
    Feld-Button: 12, Innenabstand 3/10, Radius 6, Rand 1 `chipBorder`, Fläche `field`, Text `fg`.
 2. Karte, Zeilen Innenabstand 10/14:
-   - „Erscheinungsbild“ | Segment „System“ (aktiv) · „Hell“ · „Dunkel“
-     Segment: Fläche `segBg`, Radius 7, Innenabstand 2, Schrift 12; Segment Innenabstand
-     3/12; aktiv Radius 5, `segOn`, Schatten `segShadow` 0 1 2, 600; inaktiv `muted`.
-   - „Popup-Position“ | Auswahlfeld „Oben rechts“ + Doppelpfeil 9 (Abstand 6, 12, Innenabstand
-     3/10, Radius 6, Rand 1 `chipBorder`, Fläche `field`)
    - „Im Fokus-Modus keine Popups“ | Schalter an
    - „Bei Anmeldung starten“ | Schalter an
    Schalter: 32 × 19, Radius 10, an `accent` (Knopf rechts), aus `toggleOff` (Knopf links);
@@ -35,5 +31,13 @@ Innenabstand 22 oben/unten, 40 links/rechts; Abstand 16; Schrift 13. Scrollt bei
    Dauer-Feld: Rahmen Radius 6, Rand 1 `chipBorder`, Fläche `field`, Schrift 12; Eingabe 34
    breit, Innenabstand 3/6, rechtsbündig, tabellarisch; Trenner 1 `chipBorder`; Einheit
    Innenabstand 3/8, Abstand 5, Text + Doppelpfeil 9. Einheitentext immer Plural.
-4. Zeile rechtsbündig, Abstand 8: „Konfiguration exportieren …“ · „Importieren …“
-   (Feld-Button, Innenabstand 4/12).
+4. Zeile, Abstand 8: links Aufklapper „Erweitert“, rechtsbündig „Konfiguration exportieren …“ ·
+   „Importieren …“ (Feld-Button, Innenabstand 4/12).
+5. „Erweitert“ (aufgeklappt): Abschnitte „Updates“, „Webhooks (Relay-Server)“ (nur solange eine
+   Kamera per Webhook auslöst) und „Hilfe“.
+
+## Umgezogen nach „Erscheinungsbild“ (2.7.0)
+Die Zeilen „Erscheinungsbild“ (jetzt „Farbschema“), „Popup-Position“ und der frühere Bereich
+„Erweitert › Popup“ (Bildschirm, Randabstand, Automatisch schließen, Alle aktiven Kameras zeigen)
+stehen nicht mehr in Allgemein, siehe `einstellungen-erscheinungsbild.md`. Export und Import
+bleiben hier.

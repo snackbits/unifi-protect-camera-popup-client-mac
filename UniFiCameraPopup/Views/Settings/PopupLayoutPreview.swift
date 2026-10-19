@@ -7,6 +7,8 @@ import SwiftUI
 /// The scene colors are fixed (illustration); ring and texts around it come from the tokens.
 struct PopupLayoutPreview: View {
     let mode: PopupLayoutMode
+    /// Popups on the left edge (`PopupPosition.left`): popups, pointer and hover bar mirrored.
+    var mirrored = false
     /// Start of the cycle (both tiles share it, so they run in step).
     var start = Date()
     /// Fixed point in the cycle (0…1) instead of the clock, e.g. for snapshots.
@@ -25,13 +27,14 @@ struct PopupLayoutPreview: View {
     var body: some View {
         Group {
             if let still = fixedProgress ?? (reduceMotion ? Self.restProgress(for: mode) : nil) {
-                PopupLayoutScene(mode: mode, progress: still)
+                PopupLayoutScene(mode: mode, progress: still, mirrored: mirrored)
             } else {
                 TimelineView(.animation) { context in
                     let elapsed = max(0, context.date.timeIntervalSince(start))
                     PopupLayoutScene(
                         mode: mode,
-                        progress: elapsed.truncatingRemainder(dividingBy: Self.cycle) / Self.cycle
+                        progress: elapsed.truncatingRemainder(dividingBy: Self.cycle) / Self.cycle,
+                        mirrored: mirrored
                     )
                 }
             }
@@ -46,10 +49,11 @@ struct PopupLayoutPreview: View {
 struct PopupLayoutScene: View {
     let mode: PopupLayoutMode
     let progress: Double
+    var mirrored = false
 
     var body: some View {
         Canvas { context, size in
-            let scene = SceneGeometry(size: size)
+            let scene = SceneGeometry(size: size, mirrored: mirrored)
             scene.drawDesktop(in: context)
             let p = progress * 100
             switch mode {
@@ -167,8 +171,11 @@ private func rgb(_ hex: UInt32, _ alpha: Double = 1) -> Color {
 }
 
 /// Mock variables of proposal A (`--r`, `--mw` …) and the drawing of every part.
+/// The geometry is that of the mock (popups on the right); `mirrored` reflects the positions of
+/// popups, pointer and hover bar for the left edge. Desktop and the drawn shapes stay as they are.
 private struct SceneGeometry {
     let size: CGSize
+    var mirrored = false
 
     // Variables in % of the tile (widths of the width, heights and tops of the height).
     static let r = 3.0, mw = 17.0, mh = 15.3, ew = 42.0, eh = 37.8
@@ -188,6 +195,18 @@ private struct SceneGeometry {
 
     /// Right edge of the popups (`right: var(--r)`).
     var popupRight: CGFloat { w - x(Self.r) }
+
+    /// Mock frame → frame on the chosen side.
+    func place(_ rect: CGRect) -> CGRect {
+        guard mirrored else { return rect }
+        return CGRect(x: w - rect.maxX, y: rect.minY, width: rect.width, height: rect.height)
+    }
+
+    func place(_ point: CGPoint) -> CGPoint {
+        mirrored ? CGPoint(x: w - point.x, y: point.y) : point
+    }
+
+    func isVisible(_ rect: CGRect) -> Bool { rect.maxX > 0 && rect.minX < w }
 
     // MARK: Desktop
 
@@ -295,11 +314,11 @@ private struct SceneGeometry {
 
     // MARK: Popups
 
-    /// Popup with its top right corner at (`popupRight` + shift, top).
+    /// Popup with its top right corner at (`popupRight` + shift, top), mirrored if needed.
     private func popupRect(top: Double, width: Double, height: Double, shiftPercent: Double = 0) -> CGRect {
         let rectWidth = x(width)
-        return CGRect(x: popupRight - rectWidth + rectWidth * shiftPercent / 100, y: y(top),
-                      width: rectWidth, height: y(height))
+        return place(CGRect(x: popupRight - rectWidth + rectWidth * shiftPercent / 100, y: y(top),
+                            width: rectWidth, height: y(height)))
     }
 
     /// Popup: camera scene silhouette (sky/ground, house, tree), overlays, shadow and 1 pt ring.
@@ -416,13 +435,13 @@ private struct SceneGeometry {
         let m3 = popupRect(top: Keys.m3Top.value(at: p), width: Self.mw, height: Self.mh,
                            shiftPercent: Keys.m3Shift.value(at: p))
         // Paint order of the mock: m1, m3, hover bar, then m2 (z-index 2), pointer (z-index 3).
-        if m1.minX < w { drawPopup(in: context, rect: m1, overlayOpacity: 0) }
-        if m3.minX < w { drawPopup(in: context, rect: m3, overlayOpacity: 0) }
+        if isVisible(m1) { drawPopup(in: context, rect: m1, overlayOpacity: 0) }
+        if isVisible(m3) { drawPopup(in: context, rect: m3, overlayOpacity: 0) }
 
         // Hover bar: left = 100 % − r − mw − 1.7 %, top t2, 0.8 cqw wide, mh high, radius 0.4 cqw.
         let barOpacity = Keys.barOpacity.value(at: p)
         if barOpacity > 0 {
-            let bar = CGRect(x: x(100 - Self.r - Self.mw - 1.7), y: y(Self.t2), width: 0.8 * cq, height: y(Self.mh))
+            let bar = place(CGRect(x: x(100 - Self.r - Self.mw - 1.7), y: y(Self.t2), width: 0.8 * cq, height: y(Self.mh)))
             var layer = context
             layer.opacity = barOpacity
             let shape = Path(roundedRect: bar, cornerRadius: 0.4 * cq)
@@ -433,14 +452,14 @@ private struct SceneGeometry {
                        with: .color(rgb(0xFFD84D)))
         }
 
-        if m2.minX < w { drawPopup(in: context, rect: m2, overlayOpacity: Keys.overlays.value(at: p)) }
+        if isVisible(m2) { drawPopup(in: context, rect: m2, overlayOpacity: Keys.overlays.value(at: p)) }
 
         let cursorOpacity = Keys.cursorOpacity.value(at: p)
         if cursorOpacity > 0 {
             let move = Keys.cursorMove.value(at: p)
             let rest = CGPoint(x: x(100 - Self.r - Self.mw / 2), y: y(Self.t2 + Self.mh / 2))
-            let origin = CGPoint(x: x(Self.cx0) + (rest.x - x(Self.cx0)) * move,
-                                 y: y(Self.cy0) + (rest.y - y(Self.cy0)) * move)
+            let origin = place(CGPoint(x: x(Self.cx0) + (rest.x - x(Self.cx0)) * move,
+                                       y: y(Self.cy0) + (rest.y - y(Self.cy0)) * move))
             var layer = context
             layer.opacity = cursorOpacity
             drawCursor(in: layer, at: origin)
@@ -463,7 +482,7 @@ private struct SceneGeometry {
         context.stroke(path, with: .color(.white), style: StrokeStyle(lineWidth: 1.8 * scale, lineJoin: .round))
     }
 
-    /// Full cycle: two full popups fade in (scale 0.94 → 1 from the top right corner) and out again.
+    /// Full cycle: two full popups fade in (scale 0.94 → 1 from the outer top corner) and out again.
     func drawFullPopups(in context: GraphicsContext, at p: Double) {
         let popups: [(top: Double, track: Track)] = [(Self.t1, Keys.full1), (Self.f2t, Keys.full2)]
         for popup in popups {
@@ -473,9 +492,10 @@ private struct SceneGeometry {
             let scale = 0.94 + 0.06 * amount
             var layer = context
             layer.opacity = amount
-            layer.translateBy(x: rect.maxX, y: rect.minY)
+            let anchorX = mirrored ? rect.minX : rect.maxX
+            layer.translateBy(x: anchorX, y: rect.minY)
             layer.scaleBy(x: scale, y: scale)
-            layer.translateBy(x: -rect.maxX, y: -rect.minY)
+            layer.translateBy(x: -anchorX, y: -rect.minY)
             layer.drawLayer { group in
                 drawPopup(in: group, rect: rect, overlayOpacity: 1)
             }

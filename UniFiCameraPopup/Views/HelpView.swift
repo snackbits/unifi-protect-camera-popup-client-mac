@@ -117,12 +117,20 @@ struct HelpView: View {
 
     private var tipsBody: some View {
         VStack(alignment: .leading, spacing: 16) {
+            tip("Popup-Layout „Miniatur“", "rectangle.inset.topright.filled",
+                "Standardmäßig erscheint jede Kamera zuerst als kleine Vorschau am Bildschirmrand, ohne Knöpfe. "
+                + "Bleibt die Maus darauf, füllt sich daneben ein gelber Balken; nach einer halben Sekunde wird das Popup groß "
+                + "und zeigt alle Knöpfe. Verlässt die Maus es, wird es wieder klein. Ein kurzer Klick auf die Miniatur schließt sie. "
+                + "Die Linie unter der Miniatur zeigt, wie lange sie noch offen bleibt; kurz vor Schluss rückt sie etwas zum Rand hinaus. "
+                + "Unter Einstellungen › Erscheinungsbild wählst du stattdessen „Voll“ – dann öffnen Popups wie bisher sofort groß. "
+                + "Dort legst du auch fest, ob Popups links oder rechts erscheinen; sie stapeln sich immer von oben.")
+
             tip("Popup schließen", "rectangle.slash",
                 "Mit einem Links- oder Rechtsklick auf das Popup schließt du es sofort.")
 
             tip("Fenster offen halten", "cursorarrow.rays",
                 "Solange sich der Mauszeiger über dem Popup befindet, bleibt es geöffnet "
-                + "und schließt nicht automatisch.")
+                + "und schließt nicht automatisch – das gilt auch für Miniaturen.")
 
             tip("Zoomen", "plus.magnifyingglass",
                 "Scrolle mit dem Mausrad über dem Video – oder zieh am Trackpad mit zwei Fingern auf – "

@@ -1,5 +1,8 @@
 # Popup (Vorlage Main 8, „Popup mit Sprechen & Ton“, Popup aus B)
 
+Diese Datei beschreibt das Popup in voller Größe. Seit 2.7.0 gibt es zwei Layouts (Einstellungen ›
+Erscheinungsbild › Popup-Layout), siehe Abschnitt „Layout Miniatur“ am Ende.
+
 Fenster randlos, Radius 12, nativer Schatten, Ring 1 `popupRing`. Größe pro Kamera
 (Vorlage: 470 × 300). Hintergrund Vorschaubild/Livebild.
 1. Chip oben links (10/10): Kapsel `overlay`, Innenabstand 4/9, 11/600 weiß:
@@ -47,3 +50,16 @@ Fenster randlos, Radius 12, nativer Schatten, Ring 1 `popupRing`. Größe pro Ka
 - Buttons des Nutzers können statt/zusätzlich zum Webhook eine Ansage abspielen (nur bei Kameras mit Lautsprecher sichtbar, sonst nur ihr Webhook-Teil).
 - Größe: ≈ 42 % der sichtbaren Bildschirmhöhe, Breite aus dem Seitenverhältnis; mehr Popups als Platz → alle gleichmäßig kleiner
   (mind. 160 hoch, sonst zweite Spalte), Wechsel 300 ms ease-in-out, „Bewegung reduzieren“ → sofort.
+
+## Layout „Miniatur“ (2.7.0, Standard)
+Vollständige Beschreibung: `popup-miniatur.md`. Kurz:
+- Jede Kamera erscheint zuerst als **kompakte Miniatur** (200 breit, Höhe aus dem Seitenverhältnis) am
+  gewählten Rand (Links/Rechts), Stapel von oben, Abstand 10, ohne Schrumpfen und ohne zweite Spalte.
+- Die Miniatur ist **reines Video ohne Overlays**: kein Chip, kein Stummschalten/Schließen, keine Leiste,
+  keine Hinweise, keine Menüs.
+- 500 ms Darüberfahren (Hover-Balken an der Innenseite füllt sich) → das Popup wächst auf die Größe
+  oben (Phase 5) und zeigt alle Elemente dieser Datei; Maus hinaus → zurück zur Miniatur.
+  Ein kurzer Klick auf die Miniatur schließt sie.
+- Restzeit-Linie unter der Miniatur, Vorwarnung in den letzten 3 s.
+- Layout „Voll“ = das bisherige Verhalten dieser Datei; die Position kennt dort ebenfalls nur noch
+  Links/Rechts (Anker oben links bzw. oben rechts).

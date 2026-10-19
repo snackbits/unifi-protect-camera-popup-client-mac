@@ -22,6 +22,13 @@ struct WhatsNewInfo: Equatable {
 enum WhatsNewService {
     /// Newest version first.
     static let changelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "2.7.0", items: [
+            "Neues Popup-Layout „Miniatur“ (Standard): Kameras erscheinen als kleine Vorschau am Bildschirmrand. Bleibt die Maus kurz darauf, wird das Popup groß – ein kurzer Klick auf die Miniatur schließt sie.",
+            "Eine Linie unter der Miniatur zeigt, wie lange sie noch offen bleibt.",
+            "Lieber alles sofort groß? Das Layout „Voll“ verhält sich wie bisher.",
+            "Neuer Reiter „Erscheinungsbild“ in den Einstellungen: Popup-Layout, Farbschema und alles zur Popup-Position an einem Ort.",
+            "Popups stehen jetzt links oder rechts und stapeln sich immer von oben – frühere Positionen werden übernommen.",
+        ]),
         ChangelogEntry(version: "2.6.1", items: [
             "Ansagen in Einstellungen › Ton haben links einen Griff zum Verschieben.",
             "Das Ansagen-Menü im Popup ist so breit wie der längste Name – nichts bricht mehr um.",

@@ -28,7 +28,8 @@ struct AppearanceTab: View {
             Card {
                 HStack(alignment: .top, spacing: 14) {
                     ForEach(PopupLayoutMode.allCases, id: \.self) { mode in
-                        PopupLayoutOption(mode: mode, selection: $settings.popupLayoutMode, start: animationStart)
+                        PopupLayoutOption(mode: mode, selection: $settings.popupLayoutMode, start: animationStart,
+                                          mirrored: settings.defaultPosition == .left)
                     }
                 }
                 .padding(14)
@@ -113,6 +114,8 @@ private struct PopupLayoutOption: View {
     let mode: PopupLayoutMode
     @Binding var selection: PopupLayoutMode
     let start: Date
+    /// Popup-Position „Links“: the illustration shows the popups on the left edge.
+    let mirrored: Bool
 
     private var isOn: Bool { selection == mode }
 
@@ -128,7 +131,7 @@ private struct PopupLayoutOption: View {
         let ring: CGFloat = isOn ? 2.5 : 1
         Button { selection = mode } label: {
             VStack(alignment: .leading, spacing: 8) {
-                PopupLayoutPreview(mode: mode, start: start, fixedProgress: fixedProgress)
+                PopupLayoutPreview(mode: mode, mirrored: mirrored, start: start, fixedProgress: fixedProgress)
                     // box-shadow 0 0 0 <ring>: drawn outside the graphic.
                     .overlay(
                         RoundedRectangle(cornerRadius: 8 + ring)

@@ -157,19 +157,27 @@ enum SnapshotRenderer {
             write(window: tallAppearance, appearance: appearance,
                   to: directory.appendingPathComponent("S7-erscheinungsbild-ganz-\(suffix).png"))
             SnapshotRenderer.settingsHeight = nil
+            // Popup-Position „Links“: both illustrations mirrored.
+            let savedPosition = sample.settings.defaultPosition
+            sample.settings.defaultPosition = .left
+            write(window: settingsWindow(tab: .appearance), appearance: appearance,
+                  to: directory.appendingPathComponent("S7-erscheinungsbild-links-\(suffix).png"))
+            sample.settings.defaultPosition = savedPosition
             SnapshotRenderer.layoutPreviewProgress = nil
             // Frames of the two illustrations through the 7 s cycle (fixed scene colors: once).
             if suffix == "light" {
                 for mode in PopupLayoutMode.allCases {
-                    for percent in [5, 20, 30, 37, 43, 55, 68, 88] {
-                        let frame = PopupLayoutScene(mode: mode, progress: Double(percent) / 100)
-                            .frame(width: 319, height: 199.375)
-                        let renderer = ImageRenderer(content: frame)
-                        renderer.scale = 2
-                        if let image = renderer.nsImage, let tiff = image.tiffRepresentation,
-                           let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) {
-                            let name = String(format: "L-%@-%02d.png", mode.rawValue, percent)
-                            try? png.write(to: directory.appendingPathComponent(name))
+                    for mirrored in [false, true] {
+                        for percent in [5, 20, 30, 37, 43, 55, 68, 88] {
+                            let frame = PopupLayoutScene(mode: mode, progress: Double(percent) / 100, mirrored: mirrored)
+                                .frame(width: 319, height: 199.375)
+                            let renderer = ImageRenderer(content: frame)
+                            renderer.scale = 2
+                            if let image = renderer.nsImage, let tiff = image.tiffRepresentation,
+                               let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) {
+                                let name = String(format: "L-%@%@-%02d.png", mode.rawValue, mirrored ? "-links" : "", percent)
+                                try? png.write(to: directory.appendingPathComponent(name))
+                            }
                         }
                     }
                 }
