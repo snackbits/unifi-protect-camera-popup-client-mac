@@ -24,3 +24,5 @@ Darunter bei Bedarf eine Zeile 12: Import-Rückmeldung (Abw. 6), Testergebnis (A
 Ohne Datei (Abw. 1): „Noch nicht eingerichtet“ 14/700, Abstand 2, Text 12 `muted`
 „Lege die WireGuard-Datei deines Gateways hier ab. Die App nutzt den Tunnel nur für sich.“,
 Abstand 10, Ablagefeld wie Einrichtung Schritt 6; Fußzeile nur mit dem Anleitungs-Link.
+
+Routing einer neuen Konsolenadresse (Einrichtung, „Ändern …“): Eine Adresse, die nicht der gespeicherten entspricht, bekommt im Modus „Automatisch“ eine eigene direkte Zertifikatsabfrage (3 s). Antwortet sie, gilt der direkte Weg mit den Vertrauensregeln der Einrichtung zu Hause (Trust on first use bzw. Fingerabdruck bestätigen, wenn schon eine andere Konsole gepinnt ist), sonst der Tunnel; nach dem Speichern bewertet der Router die Route für die neue Adresse sofort neu.

@@ -50,4 +50,25 @@ public enum RouteDecision {
         case .automatic: return direct == .console ? .direct : .tunnel
         }
     }
+
+    /// An address other than the configured console (set-up, „Ändern …“) is probed directly
+    /// on its own: the current route only describes the configured address.
+    public static func needsCandidateProbe(mode: TunnelMode, hasTunnel: Bool, isConfiguredHost: Bool) -> Bool {
+        !isConfiguredHost && needsProbe(mode: mode, hasTunnel: hasTunnel)
+    }
+
+    /// Route for checking `candidate` before it is saved. The configured address keeps
+    /// `current`; another one is direct when it answered a direct probe (at home: the same
+    /// trust rules as a first set-up), else the tunnel. `answered` is ignored unless
+    /// `needsCandidateProbe` is true.
+    public static func decideCandidate(mode: TunnelMode, hasTunnel: Bool, isConfiguredHost: Bool,
+                                       current: ProtectRoute, answered: Bool) -> ProtectRoute {
+        if isConfiguredHost { return current }
+        guard hasTunnel else { return .direct }
+        switch mode {
+        case .off: return .direct
+        case .always: return .tunnel
+        case .automatic: return answered ? .direct : .tunnel
+        }
+    }
 }

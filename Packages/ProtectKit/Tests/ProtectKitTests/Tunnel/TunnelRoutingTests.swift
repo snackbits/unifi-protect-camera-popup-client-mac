@@ -33,6 +33,47 @@ final class TunnelRoutingTests: XCTestCase {
         XCTAssertEqual(DirectReachability.from(presentedFingerprint: "BB", pinned: "AA"), .otherDevice)
     }
 
+    func testCandidateReachableDirectlyGoesDirect() {
+        XCTAssertTrue(RouteDecision.needsCandidateProbe(mode: .automatic, hasTunnel: true, isConfiguredHost: false))
+        XCTAssertEqual(RouteDecision.decideCandidate(mode: .automatic, hasTunnel: true, isConfiguredHost: false,
+                                                     current: .tunnel, answered: true), .direct)
+    }
+
+    func testCandidateUnreachableUsesTunnel() {
+        XCTAssertEqual(RouteDecision.decideCandidate(mode: .automatic, hasTunnel: true, isConfiguredHost: false,
+                                                     current: .tunnel, answered: false), .tunnel)
+        XCTAssertEqual(RouteDecision.decideCandidate(mode: .automatic, hasTunnel: true, isConfiguredHost: false,
+                                                     current: .direct, answered: false), .tunnel)
+    }
+
+    func testConfiguredHostKeepsCurrentRoute() {
+        XCTAssertFalse(RouteDecision.needsCandidateProbe(mode: .automatic, hasTunnel: true, isConfiguredHost: true))
+        for current in [ProtectRoute.direct, .tunnel] {
+            for answered in [true, false] {
+                XCTAssertEqual(RouteDecision.decideCandidate(mode: .automatic, hasTunnel: true, isConfiguredHost: true,
+                                                             current: current, answered: answered), current)
+            }
+        }
+    }
+
+    func testCandidateModeAlwaysUsesTunnel() {
+        XCTAssertFalse(RouteDecision.needsCandidateProbe(mode: .always, hasTunnel: true, isConfiguredHost: false))
+        XCTAssertEqual(RouteDecision.decideCandidate(mode: .always, hasTunnel: true, isConfiguredHost: false,
+                                                     current: .direct, answered: true), .tunnel)
+    }
+
+    func testCandidateModeOffGoesDirect() {
+        XCTAssertFalse(RouteDecision.needsCandidateProbe(mode: .off, hasTunnel: true, isConfiguredHost: false))
+        XCTAssertEqual(RouteDecision.decideCandidate(mode: .off, hasTunnel: true, isConfiguredHost: false,
+                                                     current: .tunnel, answered: false), .direct)
+    }
+
+    func testCandidateWithoutTunnelGoesDirect() {
+        XCTAssertFalse(RouteDecision.needsCandidateProbe(mode: .automatic, hasTunnel: false, isConfiguredHost: false))
+        XCTAssertEqual(RouteDecision.decideCandidate(mode: .automatic, hasTunnel: false, isConfiguredHost: false,
+                                                     current: .direct, answered: false), .direct)
+    }
+
     func testModeLabels() {
         XCTAssertEqual(TunnelMode.allCases.map(\.label), ["Automatisch", "Immer", "Nie"])
     }

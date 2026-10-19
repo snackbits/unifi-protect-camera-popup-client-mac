@@ -218,6 +218,8 @@ final class OnboardingModel: ObservableObject {
                 settings.mappings[index].triggers = []
             }
         }
+        // Route for the saved address, not the previous one (would keep a stale tunnel).
+        ConnectionRouter.shared.consoleChanged()
         ProtectSession.shared.reconnect()
         onFinish()
     }

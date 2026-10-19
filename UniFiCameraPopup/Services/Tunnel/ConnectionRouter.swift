@@ -44,6 +44,8 @@ final class ConnectionRouter: ObservableObject {
     private var wakeObserver: NSObjectProtocol?
     private var started = false
     private var hysteresis = RouteHysteresis(required: 2)
+    /// Set by `consoleChanged()`: the next probe applies without hysteresis.
+    private var consoleIsNew = false
     /// Both paths failed: retry after 30 s, 60 s, … at most every 5 minutes.
     private var failureBackoff = Backoff(base: 30, max: 300)
     /// Delay of the second probe that confirms a route change.
@@ -94,8 +96,25 @@ final class ConnectionRouter: ObservableObject {
 
     /// Like `apiHost(for:)`, but creates the forward when needed (set-up and re-trust checks,
     /// also for an address other than the configured console). nil = not reachable now.
+    /// The current route only describes the configured console: another address gets its own
+    /// short direct probe (`RouteDecision.decideCandidate`). Answering directly means at home,
+    /// where the set-up's trust rules apply; otherwise the tunnel, fail closed as always.
     func resolveAPIHost(for consoleHost: String) async -> String? {
-        guard route == .tunnel else { return consoleHost }
+        let candidate = ProtectClient.canonicalHost(consoleHost)
+        let isConfiguredHost = candidate != nil && candidate == ProtectClient.canonicalHost(settings.protectHost)
+        let mode = store.mode
+        let hasTunnel = store.hasConfiguration
+        var answered = false
+        if RouteDecision.needsCandidateProbe(mode: mode, hasTunnel: hasTunnel, isConfiguredHost: isConfiguredHost) {
+            // No API key: only the certificate is read.
+            answered = (try? await ProtectClient.probeFingerprint(host: consoleHost, timeout: 3)) != nil
+        }
+        let wanted = RouteDecision.decideCandidate(mode: mode, hasTunnel: hasTunnel, isConfiguredHost: isConfiguredHost,
+                                                   current: route, answered: answered)
+        if !isConfiguredHost { NSLog("Route für neue Adresse: \(wanted), direkt erreichbar: \(answered)") }
+        guard wanted == .tunnel else { return consoleHost }
+        // The tunnel only runs while the configured console's route is the tunnel.
+        guard route == .tunnel else { return nil }
         guard let target = ForwardURL.apiTarget(consoleHost: consoleHost),
               let port = await tunnel.localPort(for: target), route == .tunnel else { return nil }
         return ForwardURL.localHost(port: port)
@@ -160,6 +179,13 @@ final class ConnectionRouter: ObservableObject {
         guard started, problem == nil, Date().timeIntervalSince(lastFailureEvaluation) > 30 else { return }
         lastFailureEvaluation = Date()
         scheduleEvaluation(reason: "Verbindung verloren", delay: 0)
+    }
+
+    /// The console address was saved (set-up, „Ändern …“). The old address's route says
+    /// nothing about the new one, so the first probe decides without a confirmation round.
+    func consoleChanged() {
+        consoleIsNew = true
+        configurationChanged()
     }
 
     /// Tunnel imported, replaced or removed, or „Tunnel verwenden“ changed.
@@ -269,6 +295,7 @@ final class ConnectionRouter: ObservableObject {
         let consoleHost = settings.protectHost
         evaluatedHost = consoleHost
         guard settings.isProtectConfigured else {
+            consoleIsNew = false
             hysteresis.reset()
             await apply(.direct)
             return
@@ -285,6 +312,8 @@ final class ConnectionRouter: ObservableObject {
         }
         // A newer evaluation or another console replaced this one meanwhile.
         guard !Task.isCancelled, consoleHost == settings.protectHost else { return }
+        let consoleWasNew = consoleIsNew
+        consoleIsNew = false
         let wanted = RouteDecision.decide(mode: mode, hasTunnel: hasTunnel, direct: direct)
         NSLog("Route (\(reason)): \(wanted), direkt: \(direct)")
         // Mode „Immer“/„Nie“ or no tunnel: nothing to confirm.
@@ -293,7 +322,7 @@ final class ConnectionRouter: ObservableObject {
             await apply(wanted)
             return
         }
-        if wanted == route {
+        if consoleWasNew || wanted == route {
             hysteresis.reset()
             await apply(wanted)  // keeps tunnel and forward healthy, re-arms the recheck
             return
