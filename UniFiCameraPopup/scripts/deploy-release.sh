@@ -5,9 +5,10 @@
 # uploaded with rsync. Server code (src/, nginx/, scripts/) still goes through git: commit and
 # push it in server/ first, this script then runs the server's pull-and-chown.sh.
 #
-# Usage: scripts/deploy-release.sh [--dry-run] [--nginx]
+# Usage: scripts/deploy-release.sh [--dry-run] [--nginx [--yes]]
 #   --dry-run  checks everything locally and prints the steps, changes nothing
 #   --nginx    also installs server/nginx/server.config (shows the diff and asks first)
+#   --yes      installs the nginx config without asking (after reviewing it with --dry-run)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -27,10 +28,12 @@ PIPER_SRC="${SERVER_DIR}/public/piper-source"
 
 DRY_RUN=0
 NGINX=0
+YES=0
 for arg in "$@"; do
   case "$arg" in
     --dry-run) DRY_RUN=1 ;;
     --nginx) NGINX=1 ;;
+    --yes) YES=1 ;;
     -h|--help) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "Unknown option: $arg (see --help)" >&2; exit 1 ;;
   esac
@@ -83,7 +86,7 @@ echo "Release ${SHORT} (build ${BUILD}) → ${SSH_HOST}:${REMOTE_DIR}"
 # The first pull after the release files left git deletes them from the checkout: keep copies and
 # put them straight back, so /version and /app.zip never vanish (an empty version id would make
 # the relay drop every connected app as outdated).
-run ssh "$SSH_HOST" "cd '${REMOTE_DIR}' \
+run ssh -n "$SSH_HOST" "cd '${REMOTE_DIR}' \
   && for f in version.json public/app.zip; do [ -f \"\$f\" ] && cp -p \"\$f\" \"\$f.keep\"; done; \
   ./scripts/pull-and-chown.sh; status=\$?; \
   for f in version.json public/app.zip; do [ -f \"\$f\" ] || { [ -f \"\$f.keep\" ] && mv \"\$f.keep\" \"\$f\"; }; rm -f \"\$f.keep\"; done; \
@@ -91,19 +94,21 @@ run ssh "$SSH_HOST" "cd '${REMOTE_DIR}' \
 run rsync -a --delete "${PIPER_SRC}/" "${SSH_HOST}:${REMOTE_DIR}/public/piper-source/"
 run rsync -a "$ZIP" "$DMG" "${SSH_HOST}:${REMOTE_DIR}/public/"
 run rsync -a "$VERSION_FILE" "${SSH_HOST}:${REMOTE_DIR}/version.json"
-run ssh "$SSH_HOST" "chown -R '${REMOTE_OWNER}' '${REMOTE_DIR}/public' '${REMOTE_DIR}/version.json'"
+run ssh -n "$SSH_HOST" "chown -R '${REMOTE_OWNER}' '${REMOTE_DIR}/public' '${REMOTE_DIR}/version.json'"
 
 if (( NGINX )); then
   GENERATED="$(mktemp)"
   trap 'rm -f "$GENERATED"' EXIT
   sed -e "s|__SERVER_DIR__|${REMOTE_DIR}|g" "${SERVER_DIR}/nginx/server.config" > "$GENERATED"
   echo "nginx: changes against the live ${NGINX_SITE}:"
-  ssh "$SSH_HOST" "cat '${NGINX_SITE}'" | diff -u - "$GENERATED" || true
+  ssh -n "$SSH_HOST" "cat '${NGINX_SITE}'" | diff -u - "$GENERATED" || true
   if (( DRY_RUN == 0 )); then
-    read -r -p "Install this nginx config and reload nginx? [y/N] " answer
+    answer=y
+    # Asked on the terminal: ssh above must not swallow the answer (ssh -n), and stdin may be a pipe.
+    (( YES )) || read -r -p "Install this nginx config and reload nginx? [y/N] " answer < /dev/tty || answer=n
     if [[ "$answer" == [yYjJ]* ]]; then
       scp -q "$GENERATED" "${SSH_HOST}:${NGINX_SITE}.new"
-      ssh "$SSH_HOST" "cp '${NGINX_SITE}' '${NGINX_SITE}.bak' && mv '${NGINX_SITE}.new' '${NGINX_SITE}' \
+      ssh -n "$SSH_HOST" "cp '${NGINX_SITE}' '${NGINX_SITE}.bak' && mv '${NGINX_SITE}.new' '${NGINX_SITE}' \
         && (nginx -t && systemctl reload nginx || { mv '${NGINX_SITE}.bak' '${NGINX_SITE}'; nginx -t; exit 1; })" \
         || fail "nginx rejected the config – the previous one is back in place."
       echo "nginx reloaded (previous config: ${NGINX_SITE}.bak)."
