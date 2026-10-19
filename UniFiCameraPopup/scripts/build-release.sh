@@ -123,26 +123,37 @@ if ! grep -q "version: \"${SHORT_VERSION}\"" Services/WhatsNewService.swift; the
 fi
 
 # ---------------------------------------------------------------------------
-# Package: zip the .app → server/public/app.zip (fixed name for nginx + git pull).
+# Package: zip the .app → server/public/app.zip (update archive) and the installer disk image
+# → server/public/UniFi-Camera-Popup.dmg (first download). Both names stay the same per release,
+# so a deploy simply overwrites them (scripts/deploy-release.sh).
 # ---------------------------------------------------------------------------
 mkdir -p "$SERVER_PUBLIC_DIR"
 ZIP_PATH="${SERVER_PUBLIC_DIR}/app.zip"
-# Packed next to the old app.zip first: a ZIP that is too large never replaces it.
+DMG_PATH="${SERVER_PUBLIC_DIR}/UniFi-Camera-Popup.dmg"
+# Packed next to the old files first: a failed or oversized package never replaces them.
 ZIP_NEW="${ZIP_PATH}.new"
-rm -f "$ZIP_NEW"
+DMG_NEW="${SERVER_PUBLIC_DIR}/UniFi-Camera-Popup.new.dmg"
+rm -f "$ZIP_NEW" "$DMG_NEW"
 # --keepParent keeps the .app wrapper as the top-level entry in the archive.
 ditto -c -k --keepParent "$APP_PATH" "$ZIP_NEW"
-# GitHub rejects files over 100 MiB, and app.zip is deployed through the server's git repo.
+# Sanity limit: the app is about 55 MB; far more means something got bundled by mistake.
 ZIP_LIMIT=95000000
 ZIP_SIZE="$(stat -f %z "$ZIP_NEW")"
 if (( ZIP_SIZE > ZIP_LIMIT )); then
   rm -f "$ZIP_NEW"
-  echo "ERROR: app.zip would be ${ZIP_SIZE} bytes (> 95 MB) – GitHub rejects files over 100 MB, so the deploy would fail." >&2
+  echo "ERROR: app.zip would be ${ZIP_SIZE} bytes (> 95 MB)." >&2
   echo "       Nothing was packaged or written (no app.zip, no version.json). Is a Piper voice bundled again? (piper/scripts/check-app.sh)" >&2
   exit 1
 fi
+if ! "${SCRIPT_DIR}/dmg/make-dmg.sh" "$APP_PATH" "$DMG_NEW"; then
+  rm -f "$ZIP_NEW" "$DMG_NEW"
+  echo "ERROR: building the DMG failed – nothing was replaced (no app.zip, no DMG, no version.json)." >&2
+  exit 1
+fi
 mv -f "$ZIP_NEW" "$ZIP_PATH"
+mv -f "$DMG_NEW" "$DMG_PATH"
 echo "Packaged: ${ZIP_PATH} (${ZIP_SIZE} bytes)"
+echo "Packaged: ${DMG_PATH} ($(stat -f %z "$DMG_PATH") bytes)"
 
 # GPL source offer: mirror the pinned Piper/espeak-ng/onnxruntime source archives and the build
 # scripts next to app.zip (served from the update server; git-ignored there, deployed by rsync).
@@ -189,12 +200,7 @@ echo ""
 echo "Release build ready:"
 echo "  $(pwd)/$APP_PATH"
 echo "  $(pwd)/$ZIP_PATH"
+echo "  $(pwd)/$DMG_PATH"
 echo ""
-echo "Deploy – Piper source mirror (git-ignored in the server repo, too large for GitHub), from app/:"
-echo "  rsync -a --delete ../server/public/piper-source/ snackbits:/var/www/snackbits.dev/subdomains/unifi-protect-camera-popup-server/public/piper-source/"
-echo ""
-echo "Deploy (git workflow):"
-echo "  git add app/UniFiCameraPopup/AppConfig.swift server/version.json server/public/app.zip"
-echo "  git commit -m \"Release build ${NEW_BUILD_NUMBER}\""
-echo "  git push"
-echo "  # on server: git pull   (nginx serves app.zip immediately, Node reads version.json)"
+echo "Deploy (uploads version.json, app.zip, the DMG and the Piper source mirror, then checks the live files):"
+echo "  scripts/deploy-release.sh            # --dry-run shows the steps only"
