@@ -82,8 +82,18 @@ final class VLCPlayerContainerView: NSView, VLCMediaPlayerDelegate {
         beginPlayback(urlString: originalURL)
     }
 
+    /// Miniature layout: growing and shrinking keep the zoomed-in section (pan scales with the size).
+    var keepsViewportOnResize = false
+    private var lastLayoutSize: CGSize = .zero
+
     override func layout() {
         super.layout()
+        if keepsViewportOnResize, lastLayoutSize.width > 0, lastLayoutSize.height > 0, bounds.size != lastLayoutSize {
+            panOffset.x *= bounds.width / lastLayoutSize.width
+            panOffset.y *= bounds.height / lastLayoutSize.height
+            clampPan()
+        }
+        lastLayoutSize = bounds.size
         layoutVideoView()
     }
 

@@ -175,27 +175,46 @@ public enum PopupStackLayout {
         miniWidth: CGFloat = PopupStackLayout.miniatureWidth,
         gap: CGFloat = PopupStackLayout.miniatureGap
     ) -> [CGRect] {
-        let area = visible.insetBy(dx: min(margin, visible.width / 2), dy: min(margin, visible.height / 2))
+        let area = miniatureArea(visible: visible, margin: margin)
         var top = area.maxY
         return fullSizes.enumerated().map { index, full in
-            let full = CGSize(width: max(full.width, 1), height: max(full.height, 1))
-            let size: CGSize
-            if index == expandedIndex {
-                let s = min(1, area.width / full.width, area.height / full.height)
-                size = CGSize(width: (full.width * s).rounded(.down), height: (full.height * s).rounded(.down))
-            } else {
-                size = CGSize(width: miniWidth, height: (miniWidth * full.height / full.width).rounded())
-            }
-            let x: CGFloat
-            switch side {
-            case .leading: x = area.minX
-            case .trailing: x = area.maxX - size.width
-            case .center: x = (area.midX - size.width / 2).rounded()
-            }
-            let frame = CGRect(x: x, y: top - size.height, width: size.width, height: size.height)
+            let size = miniatureSize(full: full, expanded: index == expandedIndex, area: area, miniWidth: miniWidth)
+            let frame = miniatureFrame(size: size, top: top, side: side, area: area)
             top -= size.height + gap
             return frame
         }
+    }
+
+    /// The visible area minus the margin on every side (the miniature column's bounds).
+    public static func miniatureArea(visible: CGRect, margin: CGFloat) -> CGRect {
+        visible.insetBy(dx: min(margin, visible.width / 2), dy: min(margin, visible.height / 2))
+    }
+
+    /// Size of one entry in the miniature column: `miniWidth` wide with the aspect of `full`, or
+    /// (`expanded`) its full size fitted into `area` with the aspect kept.
+    public static func miniatureSize(
+        full: CGSize,
+        expanded: Bool,
+        area: CGRect,
+        miniWidth: CGFloat = PopupStackLayout.miniatureWidth
+    ) -> CGSize {
+        let full = CGSize(width: max(full.width, 1), height: max(full.height, 1))
+        if expanded {
+            let s = min(1, area.width / full.width, area.height / full.height)
+            return CGSize(width: (full.width * s).rounded(.down), height: (full.height * s).rounded(.down))
+        }
+        return CGSize(width: miniWidth, height: (miniWidth * full.height / full.width).rounded())
+    }
+
+    /// `size` hanging from `top` at the outer edge (`side`) of `area`.
+    public static func miniatureFrame(size: CGSize, top: CGFloat, side: PopupAnchor.Horizontal, area: CGRect) -> CGRect {
+        let x: CGFloat
+        switch side {
+        case .leading: x = area.minX
+        case .trailing: x = area.maxX - size.width
+        case .center: x = (area.midX - size.width / 2).rounded()
+        }
+        return CGRect(x: x, y: top - size.height, width: size.width, height: size.height)
     }
 
     /// `frame` moved horizontally completely beyond the outer edge of `screenFrame`
