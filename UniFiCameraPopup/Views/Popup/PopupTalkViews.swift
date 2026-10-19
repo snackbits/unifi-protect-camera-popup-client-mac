@@ -5,10 +5,46 @@ import Combine
 /// Popup of a camera that can talk (Protect camera with speaker).
 struct PopupTalkContent {
     let entryId: UUID
+}
+
+/// Camera sound switch of one popup (every camera with a microphone).
+struct PopupSoundContent {
     /// Camera sound in the live picture at popup start (`WebhookMapping.soundEnabled`).
-    var soundEnabled = true
-    /// Sound switched in the popup: plays/mutes the stream and stores it for the camera.
-    var onSoundToggle: (Bool) -> Void = { _ in }
+    let enabled: Bool
+    /// Sound switched in the popup: stores it for the camera (the popup mutes the stream itself).
+    let onToggle: (Bool) -> Void
+}
+
+/// Pill button right of the talk button: camera sound on (speaker) or off (struck through).
+/// Switches the running stream and stores the choice as the camera's „Ton des Livebilds“.
+final class CameraSoundButton: CircleIconButton {
+    private var soundOn: Bool
+    private let onToggle: (Bool) -> Void
+
+    init(content: PopupSoundContent) {
+        soundOn = content.enabled
+        onToggle = content.onToggle
+        super.init(icon: .soundPlay, iconSize: 16, diameter: 34,
+                   fill: Tokens.pillBtn, tint: Tokens.pillFg, label: "Kameraton")
+        target = self
+        action = #selector(tapped)
+        render()
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    @objc private func tapped() {
+        soundOn.toggle()
+        render()
+        onToggle(soundOn)
+    }
+
+    private func render() {
+        image = (soundOn ? TemplateIcon.soundPlay : .speakerOff).nsImage(size: 16)
+        let text = soundOn ? "Kameraton ausschalten" : "Kameraton einschalten"
+        toolTip = text
+        setAccessibilityLabel(text)
+    }
 }
 
 /// Talk button (Phase 5, two lines): capsule 40 high, padding 0/18, radius 20, `accent`, mic 16 + 6 +
@@ -435,15 +471,11 @@ final class PopupNoticeView: NSView {
     }
 }
 
-/// "Ansage abspielen" + talk button + camera sound switch of one popup, wired to `TalkbackService`.
+/// "Ansage abspielen" + talk button of one popup, wired to `TalkbackService`.
 @MainActor
 final class PopupTalkControls {
     let soundButton: CircleIconButton
     let talkButton: TalkButtonView
-    /// Right of the talk button: camera sound on (speaker) or off (struck through).
-    let listenButton: CircleIconButton
-    private var listening: Bool
-    private let onSoundToggle: (Bool) -> Void
     private let soundMenu = SoundMenuView()
     private let notice = PopupNoticeView()
     private let entryId: UUID
@@ -454,8 +486,6 @@ final class PopupTalkControls {
 
     init(content talk: PopupTalkContent) {
         entryId = talk.entryId
-        listening = talk.soundEnabled
-        onSoundToggle = talk.onSoundToggle
         soundButton = CircleIconButton(
             icon: .megaphone,
             iconSize: 16,
@@ -465,18 +495,7 @@ final class PopupTalkControls {
             label: "Ansage abspielen"
         )
         talkButton = TalkButtonView()
-        listenButton = CircleIconButton(
-            icon: .soundPlay,
-            iconSize: 16,
-            diameter: 34,
-            fill: Tokens.pillBtn,
-            tint: Tokens.pillFg,
-            label: "Kameraton"
-        )
         soundMenu.isHidden = true
-        renderListening()
-        listenButton.target = self
-        listenButton.action = #selector(listenTapped)
 
         soundButton.target = self
         soundButton.action = #selector(soundTapped)
@@ -560,19 +579,6 @@ final class PopupTalkControls {
         }
         soundMenu.isHidden.toggle()
         if !soundMenu.isHidden { onMenuOpened?() }
-    }
-
-    @objc private func listenTapped() {
-        listening.toggle()
-        renderListening()
-        onSoundToggle(listening)
-    }
-
-    private func renderListening() {
-        listenButton.image = (listening ? TemplateIcon.soundPlay : .speakerOff).nsImage(size: 16)
-        let text = listening ? "Kameraton ausschalten" : "Kameraton einschalten"
-        listenButton.toolTip = text
-        listenButton.setAccessibilityLabel(text)
     }
 
     private func addMP3() {

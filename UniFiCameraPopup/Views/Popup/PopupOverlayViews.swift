@@ -9,8 +9,10 @@ struct PopupOverlayContent {
     let cameraName: String
     let muteOptions: [MuteDuration]
     let onMute: (MuteDuration) -> Void
-    /// "Ansage abspielen", the talk button and the camera sound switch; nil = camera without speaker.
+    /// "Ansage abspielen" and the talk button; nil = camera without speaker.
     var talk: PopupTalkContent? = nil
+    /// Camera sound switch (right of the talk button); nil = camera without microphone.
+    var sound: PopupSoundContent? = nil
     /// Opens Einstellungen › Kameras at this camera.
     var onOpenSettings: () -> Void = {}
 }
@@ -89,7 +91,7 @@ final class OverlayChipView: NSView {
 }
 
 /// Round icon button: close 24/11, mute 24/13, pill buttons 34/16.
-final class CircleIconButton: FirstMouseButton {
+class CircleIconButton: FirstMouseButton {
     private let fill: ThemeColor
     private let tint: ThemeColor
     private let label: String

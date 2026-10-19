@@ -16,7 +16,7 @@ enum AppConfig {
 
     /// Internal release counter, incremented by `scripts/build-release.sh`. Not shown in the UI;
     /// the update check compares it with `version.json` (installed versions rely on it).
-    static let buildNumber = 40
+    static let buildNumber = 41
 
     /// Semantic app version (`MARKETING_VERSION`), raised manually per release.
     /// Used for the "Was ist neu" popup after an update.
@@ -27,7 +27,7 @@ enum AppConfig {
     /// Build identifier, rewritten by `scripts/build-release.sh` on every release.
     /// Must match the server's `versionId`; otherwise the server rejects the
     /// connection and the app shows an "outdated version" warning.
-    static let buildVersionId = "8ac59885-f09f-4a5a-9318-114385ce7cf8"
+    static let buildVersionId = "041db167-10c1-4931-81d5-b1434963c32c"
 
     /// HTTPS endpoint serving the update manifest (the server's `version.json`).
     /// The app polls this to detect whether a newer build is available.

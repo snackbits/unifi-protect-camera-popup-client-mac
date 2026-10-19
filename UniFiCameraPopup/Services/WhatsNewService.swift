@@ -22,6 +22,9 @@ struct WhatsNewInfo: Equatable {
 enum WhatsNewService {
     /// Newest version first.
     static let changelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "2.5.1", items: [
+            "Den Kameraton-Schalter im Popup gibt es jetzt bei jeder Kamera mit Mikrofon – nicht nur bei Kameras mit Lautsprecher.",
+        ]),
         ChangelogEntry(version: "2.5.0", items: [
             "Kameraton direkt im Popup: Der Lautsprecher rechts neben „Sprechen“ schaltet den Ton des Livebilds ein oder aus – und merkt sich das für die Kamera.",
             "Ansagen (MP3 und KI-Stimme) haben jetzt ein Megafon als Symbol.",

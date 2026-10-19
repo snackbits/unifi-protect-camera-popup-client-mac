@@ -14,7 +14,7 @@ Fenster randlos, Radius 12, nativer Schatten, Ring 1 `popupRing`. Größe pro Ka
    Eintrag unter der Maus `accent` + weiß.
 4. Leiste unten mittig (unten 12): Kapsel `pill`, Innenabstand 6, Abstand 8, Schatten 0 6 18
    rgba(0,0,0,.3), Ring 1 `pillRing`, Inhalt senkrecht mittig. Reihenfolge:
-   „Ansage abspielen“ · „Leertaste halten“ · „Kameraton“ · Buttons des Nutzers. Die ersten drei nur bei
+   „Ansage abspielen“ · „Leertaste halten“ · „Kameraton“ · Buttons des Nutzers. Die ersten beiden nur bei
    Protect-Kameras mit Lautsprecher; ohne alles keine Leiste.
    - „Ansage abspielen“: Kreis 34 `pillBtn`, Megafon 16 (Lucide `megaphone`, Strich 1,8) `pillFg`, Tooltip „Ansage abspielen“.
      Während eine Ansage aus diesem Popup läuft: Fläche `accent`, Symbol weiß, Tooltip „Ansage stoppen“, Klick stoppt.
@@ -22,7 +22,7 @@ Fenster randlos, Radius 12, nativer Schatten, Ring 1 `popupRing`. Größe pro Ka
      Mikrofon 16 (Strich 2) + 6 + Text. Texte: Ruhe „Leertaste halten“ (Modus Halten) bzw. „Sprechen“
      (Umschalten); Aufbau „Verbinde …“ (Deckkraft 70 %); senden „Spricht …“ (Halten) bzw. „Beenden“ (Umschalten).
      Maustaste gedrückt halten = sprechen. Die Leertaste wirkt, solange der Zeiger über dem Popup ist.
-   - „Kameraton“ (2.5.0, nicht aus der Vorlage): Kreis 34 `pillBtn`, Lautsprecher 16 (Strich 1,8) `pillFg`;
+   - „Kameraton“ (2.5.0, nicht aus der Vorlage; bei jeder Kamera mit Mikrofon, Webhook-Kameras immer): Kreis 34 `pillBtn`, Lautsprecher 16 (Strich 1,8) `pillFg`;
      aus: derselbe Lautsprecher durchgestrichen (`speakerOff`). Tooltip „Kameraton ausschalten“ / „… einschalten“.
      Klick schaltet den Ton des laufenden Livebilds und speichert ihn als „Ton des Livebilds“ der Kamera.
    - Buttons des Nutzers: Kreis 34 `pillBtn`, Symbol 16 (Strich 1,8) `pillFg` (Tür/Lampe/Haus/Blitz), Tooltip = Titel.

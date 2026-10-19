@@ -322,18 +322,12 @@ final class PopupWindow: NSPanel {
         }
         var leading: [NSView] = []
         if let talk = overlay.talk {
-            var talk = talk
-            let store = talk.onSoundToggle
-            talk.onSoundToggle = { [weak self] enabled in
-                self?.playerView.setSoundEnabled(enabled)
-                store(enabled)
-            }
             let controls = PopupTalkControls(content: talk)
-            leading = [controls.soundButton, controls.talkButton, controls.listenButton]
+            leading = [controls.soundButton, controls.talkButton]
             controls.onMenuOpened = { [weak self] in self?.muteMenu?.isHidden = true }
             talkControls = controls
             // The stack resizes popups (also animated): the talk button follows the width.
-            let circles = 2 + min(actions.count, WebhookMapping.maxActions)
+            let circles = 1 + (overlay.sound == nil ? 0 : 1) + min(actions.count, WebhookMapping.maxActions)
             controls.fit(popupWidth: frame.width, circles: circles)
             resizeObserver = NotificationCenter.default.addObserver(
                 forName: NSWindow.didResizeNotification, object: self, queue: .main
@@ -343,6 +337,13 @@ final class PopupWindow: NSPanel {
                     self.talkControls?.fit(popupWidth: self.frame.width, circles: circles)
                 }
             }
+        }
+        if let sound = overlay.sound {
+            let button = CameraSoundButton(content: PopupSoundContent(enabled: sound.enabled) { [weak self] enabled in
+                self?.playerView.setSoundEnabled(enabled)
+                sound.onToggle(enabled)
+            })
+            leading.append(button)
         }
         if !actions.isEmpty || !leading.isEmpty {
             let pill = ActionPillView(actions: actions, leadingViews: leading)

@@ -152,9 +152,9 @@ struct HelpView: View {
                 + "Ausgeführte Regeln erscheinen im Menü unter den letzten Ereignissen.")
 
             tip("Sprechen und Ansagen", "mic",
-                "Bei Kameras mit Lautsprecher zeigt das Popup unten „Ansage abspielen“ (Megafon), „Sprechen“ und rechts daneben "
-                + "den Kameraton (Lautsprecher, durchgestrichen = aus). Der Kameraton gilt gleich für die Kamera, wie der Schalter "
-                + "„Ton des Livebilds“ unter Einstellungen › Kameras. "
+                "Bei Kameras mit Lautsprecher zeigt das Popup unten „Ansage abspielen“ (Megafon) und „Sprechen“. "
+                + "Jede Kamera mit Mikrofon hat dort außerdem den Kameraton (Lautsprecher, durchgestrichen = aus); er gilt gleich "
+                + "für die Kamera, wie der Schalter „Ton des Livebilds“ unter Einstellungen › Kameras. "
                 + "Halte „Sprechen“ mit der Maus gedrückt und sprich; Loslassen beendet – auch wenn der Zeiger dabei das Popup verlässt. "
                 + "Die App gleicht dein Mikrofon automatisch an die Lautstärke der Ansagen an. Unter Einstellungen › Ton wählst du das Mikrofon, "
                 + "regelst „Lautstärke Sprechen“ und „Lautstärke Ansagen“ getrennt und verwaltest "
