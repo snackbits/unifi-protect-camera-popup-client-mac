@@ -1,4 +1,4 @@
-# Einstellungen › Erscheinungsbild (seit 2.7.0, Vorlage: Mock „Vorschlag A · Desktop-Szene“)
+# Einstellungen › Erscheinungsbild (seit 3.0.0, Vorlage: Mock „Vorschlag A · Desktop-Szene“)
 
 Grundlage: `popup-miniatur.md` (Verhalten der Layouts) und `mockups/einstellungen-erscheinungsbild.html`
 (Reiter-Mock, verbindlich ist Vorschlag A). Code: `Views/Settings/AppearanceTab.swift`,

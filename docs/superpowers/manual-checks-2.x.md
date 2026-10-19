@@ -161,14 +161,14 @@ Vorher: `defaults export com.snackbits.UniFiCameraPopup ~/ucp-backup-phase6.plis
 - [ ] Neue Version auf dem Server → Dialog „Version X ist verfügbar“ mit den Neuerungen als Liste und Hinweis auf die Passwortabfrage; „Später“ → kein Download, Dialog erst nach Neustart der App wieder; „Jetzt aktualisieren“ → lädt, installiert, startet neu.
 - [ ] Allgemein: „Bei neuer Version nachfragen“ aus → kein Dialog, nur „Auf neue Version aktualisieren“ im Menü.
 
-## 2.7.0 (2026-10-19): Popup-Layout „Miniatur“, Reiter „Erscheinungsbild“
-Vorher: `defaults export com.snackbits.UniFiCameraPopup ~/ucp-backup-2.7.plist`. Spezifikation: `docs/design/popup-miniatur.md`, `docs/design/einstellungen-erscheinungsbild.md`.
+## 3.0.0 (2026-10-19): Popup-Layout „Miniatur“, Reiter „Erscheinungsbild“
+Vorher: `defaults export com.snackbits.UniFiCameraPopup ~/ucp-backup-3.0.plist`. Spezifikation: `docs/design/popup-miniatur.md`, `docs/design/einstellungen-erscheinungsbild.md`.
 
 Migration
 - [ ] Update über 2.6.x mit Popup-Position „Oben links“ / „Mitte links“ / „Unten links“ → Erscheinungsbild zeigt „Links“; mit „Oben rechts“, „Mitte rechts“, „Unten rechts“ oder „Mitte“ → „Rechts“. Dasselbe für eine Kamera mit eigener Position (Kameras › Erweitert › Position).
 - [ ] Nach dem Update steht „Popup-Layout“ auf „Miniatur“, auch bei bestehenden Einstellungen. Bildschirm, Randabstand, Automatisch schließen und „Alle aktiven Kameras zeigen“ haben ihre alten Werte.
-- [ ] Rückweg 2.7.0 → 2.6.1 (nur mit Backup): 2.6.1 kennt „left“/„right“ nicht, das Dekodieren scheitert, 2.6.1 startet mit Standardwerten und legt die Rohdaten als Sicherung ab. Nichts in 2.6.1 ändern, wieder 2.7.0 starten → alle Einstellungen sind wieder da. Ergebnis notieren.
-- [ ] „Was ist neu“ zeigt den Eintrag 2.7.0.
+- [ ] Rückweg 3.0.0 → 2.6.1 (nur mit Backup): 2.6.1 kennt „left“/„right“ nicht, das Dekodieren scheitert, 2.6.1 startet mit Standardwerten und legt die Rohdaten als Sicherung ab. Nichts in 2.6.1 ändern, wieder 3.0.0 starten → alle Einstellungen sind wieder da. Ergebnis notieren.
+- [ ] „Was ist neu“ zeigt den Eintrag 3.0.0.
 
 Reiter „Erscheinungsbild“
 - [ ] Reiter steht zwischen „Allgemein“ und „Kameras“, Fenstertitel „Erscheinungsbild“; Allgemein enthält weder Farbschema noch Popup-Zeilen, Export/Import sind noch in Allgemein.
@@ -191,4 +191,4 @@ Layout „Miniatur“ (an echter Kamera bzw. Test-Popup)
 
 Layout „Voll“
 - [ ] Verhalten wie 2.6.1 (sofort volle Größe, Schrumpfen, zweite Spalte), Stapel oben links bzw. oben rechts.
-- [ ] Danach: `defaults import com.snackbits.UniFiCameraPopup ~/ucp-backup-2.7.plist` nur, falls etwas kaputt ging.
+- [ ] Danach: `defaults import com.snackbits.UniFiCameraPopup ~/ucp-backup-3.0.plist` nur, falls etwas kaputt ging.

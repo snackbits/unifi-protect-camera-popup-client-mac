@@ -22,7 +22,7 @@ struct WhatsNewInfo: Equatable {
 enum WhatsNewService {
     /// Newest version first.
     static let changelog: [ChangelogEntry] = [
-        ChangelogEntry(version: "2.7.0", items: [
+        ChangelogEntry(version: "3.0.0", items: [
             "Neues Popup-Layout „Miniatur“ (Standard): Kameras erscheinen als kleine Vorschau am Bildschirmrand. Bleibt die Maus kurz darauf, wird das Popup groß – ein kurzer Klick auf die Miniatur schließt sie.",
             "Eine Linie unter der Miniatur zeigt, wie lange sie noch offen bleibt.",
             "Lieber alles sofort groß? Das Layout „Voll“ verhält sich wie bisher.",

@@ -1,4 +1,4 @@
-# Popup-Layout „Miniatur“ und Reiter „Erscheinungsbild“ (2.7.0)
+# Popup-Layout „Miniatur“ und Reiter „Erscheinungsbild“ (3.0.0)
 
 Abgestimmt mit dem Nutzer am 19.10.2026 anhand zweier HTML-Mockups, die verbindlich sind:
 - `mockups/popup-miniatur-demo.html`: Ablauf und Animationen der Popups (im Browser öffnen, „Ablauf abspielen“, „Zeitlupe ×4“)

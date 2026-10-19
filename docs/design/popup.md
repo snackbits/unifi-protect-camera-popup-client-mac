@@ -1,6 +1,6 @@
 # Popup (Vorlage Main 8, „Popup mit Sprechen & Ton“, Popup aus B)
 
-Diese Datei beschreibt das Popup in voller Größe. Seit 2.7.0 gibt es zwei Layouts (Einstellungen ›
+Diese Datei beschreibt das Popup in voller Größe. Seit 3.0.0 gibt es zwei Layouts (Einstellungen ›
 Erscheinungsbild › Popup-Layout), siehe Abschnitt „Layout Miniatur“ am Ende.
 
 Fenster randlos, Radius 12, nativer Schatten, Ring 1 `popupRing`. Größe pro Kamera
@@ -51,7 +51,7 @@ Fenster randlos, Radius 12, nativer Schatten, Ring 1 `popupRing`. Größe pro Ka
 - Größe: ≈ 42 % der sichtbaren Bildschirmhöhe, Breite aus dem Seitenverhältnis; mehr Popups als Platz → alle gleichmäßig kleiner
   (mind. 160 hoch, sonst zweite Spalte), Wechsel 300 ms ease-in-out, „Bewegung reduzieren“ → sofort.
 
-## Layout „Miniatur“ (2.7.0, Standard)
+## Layout „Miniatur“ (3.0.0, Standard)
 Vollständige Beschreibung: `popup-miniatur.md`. Kurz:
 - Jede Kamera erscheint zuerst als **kompakte Miniatur** (200 breit, Höhe aus dem Seitenverhältnis) am
   gewählten Rand (Links/Rechts), Stapel von oben, Abstand 10, ohne Schrumpfen und ohne zweite Spalte.

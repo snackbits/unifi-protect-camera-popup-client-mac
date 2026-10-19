@@ -6,7 +6,7 @@ Titel „Allgemein“ 13/600 mittig (nativ); darunter Reiterleiste.
 ## Reiterleiste (alle Reiter gleich)
 Zentriert, Abstand 4, Innenabstand oben 2 unten 8. Reiter-Button mindestens 78 breit (längere
 Namen: Innenabstand 10 links/rechts), Innenabstand 5 oben/unten, Radius 7, senkrecht Symbol 20 + 3 + Text 11.
-Reihenfolge/Texte/Symbole: Allgemein (tabGeneral) · Erscheinungsbild (tabAppearance, seit 2.7.0) ·
+Reihenfolge/Texte/Symbole: Allgemein (tabGeneral) · Erscheinungsbild (tabAppearance, seit 3.0.0) ·
 Kameras (tabCameras) · Ton (tabSound) · Unterwegs (tabRemote). Aktiv: Fläche `tabOn`, Farbe `accText`;
 sonst transparent, `muted`.
 Fenstertitel je Reiter: „Allgemein“, „Erscheinungsbild“, „Kameras“, „Ton & Sprechen“, „Unterwegs“.
@@ -36,7 +36,7 @@ Innenabstand 22 oben/unten, 40 links/rechts; Abstand 16; Schrift 13. Scrollt bei
 5. „Erweitert“ (aufgeklappt): Abschnitte „Updates“, „Webhooks (Relay-Server)“ (nur solange eine
    Kamera per Webhook auslöst) und „Hilfe“.
 
-## Umgezogen nach „Erscheinungsbild“ (2.7.0)
+## Umgezogen nach „Erscheinungsbild“ (3.0.0)
 Die Zeilen „Erscheinungsbild“ (jetzt „Farbschema“), „Popup-Position“ und der frühere Bereich
 „Erweitert › Popup“ (Bildschirm, Randabstand, Automatisch schließen, Alle aktiven Kameras zeigen)
 stehen nicht mehr in Allgemein, siehe `einstellungen-erscheinungsbild.md`. Export und Import
