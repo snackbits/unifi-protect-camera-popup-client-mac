@@ -189,8 +189,16 @@ final class SettingsStore: ObservableObject {
     /// 2.1.0 turned „Name und Zeit einblenden“ on by default: set once, so cameras from 2.0.0
     /// (where it started off) get it once and a later „aus“ stays.
     private let chipDefaultOnKey = "chipOnByDefault-2.1.0"
+    /// Set once 2.3.0 split line crossings off: before, a crossing counted as its object kind.
+    private let lineTriggersKey = "lineTriggers-2.3.0"
     /// Where raw, undecodable settings are preserved instead of being overwritten.
     private static let backupKey = "unifi.camera.popup.settings.corrupted-backup"
+
+    /// Adds the line crossing of every chosen object kind (Person → Person überquert Linie), so
+    /// popups that opened on a crossing before 2.3.0 still do.
+    static func withLineTriggers(_ triggers: Set<TriggerKind>) -> Set<TriggerKind> {
+        triggers.union(triggers.compactMap(\.lineVariant))
+    }
 
     private struct PersistedSettings: Codable {
         var installationId: String?
@@ -259,6 +267,10 @@ final class SettingsStore: ObservableObject {
                 mappings = mappings.map { var mapping = $0; mapping.showNameAndTime = true; return mapping }
                 defaults.set(true, forKey: chipDefaultOnKey)
             }
+            if !defaults.bool(forKey: lineTriggersKey) {
+                mappings = mappings.map { var mapping = $0; mapping.triggers = Self.withLineTriggers(mapping.triggers); return mapping }
+                defaults.set(true, forKey: lineTriggersKey)
+            }
             // After the overlay: the extension may carry rules the main blob lost.
             let rules = Self.loadRuleTokens(into: mappings)
             mappings = rules.mappings
@@ -302,6 +314,7 @@ final class SettingsStore: ObservableObject {
             // data existed but failed to decode, leave it untouched above.
             if existingData == nil {
                 defaults.set(true, forKey: chipDefaultOnKey)
+                defaults.set(true, forKey: lineTriggersKey)
                 persist()
             }
         }

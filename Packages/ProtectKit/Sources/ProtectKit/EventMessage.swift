@@ -24,15 +24,18 @@ public enum EventMessage {
     public enum Frame: Equatable, Sendable {
         /// A new camera event. `kinds` may be empty: a smart detection can arrive with
         /// `smartDetectTypes: []` and get its types in a later update.
-        case add(eventId: String, cameraId: String, kinds: Set<TriggerKind>, start: Date)
-        /// A later update carrying `smartDetectTypes` (updates carry no `device`).
+        /// `isLine`: a line crossing (`smartDetectLine`); its object kinds are already the line
+        /// kinds (person → personLine), and updates of the event get mapped the same way.
+        case add(eventId: String, cameraId: String, kinds: Set<TriggerKind>, start: Date, isLine: Bool)
+        /// A later update carrying `smartDetectTypes` (updates carry no `device`). The kinds are the
+        /// plain object kinds; `EventTracker` maps them for line crossings.
         case update(eventId: String, kinds: Set<TriggerKind>)
     }
 
     /// Returns a trigger for new camera events (`add`) with at least one known kind, nil for
     /// everything else. Use `EventTracker` to also follow kinds arriving in updates.
     public static func parse(_ data: Data) -> ProtectTrigger? {
-        guard case let .add(id, camera, kinds, start)? = frame(data), !kinds.isEmpty else { return nil }
+        guard case let .add(id, camera, kinds, start, _)? = frame(data), !kinds.isEmpty else { return nil }
         return ProtectTrigger(eventId: id, cameraId: camera, kinds: kinds, start: start)
     }
 
@@ -45,18 +48,22 @@ public enum EventMessage {
         case "add":
             guard let camera = env.item.device, let type = env.item.type else { return nil }
             let kinds: Set<TriggerKind>
+            var isLine = false
             switch type {
             case "ring":
                 kinds = [.ring]
             case "motion":
                 kinds = [.motion]
-            case "smartDetectZone", "smartDetectLine", "smartAudioDetect":
+            case "smartDetectZone", "smartDetectLoiterZone", "smartAudioDetect":
                 kinds = smartKinds(env.item.smartDetectTypes)
+            case "smartDetectLine":
+                isLine = true
+                kinds = lineKinds(smartKinds(env.item.smartDetectTypes))
             default:
                 return nil
             }
             let start = Date(timeIntervalSince1970: (env.item.start ?? Date().timeIntervalSince1970 * 1000) / 1000)
-            return .add(eventId: id, cameraId: camera, kinds: kinds, start: start)
+            return .add(eventId: id, cameraId: camera, kinds: kinds, start: start, isLine: isLine)
         case "update":
             guard let types = env.item.smartDetectTypes else { return nil }
             return .update(eventId: id, kinds: smartKinds(types))
@@ -67,6 +74,12 @@ public enum EventMessage {
 
     private static func smartKinds(_ types: [String]?) -> Set<TriggerKind> {
         Set((types ?? []).compactMap(TriggerKind.init(wireValue:)))
+    }
+
+    /// Object kinds of a line crossing as line kinds; kinds without one (licence plate, face)
+    /// stay as they are.
+    static func lineKinds(_ kinds: Set<TriggerKind>) -> Set<TriggerKind> {
+        Set(kinds.map { $0.lineVariant ?? $0 })
     }
 }
 
@@ -86,6 +99,7 @@ public struct EventTracker {
     private struct Entry {
         let cameraId: String
         let start: Date
+        let isLine: Bool
         var kinds: Set<TriggerKind>
     }
 
@@ -107,9 +121,9 @@ public struct EventTracker {
         let eventId: String
         let kinds: Set<TriggerKind>
         switch frame {
-        case let .add(id, camera, addKinds, start):
+        case let .add(id, camera, addKinds, start, isLine):
             if entries[id] == nil {
-                entries[id] = Entry(cameraId: camera, start: start, kinds: [])
+                entries[id] = Entry(cameraId: camera, start: start, isLine: isLine, kinds: [])
                 order.append(id)
                 if order.count > capacity {
                     entries[order.removeFirst()] = nil
@@ -119,9 +133,9 @@ public struct EventTracker {
             kinds = addKinds
         case let .update(id, updateKinds):
             // An update for an event we never saw added (or evicted) carries no camera: ignore.
-            guard entries[id] != nil else { return nil }
+            guard let entry = entries[id] else { return nil }
             eventId = id
-            kinds = updateKinds
+            kinds = entry.isLine ? EventMessage.lineKinds(updateKinds) : updateKinds
         }
         guard var entry = entries[eventId] else { return nil }
         let previous = entry.kinds

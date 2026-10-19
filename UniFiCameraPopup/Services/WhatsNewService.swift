@@ -22,6 +22,11 @@ struct WhatsNewInfo: Equatable {
 enum WhatsNewService {
     /// Newest version first.
     static let changelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "2.3.0", items: [
+            "Bei den Auslösern einer Kamera steht nur noch, was in Protect für sie eingeschaltet ist – Empfindlichkeit und Zonen stellst du weiter in Protect ein.",
+            "Linienüberquerungen getrennt wählbar: „Person“, „Fahrzeug“ oder „Tier“ überquert Linie. Bisherige Auswahl bleibt erhalten.",
+            "Ereignis-Regeln für Person, Fahrzeug oder Tier gelten jetzt nur für Erkennungen in Zonen – für Linien eine eigene Regel anlegen.",
+        ]),
         ChangelogEntry(version: "2.2.0", items: [
             "Updates installieren sich nicht mehr unbemerkt: Bei einer neuen Version fragt die App nach und zeigt, was neu ist.",
             "Die Einstellung heißt jetzt „Bei neuer Version nachfragen“ (Allgemein).",

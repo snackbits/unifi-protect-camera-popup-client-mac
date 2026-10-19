@@ -156,7 +156,9 @@ final class OnboardingModel: ObservableObject {
                     if let mapping = existing.first(where: { $0.protectCameraId == cam.id }) {
                         triggers[cam.id] = mapping.triggers
                     } else {
-                        triggers[cam.id] = cam.enabledTriggers.intersection([.ring, .person, .package, .vehicle, .animal])
+                        triggers[cam.id] = cam.enabledTriggers.intersection([
+                            .ring, .person, .package, .vehicle, .animal, .personLine, .vehicleLine, .animalLine,
+                        ])
                     }
                 }
                 triggerTab = cams.first(where: { selectedCameraIds.contains($0.id) })?.id ?? ""
@@ -423,7 +425,7 @@ struct OnboardingView: View {
             Text("Wann soll sich welche Kamera melden?").font(.title3.bold())
             cameraSwitcher(selected, current: current)
             if let cam = current {
-                Text("Tippe an, was bei \(cam.name) ein Popup auslöst. Gestrichelt: kann diese Kamera nicht.")
+                Text("Tippe an, was bei \(cam.name) ein Popup auslöst. Zu sehen ist, was in Protect für diese Kamera eingeschaltet ist.")
                     .font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center)
                 TriggerChips(camera: cam, selection: Binding(
                     get: { model.triggers[cam.id] ?? [] },
@@ -490,24 +492,38 @@ struct TriggerChips: View {
     var size: Size = .regular
 
     var body: some View {
+        // Only what is switched on in Protect for this camera; a choice for a kind switched off
+        // there stays stored (hidden) and counts again once it is switched back on.
+        let chips = TriggerKind.chips(enabled: camera.enabledTriggers)
+        VStack(alignment: size == .regular ? .center : .leading, spacing: size == .regular ? 10 : 7) {
+            row(chips.detections)
+            if !chips.lines.isEmpty {
+                Text("Linie überquert – nur wenn in Protect Linien eingerichtet sind:")
+                    .font(.system(size: size == .regular ? 12 : 11))
+                    .foregroundStyle(Tokens.muted.color)
+                row(chips.lines)
+            }
+        }
+    }
+
+    private func row(_ kinds: [TriggerKind]) -> some View {
         FlowLayout(spacing: size == .regular ? 8 : 6, alignment: size == .regular ? .center : .leading) {
-            ForEach(TriggerKind.chips(supported: camera.supportedTriggers), id: \.kind) { chip in
-                let isOn = chip.isSupported && selection.contains(chip.kind)
+            ForEach(kinds, id: \.self) { kind in
+                let isOn = selection.contains(kind)
                 Button {
-                    if isOn { selection.remove(chip.kind) } else { selection.insert(chip.kind) }
+                    if isOn { selection.remove(kind) } else { selection.insert(kind) }
                 } label: {
-                    label(chip.kind.label, isOn: isOn, isSupported: chip.isSupported)
+                    label(kind.chipLabel, isOn: isOn)
                 }
                 .buttonStyle(.plain)
-                .allowsHitTesting(chip.isSupported)
+                .accessibilityLabel(kind.label)
                 .accessibilityAddTraits(isOn ? [.isButton, .isSelected] : .isButton)
-                .accessibilityHint(chip.isSupported ? "" : "Kann diese Kamera nicht")
             }
         }
     }
 
     @ViewBuilder
-    private func label(_ text: String, isOn: Bool, isSupported: Bool) -> some View {
+    private func label(_ text: String, isOn: Bool) -> some View {
         let fontSize: CGFloat = size == .regular ? 13 : 12
         if isOn {
             Text(text)
@@ -516,7 +532,7 @@ struct TriggerChips: View {
                 .padding(.vertical, size == .regular ? 7 : 4)
                 .padding(.horizontal, size == .regular ? 14 : 11)
                 .background(Capsule().fill(Tokens.accent.color))
-        } else if isSupported {
+        } else {
             Text(text)
                 .font(.system(size: fontSize))
                 .foregroundStyle(Tokens.fg.color)
@@ -524,14 +540,6 @@ struct TriggerChips: View {
                 .padding(.horizontal, size == .regular ? 13 : 10)
                 .background(Capsule().fill((size == .regular ? Tokens.mainChipOff : Tokens.chipOff).color))
                 .overlay(Capsule().strokeBorder(Tokens.chipBorder.color, lineWidth: 1))
-        } else {
-            Text(text)
-                .font(.system(size: fontSize))
-                .strikethrough()
-                .foregroundStyle(Tokens.naFg.color)
-                .padding(.vertical, size == .regular ? 6 : 3)
-                .padding(.horizontal, size == .regular ? 13 : 10)
-                .overlay(Capsule().strokeBorder(Tokens.chipBorder.color, style: StrokeStyle(lineWidth: 1, dash: [3, 3])))
         }
     }
 }
