@@ -28,7 +28,7 @@ Fenster randlos, Radius 12, nativer Schatten, Ring 1 `popupRing`. Größe pro Ka
    - Buttons des Nutzers: Kreis 34 `pillBtn`, Symbol 16 (Strich 1,8) `pillFg` (Tür/Lampe/Haus/Blitz), Tooltip = Titel.
 5. Ansagen-Menü (offen nach Klick auf „Ansage abspielen“): Unterkante auf der Oberkante der Leiste
    (Vorlage: unten 64), linke Kante 45 vor „Ansage abspielen“ (Vorlage: links 70), mindestens 10 vom Rand.
-   Breite 180 + 2×5, Radius 9, `menu`, Schatten 0 10 24 rgba(0,0,0,.4), Ring 1 `mainBorder`, Schrift 12 `fg`:
+   Breite: längster Eintrag (180…320, einzeilig, sonst „…“) + 2×5, Radius 9, `menu`, Schatten 0 10 24 rgba(0,0,0,.4), Ring 1 `mainBorder`, Schrift 12 `fg`:
    je Ansage eine Zeile, Innenabstand 5/8, Radius 5: Name links, rechts Art 10 `muted`
    („MP3“ / „KI-Stimme“), Abstand 8; danach Trennlinie 1 `mainBorder`, Rand 3/4; „MP3 hinzufügen …“
    `accText`, Innenabstand 5/8. Zeile unter der Maus `accent` + weiß. Klick spielt an der Kamera ab.
