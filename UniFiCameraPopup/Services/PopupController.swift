@@ -1,5 +1,6 @@
 import AppCore
 import AppKit
+import Combine
 import ProtectKit
 
 @MainActor
@@ -10,6 +11,8 @@ final class PopupController {
     /// stacking order and is kept stable: a re-triggering camera only restarts
     /// its timeout, it is never moved within the stack.
     private struct ActivePopup {
+        /// This window (an entry may briefly have a second one while the first slides out).
+        let id: UUID
         /// The mapping entry shown. Protect-only entries have no webhook slug,
         /// so popups are keyed by entry, never by webhook id.
         let entryId: UUID
@@ -19,6 +22,8 @@ final class PopupController {
         let position: PopupPosition
         /// Crop selection keeps its size; the stack never resizes it.
         var fixedSize = false
+        /// Opened in the layout "Miniatur" (`MiniatureStackPresenter` places it).
+        var isMiniature = false
     }
 
     private var activePopups: [ActivePopup] = []
@@ -27,6 +32,8 @@ final class PopupController {
     private var targetFrames: [UUID: NSRect] = [:]
     private let settings = SettingsStore.shared
     private var screenObserver: NSObjectProtocol?
+    private var layoutModeObserver: AnyCancellable?
+    private lazy var miniatures = MiniatureStackPresenter { [unowned self] in self.miniatureEnvironment() }
 
     private init() {
         // Display added/removed, resolution or Dock changed: fit the stack to the new visible frame.
@@ -35,6 +42,14 @@ final class PopupController {
         ) { _ in
             MainActor.assumeIsolated { PopupController.shared.relayout() }
         }
+        // Layout switched while popups are open: those of the other layout close.
+        layoutModeObserver = settings.$popupLayoutMode
+            .removeDuplicates()
+            .dropFirst()
+            .receive(on: RunLoop.main)
+            .sink { _ in
+                MainActor.assumeIsolated { PopupController.shared.closePopupsOfOtherLayout() }
+            }
     }
 
     /// Entry point for triggers (Protect events, relay webhooks). The event is recorded for the
@@ -123,19 +138,30 @@ final class PopupController {
 
             let screen = WindowPositioner.targetScreen(for: settings.screenTarget)
             let size = mapping.popupSize(on: screen, margin: CGFloat(settings.edgeMargin))
-            let window = makeAlarmWindow(event: event, mapping: mapping, streamURL: streamURL, size: size)
-            activePopups.append(
-                ActivePopup(
-                    entryId: mapping.entryId,
-                    window: window,
-                    size: size,
-                    position: mapping.positionOverride ?? settings.defaultPosition
-                )
+            let miniature = settings.popupLayoutMode == .miniature
+            let popupId = UUID()
+            let window = makeAlarmWindow(
+                event: event, mapping: mapping, streamURL: streamURL, size: size,
+                popupId: popupId, miniature: miniature
             )
+            let popup = ActivePopup(
+                id: popupId,
+                entryId: mapping.entryId,
+                window: window,
+                size: size,
+                position: mapping.positionOverride ?? settings.defaultPosition,
+                isMiniature: miniature
+            )
+            activePopups.append(popup)
 
-            relayout()
-            // Show without stealing focus so the user can keep typing in other apps.
-            window.orderFrontRegardless()
+            if miniature {
+                // Slides in at the bottom of the column, ordered front without stealing focus.
+                miniatures.add(id: popup.id, window: window, fullSize: size)
+            } else {
+                relayout()
+                // Show without stealing focus so the user can keep typing in other apps.
+                window.orderFrontRegardless()
+            }
             window.startPlayback()
             if isTrigger, mapping.chimeOnOpen {
                 NSSound(named: "Glass")?.play()
@@ -144,7 +170,10 @@ final class PopupController {
     }
 
     private func extendExistingPopup(for entryId: UUID) -> Bool {
-        guard let existing = activePopups.first(where: { $0.entryId == entryId }) else { return false }
+        // A miniature sliding out is gone already: the camera gets a new one.
+        guard let existing = activePopups.first(where: { $0.entryId == entryId && !miniatures.isLeaving($0.id) }) else {
+            return false
+        }
         existing.window.extendAutoClose(seconds: settings.autoCloseTimeout)
         return true
     }
@@ -153,7 +182,9 @@ final class PopupController {
         event: TriggerEvent,
         mapping: WebhookMapping,
         streamURL: String,
-        size: CGSize
+        size: CGSize,
+        popupId: UUID,
+        miniature: Bool
     ) -> PopupWindow {
         let entryId = mapping.entryId
         let cameraName = CamerasTab.displayName(mapping)
@@ -192,9 +223,10 @@ final class PopupController {
             },
             onWillClose: { [weak self] scale, panOffset in
                 self?.settings.saveZoom(for: entryId, scale: scale, panOffset: panOffset)
-            }
+            },
+            miniature: miniature
         ) { [weak self] in
-            self?.removePopup(entryId: entryId)
+            self?.removePopup(id: popupId)
         }
     }
 
@@ -203,7 +235,9 @@ final class PopupController {
     /// With "show all" the stack sits at the default position, otherwise the single popup at its own.
     /// Size changes animate 300 ms ease-in-ease-out, without animation under "Bewegung reduzieren".
     private func relayout() {
-        let popups = activePopups.filter { !$0.fixedSize }
+        // Layout "Miniatur": its own column (docs/design/popup-miniatur.md).
+        miniatures.relayout()
+        let popups = activePopups.filter { !$0.fixedSize && !$0.isMiniature }
         guard !popups.isEmpty else { return }
 
         let screen = WindowPositioner.targetScreen(for: settings.screenTarget)
@@ -223,8 +257,8 @@ final class PopupController {
         for (popup, frame) in zip(popups, frames) {
             let window = popup.window
             // Already there or already gliding there: leave the running animation alone.
-            if targetFrames[popup.entryId] == frame { continue }
-            targetFrames[popup.entryId] = frame
+            if targetFrames[popup.id] == frame { continue }
+            targetFrames[popup.id] = frame
             // A popup not on screen yet appears in place; the others glide.
             guard animate, window.isVisible, window.frame != frame else {
                 window.setFrame(frame, display: true)
@@ -238,10 +272,48 @@ final class PopupController {
         }
     }
 
-    private func removePopup(entryId: UUID) {
-        activePopups.removeAll { $0.entryId == entryId }
-        targetFrames[entryId] = nil
-        relayout()
+    private func removePopup(id: UUID) {
+        activePopups.removeAll { $0.id == id }
+        targetFrames[id] = nil
+        if miniatures.contains(id) {
+            // The other miniatures close up (unless one is hovered right now).
+            miniatures.remove(id)
+        } else {
+            relayout()
+        }
+    }
+
+    /// Settings › Popup-Layout changed: popups opened in the other layout close (miniatures at once).
+    private func closePopupsOfOtherLayout() {
+        let miniature = settings.popupLayoutMode == .miniature
+        let closing = activePopups.filter { !$0.fixedSize && $0.isMiniature != miniature }
+        guard !closing.isEmpty else { return }
+        let ids = Set(closing.map(\.id))
+        activePopups.removeAll { ids.contains($0.id) }
+        for popup in closing {
+            popup.window.closeInterceptor = nil
+            popup.window.finishClose()
+        }
+    }
+
+    /// Layout "Miniatur": side, screen and the current full size of every miniature.
+    private func miniatureEnvironment() -> MiniatureStackPresenter.Environment {
+        let screen = WindowPositioner.targetScreen(for: settings.screenTarget)
+        let margin = CGFloat(settings.edgeMargin)
+        let live = activePopups.filter { $0.isMiniature && !miniatures.isLeaving($0.id) }
+        let position = settings.showAllActiveCameras ? settings.defaultPosition : (live.first?.position ?? settings.defaultPosition)
+        let popups = activePopups
+        let settings = settings
+        return MiniatureStackPresenter.Environment(
+            side: position.side,
+            visible: screen.visibleFrame,
+            screenFrame: screen.frame,
+            margin: margin,
+            fullSize: { id in
+                guard let popup = popups.first(where: { $0.id == id }) else { return nil }
+                return settings.mapping(forEntry: popup.entryId)?.popupSize(on: screen, margin: margin) ?? popup.size
+            }
+        )
     }
 
     func showTestPopup(for mapping: WebhookMapping) {
@@ -275,6 +347,7 @@ final class PopupController {
         )[0]
 
         let entryId = mapping.entryId
+        let popupId = UUID()
         let originalWidth = Double(frame.width)
         let originalHeight = Double(frame.height)
 
@@ -297,11 +370,12 @@ final class PopupController {
             },
             onCropCancel: nil
         ) { [weak self] in
-            self?.removePopup(entryId: entryId)
+            self?.removePopup(id: popupId)
         }
 
         activePopups.append(
             ActivePopup(
+                id: popupId,
                 entryId: entryId,
                 window: window,
                 size: frame.size,
@@ -335,12 +409,12 @@ final class PopupController {
         dismiss(keepingBusy: false)
     }
 
-    /// `keepingBusy`: popups that talk or play an announcement stay open.
+    /// `keepingBusy`: popups that talk or play an announcement stay open. Miniatures slide out.
     private func dismiss(keepingBusy: Bool) {
-        let closing = activePopups.filter { !keepingBusy || !$0.window.isBusy }
+        let closing = activePopups.filter { (!keepingBusy || !$0.window.isBusy) && !miniatures.isLeaving($0.id) }
         guard !closing.isEmpty else { return }
-        let closingIds = Set(closing.map(\.entryId))
-        activePopups.removeAll { closingIds.contains($0.entryId) }
+        let closingIds = Set(closing.map(\.id))
+        activePopups.removeAll { closingIds.contains($0.id) }
         for popup in closing {
             popup.window.closePopup()
         }

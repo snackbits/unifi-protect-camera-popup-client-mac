@@ -29,6 +29,8 @@
 		A10000000000000000000040 /* CameraActionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000040 /* CameraActionService.swift */; };
 		A10000000000000000000008 /* WindowPositioner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000008 /* WindowPositioner.swift */; };
 		A10000000000000000000009 /* PopupController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000009 /* PopupController.swift */; };
+		F71000000000000000000001 /* MiniatureStackPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F72000000000000000000001 /* MiniatureStackPresenter.swift */; };
+		F71000000000000000000002 /* PopupIndicatorPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F72000000000000000000002 /* PopupIndicatorPanel.swift */; };
 		A10000000000000000000010 /* VLCPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* VLCPlayerView.swift */; };
 		A10000000000000000000011 /* PopupWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000011 /* PopupWindow.swift */; };
 		A10000000000000000000018 /* HelpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000018 /* HelpView.swift */; };
@@ -99,6 +101,8 @@
 		A20000000000000000000040 /* CameraActionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraActionService.swift; sourceTree = "<group>"; };
 		A20000000000000000000008 /* WindowPositioner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowPositioner.swift; sourceTree = "<group>"; };
 		A20000000000000000000009 /* PopupController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopupController.swift; sourceTree = "<group>"; };
+		F72000000000000000000001 /* MiniatureStackPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MiniatureStackPresenter.swift; sourceTree = "<group>"; };
+		F72000000000000000000002 /* PopupIndicatorPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopupIndicatorPanel.swift; sourceTree = "<group>"; };
 		A20000000000000000000010 /* VLCPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VLCPlayerView.swift; sourceTree = "<group>"; };
 		A20000000000000000000011 /* PopupWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopupWindow.swift; sourceTree = "<group>"; };
 		A20000000000000000000018 /* HelpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpView.swift; sourceTree = "<group>"; };
@@ -224,6 +228,7 @@
 				A20000000000000000000040 /* CameraActionService.swift */,
 				A20000000000000000000008 /* WindowPositioner.swift */,
 				A20000000000000000000009 /* PopupController.swift */,
+				F72000000000000000000001 /* MiniatureStackPresenter.swift */,
 				A20000000000000000000044 /* ProtectSession.swift */,
 				A20000000000000000000082 /* EventLog.swift */,
 				A20000000000000000000045 /* ProtectEventService.swift */,
@@ -272,6 +277,7 @@
 			children = (
 				A20000000000000000000080 /* PopupOverlayViews.swift */,
 				C32000000000000000000008 /* PopupTalkViews.swift */,
+				F72000000000000000000002 /* PopupIndicatorPanel.swift */,
 			);
 			path = Popup;
 			sourceTree = "<group>";
@@ -487,6 +493,8 @@
 				A10000000000000000000040 /* CameraActionService.swift in Sources */,
 				A10000000000000000000008 /* WindowPositioner.swift in Sources */,
 				A10000000000000000000009 /* PopupController.swift in Sources */,
+				F71000000000000000000001 /* MiniatureStackPresenter.swift in Sources */,
+				F71000000000000000000002 /* PopupIndicatorPanel.swift in Sources */,
 				A10000000000000000000044 /* ProtectSession.swift in Sources */,
 				A10000000000000000000082 /* EventLog.swift in Sources */,
 				A10000000000000000000045 /* ProtectEventService.swift in Sources */,

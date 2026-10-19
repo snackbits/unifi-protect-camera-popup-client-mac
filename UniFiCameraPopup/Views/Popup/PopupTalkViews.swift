@@ -576,6 +576,9 @@ final class PopupTalkControls {
     /// Keep the popup open while something is being sent from it.
     var isBusy: Bool { TalkbackService.shared.isActive(entryId: entryId) }
 
+    /// The announcements menu is open.
+    var isMenuOpen: Bool { !soundMenu.isHidden }
+
     func popupClosed() {
         isClosed = true
         // Removes the mouse monitors and the hold poll at once (not only when the view leaves its window).

@@ -39,6 +39,28 @@ final class PopupWindow: NSPanel {
     private let onCropCancel: (() -> Void)?
     private let onClose: () -> Void
 
+    // MARK: Layout "Miniatur" (docs/design/popup-miniatur.md)
+
+    /// Layout "Miniatur": the controller drives hover, size and closing; the timer really pauses.
+    let isMiniature: Bool
+    /// Compact = only the video or still, no chip, buttons, pill, notices or menus.
+    private(set) var isCompact = false
+    /// Chip, buttons, pill, menus (above the click catcher; empty areas pass clicks through).
+    private let chromeLayer = PassthroughView()
+    /// Loading text and notices (never take clicks).
+    private let hintLayer = PassthroughView(passesAll: true)
+    /// Pointer entered (true) or left (false) the popup (tracking area of the click catcher).
+    var onHoverChange: ((Bool) -> Void)?
+    /// Set by the controller: closing slides the miniature out first and then calls `finishClose()`.
+    var closeInterceptor: (() -> Void)?
+    private var isClosing = false
+    private var isClosed = false
+    private var isRunningModal = false
+    private var clock: AutoCloseClock?
+    private var clockPaused = false
+    /// Width the saved zoom/pan refers to (the popup's full size); nil = as before (Layout "Voll").
+    var zoomReferenceWidth: CGFloat?
+
     init(
         frame: NSRect,
         streamURL: String,
@@ -55,6 +77,7 @@ final class PopupWindow: NSPanel {
         onWillClose: ((CGFloat, CGPoint) -> Void)? = nil,
         onCropSave: ((CameraCrop, CGSize) -> Void)? = nil,
         onCropCancel: (() -> Void)? = nil,
+        miniature: Bool = false,
         onClose: @escaping () -> Void
     ) {
         self.onClose = onClose
@@ -70,6 +93,7 @@ final class PopupWindow: NSPanel {
         self.onWillClose = onWillClose
         self.onCropSave = onCropSave
         self.onCropCancel = onCropCancel
+        self.isMiniature = miniature && !cropSelectionMode
 
         super.init(
             contentRect: frame,
@@ -88,6 +112,12 @@ final class PopupWindow: NSPanel {
         becomesKeyOnlyIfNeeded = true
 
         setupContent(thumbnailDataURI: thumbnailDataURI)
+        if isMiniature {
+            playerView.keepsViewportOnResize = true
+            // Hover and the expanded state pause it (`setAutoClosePaused`).
+            clock = AutoCloseClock(total: 0, now: Date())
+            setCompact(true, animated: false)
+        }
         setupCloseHandlers(autoCloseSeconds: cropSelectionMode ? 0 : autoCloseSeconds)
     }
 
@@ -102,9 +132,12 @@ final class PopupWindow: NSPanel {
         }
 
         if let initialZoom, !cropSelectionMode {
+            // Miniature: the saved pan refers to the full size, the player may be smaller now.
+            if zoomReferenceWidth != nil { contentView?.layoutSubtreeIfNeeded() }
+            let factor = zoomFactor(toReference: false)
             playerView.applyZoomState(
                 scale: CGFloat(initialZoom.scale),
-                panOffset: CGPoint(x: initialZoom.panOffsetX, y: initialZoom.panOffsetY)
+                panOffset: CGPoint(x: initialZoom.panOffsetX * factor, y: initialZoom.panOffsetY * factor)
             )
         }
 
@@ -155,6 +188,11 @@ final class PopupWindow: NSPanel {
             // While zoomed, a click is reserved for panning, so it must not close.
             clickCatcher.onClick = { [weak self] in
                 guard let self else { return }
+                // Miniature: a click (also a quick one before it grows) closes it.
+                if self.isCompact {
+                    self.closePopup()
+                    return
+                }
                 if self.talkControls?.closeMenu() == true {
                     return
                 }
@@ -171,26 +209,40 @@ final class PopupWindow: NSPanel {
             clickCatcher.onRightClick = { [weak self] in
                 self?.closePopup()
             }
+            // Zoom and pan only at full size, not in the miniature.
             clickCatcher.onScroll = { [weak self] delta, location in
-                self?.playerView.zoom(by: delta * 0.01, at: location)
-                self?.scheduleZoomSave()
+                guard let self, !self.isCompact else { return }
+                self.playerView.zoom(by: delta * 0.01, at: location)
+                self.scheduleZoomSave()
             }
             clickCatcher.onMagnify = { [weak self] magnification, location in
-                self?.playerView.zoom(by: magnification, at: location)
-                self?.scheduleZoomSave()
+                guard let self, !self.isCompact else { return }
+                self.playerView.zoom(by: magnification, at: location)
+                self.scheduleZoomSave()
             }
             clickCatcher.onDrag = { [weak self] delta in
-                self?.playerView.pan(by: delta)
-                self?.scheduleZoomSave()
+                guard let self, !self.isCompact else { return }
+                self.playerView.pan(by: delta)
+                self.scheduleZoomSave()
             }
             clickCatcher.isZoomedIn = { [weak self] in
                 self?.playerView.isZoomedIn ?? false
             }
             clickCatcher.onMouseEnter = { [weak self] in
-                self?.pauseAutoClose()
+                guard let self else { return }
+                if self.isMiniature {
+                    self.onHoverChange?(true)
+                } else {
+                    self.pauseAutoClose()
+                }
             }
             clickCatcher.onMouseExit = { [weak self] in
-                self?.resumeAutoClose()
+                guard let self else { return }
+                if self.isMiniature {
+                    self.onHoverChange?(false)
+                } else {
+                    self.resumeAutoClose()
+                }
             }
         }
 
@@ -212,16 +264,27 @@ final class PopupWindow: NSPanel {
 
         content.addSubview(thumbnailView)
         content.addSubview(playerView)
-        content.addSubview(loadingLabel)
         content.addSubview(clickCatcher)
         content.addSubview(cropSelectionView)
         content.addSubview(cropActionBar)
-        content.addSubview(streamNotice)
+        // Loading text and notices in one layer, the overlay chrome above it: the miniature hides both.
+        for layer in [hintLayer, chromeLayer] {
+            layer.translatesAutoresizingMaskIntoConstraints = false
+            content.addSubview(layer)
+            NSLayoutConstraint.activate([
+                layer.leadingAnchor.constraint(equalTo: content.leadingAnchor),
+                layer.trailingAnchor.constraint(equalTo: content.trailingAnchor),
+                layer.topAnchor.constraint(equalTo: content.topAnchor),
+                layer.bottomAnchor.constraint(equalTo: content.bottomAnchor),
+            ])
+        }
+        hintLayer.addSubview(loadingLabel)
+        hintLayer.addSubview(streamNotice)
         playerView.onUnavailable = { [weak self] text in
             self?.loadingLabel.isHidden = true
             self?.streamNotice.show(text)
         }
-        content.addSubview(stillsNotice)
+        hintLayer.addSubview(stillsNotice)
         playerView.onNoPicture = { [weak self] isAV1 in
             self?.startStills(isAV1: isAV1)
         }
@@ -296,9 +359,10 @@ final class PopupWindow: NSPanel {
             self?.closePopup()
         }
 
-        content.addSubview(close)
-        content.addSubview(mute)
-        content.addSubview(settingsButton)
+        let chrome = chromeLayer
+        chrome.addSubview(close)
+        chrome.addSubview(mute)
+        chrome.addSubview(settingsButton)
         var constraints = [
             close.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -10),
             close.topAnchor.constraint(equalTo: content.topAnchor, constant: 10),
@@ -309,7 +373,7 @@ final class PopupWindow: NSPanel {
         ]
         if let chipText = overlay.chip {
             let chip = OverlayChipView(text: chipText)
-            content.addSubview(chip)
+            chrome.addSubview(chip)
             // Centred; on a narrow popup it moves left (and truncates) before touching the buttons.
             let centered = chip.centerXAnchor.constraint(equalTo: content.centerXAnchor)
             centered.priority = .defaultHigh
@@ -350,15 +414,15 @@ final class PopupWindow: NSPanel {
             pill.onAction = { [weak self] action, button in
                 self?.run(action, from: button)
             }
-            content.addSubview(pill)
+            chrome.addSubview(pill)
             constraints += [
                 pill.centerXAnchor.constraint(equalTo: content.centerXAnchor),
                 pill.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -12),
             ]
-            talkControls?.install(in: content, above: pill)
+            talkControls?.install(in: chrome, above: pill)
         }
         // Last, so the open menu lies above the pill and the chip.
-        content.addSubview(menu)
+        chrome.addSubview(menu)
         constraints += [
             menu.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -10),
             menu.topAnchor.constraint(equalTo: content.topAnchor, constant: 40),
@@ -423,7 +487,10 @@ final class PopupWindow: NSPanel {
             alert.addButton(withTitle: "Ausführen")
             alert.addButton(withTitle: "Abbrechen")
             NSApp.activate(ignoringOtherApps: true)
-            guard alert.runModal() == .alertFirstButtonReturn else { return }
+            isRunningModal = true
+            let response = alert.runModal()
+            isRunningModal = false
+            guard response == .alertFirstButtonReturn else { return }
         }
         // Sound only where this popup can talk (camera with speaker); errors show as the popup notice.
         var soundStart: PlayStart?
@@ -477,6 +544,11 @@ final class PopupWindow: NSPanel {
     }
 
     private func scheduleAutoClose(after seconds: TimeInterval) {
+        if isMiniature {
+            clock?.restart(total: seconds, at: Date())
+            armClockTimer()
+            return
+        }
         autoCloseTimer?.invalidate()
         autoCloseTimer = nil
         autoCloseDeadline = seconds > 0 ? Date().addingTimeInterval(seconds) : nil
@@ -516,10 +588,86 @@ final class PopupWindow: NSPanel {
     /// Auto-close waits while this popup talks or sends an announcement.
     private func autoCloseFired() {
         if talkControls?.isBusy == true {
-            scheduleAutoClose(after: 5)
+            if isMiniature {
+                clock?.setRemaining(5, at: Date())
+                armClockTimer()
+            } else {
+                scheduleAutoClose(after: 5)
+            }
             return
         }
         closePopup()
+    }
+
+    /// Miniature: one timer for the clock's remaining time, none while paused.
+    private func armClockTimer() {
+        autoCloseTimer?.invalidate()
+        autoCloseTimer = nil
+        guard !isClosing, let clock, clock.isEnabled, !clock.isPaused else { return }
+        let timer = Timer(timeInterval: max(clock.remaining(at: Date()), 0.01), repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated { self?.autoCloseFired() }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        autoCloseTimer = timer
+    }
+
+    /// Miniature: hover and the expanded state pause the auto-close timer, it resumes where it stopped.
+    func setAutoClosePaused(_ paused: Bool) {
+        guard isMiniature, paused != clockPaused else { return }
+        clockPaused = paused
+        clock?.setPaused(paused, at: Date())
+        armClockTimer()
+    }
+
+    /// Miniature: remaining and full auto-close time (total 0 = never closes).
+    var autoCloseProgress: (remaining: TimeInterval, total: TimeInterval) {
+        guard let clock else { return (0, 0) }
+        return (clock.remaining(at: Date()), clock.total)
+    }
+
+    /// The expanded popup stays big although the pointer left it: a menu is open, it talks or sends
+    /// an announcement, or a confirmation is shown.
+    var isHeldOpen: Bool {
+        muteMenu?.isHidden == false || talkControls?.isMenuOpen == true || isBusy || isRunningModal
+    }
+
+    /// Compact (miniature): overlays, notices and menus disappear at once. Full: they fade in (180 ms).
+    func setCompact(_ compact: Bool, animated: Bool) {
+        guard isMiniature else { return }
+        isCompact = compact
+        if compact {
+            muteMenu?.isHidden = true
+            _ = talkControls?.closeMenu()
+            for layer in [chromeLayer, hintLayer] {
+                layer.isHidden = true
+                layer.alphaValue = 0
+            }
+            // A zoomed popup would keep the open-hand cursor in the miniature.
+            invalidateCursorRects(for: clickCatcher)
+            return
+        }
+        for layer in [chromeLayer, hintLayer] {
+            layer.isHidden = false
+            if animated {
+                layer.alphaValue = 0
+                NSAnimationContext.runAnimationGroup { context in
+                    context.duration = MiniatureTiming.overlayFadeIn
+                    context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                    layer.animator().alphaValue = 1
+                }
+            } else {
+                layer.alphaValue = 1
+            }
+        }
+        invalidateCursorRects(for: clickCatcher)
+    }
+
+    /// Saved pan -> current player size (`toReference: false`) or back (`true`).
+    private func zoomFactor(toReference: Bool) -> CGFloat {
+        guard let reference = zoomReferenceWidth, reference > 0 else { return 1 }
+        let current = playerView.bounds.width > 0 ? playerView.bounds.width : frame.width
+        guard current > 0 else { return 1 }
+        return toReference ? reference / current : current / reference
     }
 
     func extendAutoClose(seconds: Double) {
@@ -527,13 +675,31 @@ final class PopupWindow: NSPanel {
         scheduleAutoClose(after: seconds)
     }
 
+    /// Closes the popup. Miniature: the controller slides it out first and then calls `finishClose()`.
     func closePopup() {
+        if let closeInterceptor, !isClosing {
+            isClosing = true
+            autoCloseTimer?.invalidate()
+            autoCloseTimer = nil
+            setCompact(true, animated: false)
+            closeInterceptor()
+            return
+        }
+        finishClose()
+    }
+
+    /// Releases everything and orders the window out (after the slide-out in the miniature layout).
+    func finishClose() {
+        guard !isClosed else { return }
+        isClosed = true
+        isClosing = true
         if let resizeObserver {
             NotificationCenter.default.removeObserver(resizeObserver)
             self.resizeObserver = nil
         }
         talkControls?.popupClosed()
         autoCloseTimer?.invalidate()
+        autoCloseTimer = nil
         zoomSaveTimer?.invalidate()
         zoomSaveTimer = nil
         if let escapeMonitor {
@@ -541,8 +707,7 @@ final class PopupWindow: NSPanel {
             self.escapeMonitor = nil
         }
         if rememberZoom, !cropSelectionMode {
-            let zoomState = playerView.currentZoomState
-            onWillClose?(zoomState.scale, zoomState.panOffset)
+            saveZoomState()
         }
         stopStills()
         playerView.stop()
@@ -557,10 +722,15 @@ final class PopupWindow: NSPanel {
         guard rememberZoom, !cropSelectionMode else { return }
         zoomSaveTimer?.invalidate()
         zoomSaveTimer = Timer.scheduledTimer(withTimeInterval: 0.4, repeats: false) { [weak self] _ in
-            guard let self else { return }
-            let zoomState = self.playerView.currentZoomState
-            self.onWillClose?(zoomState.scale, zoomState.panOffset)
+            self?.saveZoomState()
         }
+    }
+
+    /// Miniature: stored relative to the full size, whatever size the popup has right now.
+    private func saveZoomState() {
+        let zoomState = playerView.currentZoomState
+        let factor = zoomFactor(toReference: true)
+        onWillClose?(zoomState.scale, CGPoint(x: zoomState.panOffset.x * factor, y: zoomState.panOffset.y * factor))
     }
 
     private func cancelCropSelection() {
@@ -582,6 +752,25 @@ final class PopupWindow: NSPanel {
         let base64 = String(parts[1])
         guard let data = Data(base64Encoded: base64) else { return nil }
         return NSImage(data: data)
+    }
+}
+
+/// Container whose own area lets clicks through to the click catcher below; its subviews still
+/// get them (`passesAll`: they never do).
+private final class PassthroughView: NSView {
+    private let passesAll: Bool
+
+    init(passesAll: Bool = false) {
+        self.passesAll = passesAll
+        super.init(frame: .zero)
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        guard !passesAll else { return nil }
+        let hit = super.hitTest(point)
+        return hit === self ? nil : hit
     }
 }
 
