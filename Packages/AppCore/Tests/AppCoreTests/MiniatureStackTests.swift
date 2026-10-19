@@ -27,7 +27,8 @@ final class MiniatureStackTests: XCTestCase {
     func testClosingPopupLeavesThenTheOthersCloseUp() {
         var s = stack(["a", "b", "c"])
         let out = s.beginLeaving("a", screenFrame: screen)
-        XCTAssertEqual(out, CGRect(x: 1470, y: 767, width: 200, height: 113), "slides out beyond the outer edge")
+        XCTAssertEqual(out, MiniatureSlideEnd(frame: CGRect(x: 1470, y: 767, width: 200, height: 113), fades: false),
+                       "slides out beyond the outer edge")
         XCTAssertEqual(s.frame(of: "b")?.minY, 644, "the others wait for the slide-out")
         let moved = s.remove("a")
         XCTAssertEqual(moved["b"]?.minY, 767)
@@ -137,7 +138,92 @@ final class MiniatureStackTests: XCTestCase {
         var s = MiniatureStack<String>(side: .leading, visible: visible, margin: 20)
         _ = s.append("a", fullSize: wide)
         XCTAssertEqual(s.frame(of: "a")?.minX, 20)
-        XCTAssertEqual(s.beginLeaving("a", screenFrame: screen)?.minX, -230)
+        XCTAssertEqual(s.beginLeaving("a", screenFrame: screen)?.frame.minX, -230)
+    }
+
+    func testLeavingNextToAnotherScreenStaysOnItsScreenAndFades() {
+        var s = stack(["a"])
+        let neighbour = CGRect(x: 1440, y: 0, width: 1920, height: 1080)
+        let out = s.beginLeaving("a", screenFrame: screen, otherScreens: [neighbour])
+        XCTAssertEqual(out, MiniatureSlideEnd(frame: CGRect(x: 1240, y: 767, width: 200, height: 113), fades: true))
+        XCTAssertEqual(s.frame(of: "a"), out?.frame)
+    }
+
+    // MARK: Einfrieren mitten in der Bewegung
+
+    /// a was big and collapses; b slides up towards a's place. The pointer enters b mid-move:
+    /// the moves stop where they are and b stays under the pointer while it is armed.
+    func testFreezeKeepsStoppedFramesWhileArmed() {
+        var s = stack(["a", "b", "c"])
+        s.arm("a")
+        _ = s.expand("a")
+        _ = s.finishGrowing("a")
+        let targets = s.collapse("a")
+        XCTAssertEqual(targets["b"]?.minY, 644)
+
+        let midA = CGRect(x: 1040, y: 666, width: 380, height: 214)
+        let midB = CGRect(x: 1220, y: 543, width: 200, height: 113)
+        let midC = CGRect(x: 1220, y: 420, width: 200, height: 113)
+        s.freeze(at: ["a": midA, "b": midB, "c": midC])
+        XCTAssertTrue(s.arm("b"))
+        let moved = s.relayout()
+        XCTAssertEqual(moved["a"], CGRect(x: 1220, y: 767, width: 200, height: 113),
+                       "a shrinks to its miniature in place (top outer corner kept)")
+        XCTAssertNil(moved["b"], "b does not slide away under the pointer")
+        XCTAssertNil(moved["c"])
+        XCTAssertEqual(s.frame(of: "b"), midB)
+        XCTAssertEqual(s.frame(of: "c"), midC)
+
+        let caughtUp = s.disarm("b")
+        XCTAssertEqual(caughtUp["b"]?.minY, 644, "after the hover the column catches up")
+        XCTAssertEqual(caughtUp["c"]?.minY, 521)
+    }
+
+    /// The pointer is no longer on b after stopping: b is not armed, the column moves on.
+    func testFreezeWithoutArmCatchesUp() {
+        var s = stack(["a", "b"])
+        _ = s.beginLeaving("a", screenFrame: screen)
+        let targets = s.remove("a")
+        XCTAssertEqual(targets["b"]?.minY, 767)
+        s.freeze(at: ["b": CGRect(x: 1220, y: 700, width: 200, height: 113)])
+        XCTAssertFalse(s.isFrozen)
+        XCTAssertEqual(s.relayout()["b"]?.minY, 767)
+    }
+
+    func testFreezeIgnoresLeavingPopups() {
+        var s = stack(["a", "b"])
+        let out = s.beginLeaving("a", screenFrame: screen)
+        s.freeze(at: ["a": CGRect(x: 1300, y: 767, width: 200, height: 113)])
+        XCTAssertEqual(s.frame(of: "a"), out?.frame)
+    }
+
+    // MARK: Nur eine armierte Miniatur
+
+    func testArmingAnotherDisarmsTheFirst() {
+        var s = stack(["a", "b"])
+        XCTAssertTrue(s.arm("a"))
+        XCTAssertTrue(s.arm("b"))
+        XCTAssertEqual(s.phase(of: "a"), .mini)
+        XCTAssertEqual(s.phase(of: "b"), .armed)
+        XCTAssertEqual(s.items.filter { $0.phase == .armed }.count, 1)
+        XCTAssertEqual(s.armedID, "b")
+    }
+
+    // MARK: Klick schließt nur vor dem Wachsen
+
+    func testClickClosesOnlyBeforeGrowing() {
+        var s = stack(["a"])
+        XCTAssertEqual(s.phase(of: "a")?.closesOnClick, true, "mini")
+        s.arm("a")
+        XCTAssertEqual(s.phase(of: "a")?.closesOnClick, true, "within the 500 ms")
+        _ = s.expand("a")
+        XCTAssertEqual(s.phase(of: "a")?.closesOnClick, false, "growing")
+        _ = s.finishGrowing("a")
+        XCTAssertEqual(s.phase(of: "a")?.closesOnClick, false, "big")
+        _ = s.collapse("a")
+        XCTAssertEqual(s.phase(of: "a")?.closesOnClick, true, "mini again")
+        _ = s.beginLeaving("a", screenFrame: screen)
+        XCTAssertEqual(s.phase(of: "a")?.closesOnClick, false, "already leaving")
     }
 
     // MARK: Schonfrist

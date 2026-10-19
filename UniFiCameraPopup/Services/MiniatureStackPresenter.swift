@@ -11,6 +11,8 @@ final class MiniatureStackPresenter {
         let side: PopupAnchor.Horizontal
         let visible: CGRect
         let screenFrame: CGRect
+        /// Frames of the other screens: a slide never shows on a neighbouring one.
+        let otherScreens: [CGRect]
         let margin: CGFloat
         /// Current full size of a popup (settings or learned aspect ratio may have changed).
         let fullSize: (UUID) -> CGSize?
@@ -21,7 +23,10 @@ final class MiniatureStackPresenter {
         let indicator: PopupIndicatorPanel
         var animationToken = 0
         var isAnimating = false
-        /// Window frame when the hover began (before the warning nudge jumped back).
+        /// The running move is the slide-in from the edge (not stopped by a hover elsewhere).
+        var isSlidingIn = false
+        /// Window frame when the hover began, before the warning nudge jumped back (the pointer
+        /// still counts as on the miniature there).
         var armFrame: NSRect?
     }
 
@@ -34,7 +39,8 @@ final class MiniatureStackPresenter {
     private var stack: MiniatureStack<UUID>
     private var entries: [UUID: Entry] = [:]
     private var hoverGuard = MiniatureHoverGuard()
-    private var armTimer: Timer?
+    /// The running hover bar's timer and the miniature it belongs to.
+    private var armTimer: (id: UUID, timer: Timer)?
     private var tickTimer: Timer?
 
     init(environment: @escaping () -> Environment) {
@@ -52,12 +58,13 @@ final class MiniatureStackPresenter {
     /// A new miniature slides in from beyond the outer edge (300 ms ease-out) at the bottom of the column.
     func add(id: UUID, window: PopupWindow, fullSize: CGSize) {
         let env = environment()
-        apply(stack.update(side: env.side, visible: env.visible, margin: env.margin), instant: true)
+        syncEnvironment(env, instant: true)
 
         let indicator = PopupIndicatorPanel(side: env.side)
         entries[id] = Entry(window: window, indicator: indicator)
         window.zoomReferenceWidth = fullSize.width
         window.onHoverChange = { [weak self] inside in self?.hoverChanged(id, inside: inside) }
+        window.compactClickCloses = { [weak self] in self?.stack.phase(of: id)?.closesOnClick ?? true }
         window.closeInterceptor = { [weak self, weak window] in
             guard let self else {
                 window?.finishClose()
@@ -68,13 +75,23 @@ final class MiniatureStackPresenter {
 
         var frames = stack.append(id, fullSize: fullSize)
         guard let base = frames.removeValue(forKey: id) ?? stack.frame(of: id) else { return }
-        let start = PopupStackLayout.offscreenFrame(for: base, side: env.side, screenFrame: env.screenFrame)
-        window.setFrame(reduceMotion ? base : start, display: false)
-        indicator.setFrame(PopupIndicatorPanel.frame(around: reduceMotion ? base : start), display: false)
+        let start = PopupStackLayout.slideEnd(
+            for: base, side: env.side, screenFrame: env.screenFrame, otherScreens: env.otherScreens
+        )
+        let fades = start.fades && !reduceMotion
+        window.setFrame(reduceMotion ? base : start.frame, display: false)
+        indicator.setFrame(PopupIndicatorPanel.frame(around: reduceMotion ? base : start.frame), display: false)
+        if fades {
+            window.alphaValue = 0
+            indicator.alphaValue = 0
+        }
         // Show without stealing focus so the user can keep typing in other apps.
         window.orderFrontRegardless()
         indicator.orderFrontRegardless()
-        animate(id, to: base, windowFrame: base, curve: Self.slideIn)
+        animate(id, to: base, windowFrame: base, curve: Self.slideIn, alongside: fades ? {
+            window.animator().alphaValue = 1
+            indicator.animator().alphaValue = 1
+        } : nil)
         apply(frames)
         startTicking()
         tick()
@@ -84,21 +101,20 @@ final class MiniatureStackPresenter {
     /// then the window closes and the others close up (`remove`).
     private func beginLeave(_ id: UUID) {
         guard let entry = entries[id] else { return }
-        if stack.armedID == id {
-            armTimer?.invalidate()
-            armTimer = nil
-        }
+        cancelArmTimer(of: id)
         if stack.expandedID == id { hoverGuard = MiniatureHoverGuard() }
         entry.indicator.stopHoverBar(animated: false)
         entry.indicator.showRest(.neutral)
         let env = environment()
-        guard let out = stack.beginLeaving(id, screenFrame: env.screenFrame), !reduceMotion else {
+        guard let out = stack.beginLeaving(id, screenFrame: env.screenFrame, otherScreens: env.otherScreens),
+              !reduceMotion else {
             entry.window.finishClose()
             return
         }
-        animate(id, to: out, windowFrame: out, curve: Self.slideOut, alongside: {
-            // The warning faded it; the slide-out itself is the normal one.
-            entry.window.animator().alphaValue = 1
+        animate(id, to: out.frame, windowFrame: out.frame, curve: Self.slideOut, alongside: {
+            // The warning faded it; the slide-out itself is the normal one (next to a neighbouring
+            // screen it fades out at the edge).
+            entry.window.animator().alphaValue = out.fades ? 0 : 1
         }, completion: { [weak window = entry.window] _ in
             window?.finishClose()
         })
@@ -108,24 +124,14 @@ final class MiniatureStackPresenter {
     func remove(_ id: UUID) {
         guard let entry = entries.removeValue(forKey: id) else { return }
         entry.window.onHoverChange = nil
+        entry.window.compactClickCloses = nil
         entry.window.closeInterceptor = nil
         entry.indicator.orderOut(nil)
         entry.indicator.close()
-        if stack.armedID == id {
-            armTimer?.invalidate()
-            armTimer = nil
-        }
+        cancelArmTimer(of: id)
         if stack.expandedID == id { hoverGuard = MiniatureHoverGuard() }
         apply(stack.remove(id))
         if entries.isEmpty { stopTicking() }
-    }
-
-    /// Closes every miniature at once without sliding (layout switched to "Voll").
-    func closeAllImmediately() {
-        for (_, entry) in entries {
-            entry.window.closeInterceptor = nil
-            entry.window.finishClose()
-        }
     }
 
     /// Screen, side, margin or sizes changed. A frozen column waits, except for a new screen or side.
@@ -135,11 +141,17 @@ final class MiniatureStackPresenter {
         for id in entries.keys {
             if let size = env.fullSize(id) { stack.setFullSize(size, for: id) }
         }
+        syncEnvironment(env)
+    }
+
+    /// Takes over side, screen and margin. A new side moves every popup and its indicators there
+    /// at once (no slide across the screen).
+    private func syncEnvironment(_ env: Environment, instant: Bool = false) {
         let sideChanged = env.side != stack.side
         if sideChanged {
             for entry in entries.values { entry.indicator.side = env.side }
         }
-        apply(stack.update(side: env.side, visible: env.visible, margin: env.margin), instant: sideChanged)
+        apply(stack.update(side: env.side, visible: env.visible, margin: env.margin), instant: instant || sideChanged)
     }
 
     // MARK: Hover
@@ -170,27 +182,88 @@ final class MiniatureStackPresenter {
         }
     }
 
-    /// The pointer rests on a miniature: timer paused, hover bar runs, the column stands still.
+    /// The pointer rests on a miniature: timer paused, hover bar runs, the column stands still –
+    /// running moves stop where they are, so the miniature cannot slide away under the pointer.
     private func beginHover(_ id: UUID) {
-        guard var entry = entries[id], stack.arm(id) else { return }
+        guard entries[id] != nil, stack.phase(of: id) == .mini else { return }
+        // Only one hover bar: a miniature still armed returns to mini first.
+        if let armed = stack.armedID, armed != id { endHover(armed) }
+        let stoppedMoves = freezeMoves()
+        // Stopped elsewhere than under the pointer: not armed, the column moves on.
+        guard var entry = entries[id],
+              !stoppedMoves || entry.window.frame.insetBy(dx: -1, dy: -1).contains(NSEvent.mouseLocation),
+              stack.arm(id) else {
+            apply(stack.relayout())
+            return
+        }
         entry.armFrame = entry.window.frame
         entries[id] = entry
         entry.window.setAutoClosePaused(true)
         entry.indicator.startHoverBar()
-        armTimer?.invalidate()
+        cancelArmTimer()
         let timer = Timer(timeInterval: MiniatureTiming.hover, repeats: false) { [weak self] _ in
             MainActor.assumeIsolated { self?.expand(id) }
         }
         RunLoop.main.add(timer, forMode: .common)
-        armTimer = timer
+        armTimer = (id, timer)
+        // A popup stopped mid-resize takes its size at its stopped top; the others stand still.
+        apply(stack.relayout())
         // Remaining-time display jumps back (no nudge, full opacity, white line).
         tick()
     }
 
+    /// Stops every running move of the column where it is right now and makes the stopped frames
+    /// the stack's own (`freeze(at:)`). Growing, sliding-in and sliding-out popups go on. true =
+    /// something stopped.
+    @discardableResult
+    private func freezeMoves() -> Bool {
+        var stopped: [UUID: CGRect] = [:]
+        for (id, entry) in entries where entry.isAnimating && !entry.isSlidingIn {
+            guard let phase = stack.phase(of: id), phase != .leaving, stack.growingID != id else { continue }
+            // The indicator panel moves with the frame without the warning nudge.
+            let inset = PopupIndicatorPanel.inset
+            stopped[id] = entry.indicator.frame.insetBy(dx: inset, dy: inset)
+            stopMove(id)
+        }
+        guard !stopped.isEmpty else { return false }
+        stack.freeze(at: stopped)
+        if let expanded = stack.expandedID, stopped[expanded] != nil { settle(expanded) }
+        return true
+    }
+
+    /// Cancels the running animations of a popup and its indicator panel where they are now.
+    private func stopMove(_ id: UUID) {
+        guard var entry = entries[id] else { return }
+        // The cancelled animation's completion sees an old token: `completion(false)`.
+        entry.animationToken += 1
+        entry.isAnimating = false
+        entry.isSlidingIn = false
+        entries[id] = entry
+        let window = entry.window
+        let indicator = entry.indicator
+        let frame = window.frame
+        let panel = indicator.frame
+        let alpha = window.alphaValue
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0
+            window.animator().setFrame(frame, display: true)
+            window.animator().alphaValue = alpha
+            indicator.animator().setFrame(panel, display: true)
+            // A fade-in stopped half way: the line shows in full (`tick` sets the popup's opacity).
+            indicator.animator().alphaValue = 1
+        }
+    }
+
+    /// Invalidates the hover bar's timer (only that of `id`, if given).
+    private func cancelArmTimer(of id: UUID? = nil) {
+        guard let armTimer, id == nil || armTimer.id == id else { return }
+        armTimer.timer.invalidate()
+        self.armTimer = nil
+    }
+
     /// The pointer left before the 500 ms were over: back to a miniature, the column catches up.
     private func endHover(_ id: UUID) {
-        armTimer?.invalidate()
-        armTimer = nil
+        cancelArmTimer(of: id)
         guard var entry = entries[id] else { return }
         entry.armFrame = nil
         entries[id] = entry
@@ -202,7 +275,7 @@ final class MiniatureStackPresenter {
     /// 500 ms on the miniature: it grows from its top outer corner (300 ms), the ones below move
     /// down. Overlays fade in afterwards; then the column catches up.
     private func expand(_ id: UUID) {
-        armTimer = nil
+        if armTimer?.id == id { armTimer = nil }
         guard stack.phase(of: id) == .armed, var entry = entries[id] else { return }
         entry.armFrame = nil
         entries[id] = entry
@@ -298,7 +371,10 @@ final class MiniatureStackPresenter {
         let panelFrame = PopupIndicatorPanel.frame(around: base)
 
         guard !instant, !reduceMotion, window.isVisible, window.frame != windowFrame else {
+            // A running move would carry on to its old target.
+            if entry.isAnimating { stopMove(id) }
             entry.isAnimating = false
+            entry.isSlidingIn = false
             entries[id] = entry
             window.setFrame(windowFrame, display: true)
             indicator.setFrame(panelFrame, display: true)
@@ -307,6 +383,7 @@ final class MiniatureStackPresenter {
             return
         }
         entry.isAnimating = true
+        entry.isSlidingIn = curve === Self.slideIn
         entries[id] = entry
         NSAnimationContext.runAnimationGroup({ context in
             context.duration = MiniatureTiming.move
@@ -321,6 +398,7 @@ final class MiniatureStackPresenter {
                     return
                 }
                 current.isAnimating = false
+                current.isSlidingIn = false
                 self.entries[id] = current
                 completion?(true)
             }
@@ -341,8 +419,7 @@ final class MiniatureStackPresenter {
     private func stopTicking() {
         tickTimer?.invalidate()
         tickTimer = nil
-        armTimer?.invalidate()
-        armTimer = nil
+        cancelArmTimer()
         hoverGuard = MiniatureHoverGuard()
     }
 
@@ -357,8 +434,9 @@ final class MiniatureStackPresenter {
                 remaining: progress.remaining, total: progress.total, phase: phase, reduceMotion: reduce
             )
             entry.indicator.showRest(rest)
-            if entry.window.alphaValue != rest.opacity { entry.window.alphaValue = rest.opacity }
+            // Moves may fade the popup (slide next to a neighbouring screen, warning).
             guard !entry.isAnimating else { continue }
+            if entry.window.alphaValue != rest.opacity { entry.window.alphaValue = rest.opacity }
             let target = base.nudged(rest.nudge, towards: stack.side)
             if entry.window.frame != target { entry.window.setFrame(target, display: true) }
             let panel = PopupIndicatorPanel.frame(around: base)

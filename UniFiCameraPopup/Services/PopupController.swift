@@ -33,6 +33,7 @@ final class PopupController {
     private let settings = SettingsStore.shared
     private var screenObserver: NSObjectProtocol?
     private var layoutModeObserver: AnyCancellable?
+    private var positionObserver: AnyCancellable?
     private lazy var miniatures = MiniatureStackPresenter { [unowned self] in self.miniatureEnvironment() }
 
     private init() {
@@ -49,6 +50,14 @@ final class PopupController {
             .receive(on: RunLoop.main)
             .sink { _ in
                 MainActor.assumeIsolated { PopupController.shared.closePopupsOfOtherLayout() }
+            }
+        // Default position left/right changed: open miniatures move to the new side at once.
+        positionObserver = settings.$defaultPosition
+            .removeDuplicates()
+            .dropFirst()
+            .receive(on: RunLoop.main)
+            .sink { _ in
+                MainActor.assumeIsolated { PopupController.shared.miniatures.relayout() }
             }
     }
 
@@ -301,13 +310,18 @@ final class PopupController {
         let screen = WindowPositioner.targetScreen(for: settings.screenTarget)
         let margin = CGFloat(settings.edgeMargin)
         let live = activePopups.filter { $0.isMiniature && !miniatures.isLeaving($0.id) }
-        let position = settings.showAllActiveCameras ? settings.defaultPosition : (live.first?.position ?? settings.defaultPosition)
+        // Re-read like the sizes: a changed default position applies to open miniatures too.
+        let ownPosition = live.first.map { popup in
+            settings.mapping(forEntry: popup.entryId).map { $0.positionOverride ?? settings.defaultPosition } ?? popup.position
+        }
+        let position = settings.showAllActiveCameras ? settings.defaultPosition : (ownPosition ?? settings.defaultPosition)
         let popups = activePopups
         let settings = settings
         return MiniatureStackPresenter.Environment(
             side: position.side,
             visible: screen.visibleFrame,
             screenFrame: screen.frame,
+            otherScreens: NSScreen.screens.map(\.frame).filter { $0 != screen.frame },
             margin: margin,
             fullSize: { id in
                 guard let popup = popups.first(where: { $0.id == id }) else { return nil }

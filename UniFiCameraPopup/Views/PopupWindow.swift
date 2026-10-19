@@ -53,6 +53,9 @@ final class PopupWindow: NSPanel {
     var onHoverChange: ((Bool) -> Void)?
     /// Set by the controller: closing slides the miniature out first and then calls `finishClose()`.
     var closeInterceptor: (() -> Void)?
+    /// Set by the controller: whether a click on the compact popup closes it (a miniature, also
+    /// while the hover bar runs) or does nothing (it grows already).
+    var compactClickCloses: (() -> Bool)?
     private var isClosing = false
     private var isClosed = false
     private var isRunningModal = false
@@ -188,9 +191,10 @@ final class PopupWindow: NSPanel {
             // While zoomed, a click is reserved for panning, so it must not close.
             clickCatcher.onClick = { [weak self] in
                 guard let self else { return }
-                // Miniature: a click (also a quick one before it grows) closes it.
+                // Miniature: a click (also a quick one before it grows) closes it; while it grows
+                // the click is ignored.
                 if self.isCompact {
-                    self.closePopup()
+                    if self.compactClickCloses?() ?? true { self.closePopup() }
                     return
                 }
                 if self.talkControls?.closeMenu() == true {
@@ -264,27 +268,29 @@ final class PopupWindow: NSPanel {
 
         content.addSubview(thumbnailView)
         content.addSubview(playerView)
+        // "Voll" and crop selection: the loading text under the click catcher and the crop
+        // selection, the notices above them (they take clicks).
+        if !isMiniature { content.addSubview(loadingLabel) }
         content.addSubview(clickCatcher)
         content.addSubview(cropSelectionView)
         content.addSubview(cropActionBar)
-        // Loading text and notices in one layer, the overlay chrome above it: the miniature hides both.
-        for layer in [hintLayer, chromeLayer] {
-            layer.translatesAutoresizingMaskIntoConstraints = false
-            content.addSubview(layer)
-            NSLayoutConstraint.activate([
-                layer.leadingAnchor.constraint(equalTo: content.leadingAnchor),
-                layer.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-                layer.topAnchor.constraint(equalTo: content.topAnchor),
-                layer.bottomAnchor.constraint(equalTo: content.bottomAnchor),
-            ])
+        // Miniature: loading text and notices in one layer (never takes clicks); the compact
+        // miniature hides it. "Voll": the notices directly, they take clicks as before.
+        if isMiniature {
+            addFullSizeLayer(hintLayer, to: content)
+            hintLayer.addSubview(loadingLabel)
+            hintLayer.addSubview(streamNotice)
+            hintLayer.addSubview(stillsNotice)
+        } else {
+            content.addSubview(streamNotice)
+            content.addSubview(stillsNotice)
         }
-        hintLayer.addSubview(loadingLabel)
-        hintLayer.addSubview(streamNotice)
         playerView.onUnavailable = { [weak self] text in
             self?.loadingLabel.isHidden = true
             self?.streamNotice.show(text)
         }
-        hintLayer.addSubview(stillsNotice)
+        // Overlay chrome above everything (the compact miniature hides it).
+        addFullSizeLayer(chromeLayer, to: content)
         playerView.onNoPicture = { [weak self] isAV1 in
             self?.startStills(isAV1: isAV1)
         }
@@ -660,6 +666,17 @@ final class PopupWindow: NSPanel {
             }
         }
         invalidateCursorRects(for: clickCatcher)
+    }
+
+    private func addFullSizeLayer(_ layer: NSView, to content: NSView) {
+        layer.translatesAutoresizingMaskIntoConstraints = false
+        content.addSubview(layer)
+        NSLayoutConstraint.activate([
+            layer.leadingAnchor.constraint(equalTo: content.leadingAnchor),
+            layer.trailingAnchor.constraint(equalTo: content.trailingAnchor),
+            layer.topAnchor.constraint(equalTo: content.topAnchor),
+            layer.bottomAnchor.constraint(equalTo: content.bottomAnchor),
+        ])
     }
 
     /// Saved pan -> current player size (`toReference: false`) or back (`true`).

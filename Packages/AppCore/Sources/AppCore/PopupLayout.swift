@@ -232,6 +232,36 @@ public enum PopupStackLayout {
         return result
     }
 
+    /// Start of the slide-in and end of the slide-out of a miniature at `frame`: beyond the outer
+    /// edge (`offscreenFrame`) as long as no other screen lies there. Next to a neighbouring screen
+    /// the popup would show on it while sliding: it stays on its own screen instead, touching the
+    /// outer edge, and fades (`fades`: alpha 0 at this end).
+    public static func slideEnd(
+        for frame: CGRect,
+        side: PopupAnchor.Horizontal,
+        screenFrame: CGRect,
+        otherScreens: [CGRect]
+    ) -> MiniatureSlideEnd {
+        let outside = offscreenFrame(for: frame, side: side, screenFrame: screenFrame)
+        let path: CGRect
+        var inside = frame
+        switch side {
+        case .leading:
+            path = CGRect(x: outside.minX, y: frame.minY, width: screenFrame.minX - outside.minX, height: frame.height)
+            inside.origin.x = screenFrame.minX
+        case .trailing, .center:
+            path = CGRect(x: screenFrame.maxX, y: frame.minY, width: outside.maxX - screenFrame.maxX, height: frame.height)
+            inside.origin.x = screenFrame.maxX - frame.width
+        }
+        let crossesNeighbour = otherScreens.contains { screen in
+            let overlap = screen.intersection(path)
+            return !overlap.isNull && overlap.width > 0 && overlap.height > 0
+        }
+        return crossesNeighbour
+            ? MiniatureSlideEnd(frame: inside, fades: true)
+            : MiniatureSlideEnd(frame: outside, fades: false)
+    }
+
     /// Consecutive groups: the first `ceil(n / count)` popups in column 1, and so on.
     static func split(_ indices: [Int], into count: Int) -> [[Int]] {
         let perColumn = Int((Double(indices.count) / Double(count)).rounded(.up))

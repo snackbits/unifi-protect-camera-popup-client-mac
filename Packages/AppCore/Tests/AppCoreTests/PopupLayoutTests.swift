@@ -233,6 +233,30 @@ final class PopupLayoutTests: XCTestCase {
         XCTAssertEqual(PopupStackLayout.offscreenFrame(for: right, side: .trailing, screenFrame: second).minX, 3360 + 30)
     }
 
+    func testSlideEndOnASingleScreenGoesBeyondTheEdge() {
+        let screen = CGRect(x: 0, y: 0, width: 1440, height: 925)
+        let right = CGRect(x: 1224, y: 771, width: 200, height: 113)
+        XCTAssertEqual(PopupStackLayout.slideEnd(for: right, side: .trailing, screenFrame: screen, otherScreens: []),
+                       MiniatureSlideEnd(frame: CGRect(x: 1470, y: 771, width: 200, height: 113), fades: false))
+        // A screen above or below does not lie in the path.
+        let above = CGRect(x: 1000, y: 925, width: 1920, height: 1080)
+        XCTAssertEqual(PopupStackLayout.slideEnd(for: right, side: .trailing, screenFrame: screen, otherScreens: [above]).fades, false)
+    }
+
+    func testSlideEndNextToANeighbourStaysOnTheScreenAndFades() {
+        let screen = CGRect(x: 0, y: 0, width: 1440, height: 925)
+        let right = CGRect(x: 1224, y: 771, width: 200, height: 113)
+        let neighbourRight = CGRect(x: 1440, y: -200, width: 1920, height: 1080)
+        XCTAssertEqual(PopupStackLayout.slideEnd(for: right, side: .trailing, screenFrame: screen, otherScreens: [neighbourRight]),
+                       MiniatureSlideEnd(frame: CGRect(x: 1240, y: 771, width: 200, height: 113), fades: true))
+        let left = CGRect(x: 16, y: 771, width: 200, height: 113)
+        let neighbourLeft = CGRect(x: -1920, y: 0, width: 1920, height: 1080)
+        XCTAssertEqual(PopupStackLayout.slideEnd(for: left, side: .leading, screenFrame: screen, otherScreens: [neighbourLeft]),
+                       MiniatureSlideEnd(frame: CGRect(x: 0, y: 771, width: 200, height: 113), fades: true))
+        // The neighbour on the other side is not in the way.
+        XCTAssertEqual(PopupStackLayout.slideEnd(for: left, side: .leading, screenFrame: screen, otherScreens: [neighbourRight]).fades, false)
+    }
+
     // MARK: Position
 
     func testLegacyPositionValuesMigrateToSides() {

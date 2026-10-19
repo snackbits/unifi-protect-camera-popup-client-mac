@@ -28,7 +28,7 @@ Reihenfolge der Abschnitte:
 ## Verhalten im Layout „Miniatur“
 - **Miniatur**: 200 pt breit, Höhe aus dem Seitenverhältnis der Popup-Größe der Kamera. Reines Video ohne Overlays: kein Chip, keine Knöpfe, keine Leiste, keine Hinweise.
 - **Stapel**: eine Spalte an der gewählten Seite, beginnt oben (sichtbarer Bereich minus Randabstand), Abstand 10 pt. Was nicht mehr passt, liegt unterhalb des Bildschirms. Es wird nicht geschrumpft und es gibt keine zweite Spalte. Neue Kameras reihen sich unten an. Löst eine offene Kamera erneut aus, startet nur ihr Timer neu.
-- **Einschub/Ausschub**: Neue Miniaturen gleiten von außerhalb der Außenkante herein (300 ms, ease-out). Beim Schließen gleiten sie auf demselben Weg hinaus (300 ms, ease-in), danach rücken die übrigen nach (300 ms, ease-in-out).
+- **Einschub/Ausschub**: Neue Miniaturen gleiten von außerhalb der Außenkante herein (300 ms, ease-out). Beim Schließen gleiten sie auf demselben Weg hinaus (300 ms, ease-in), danach rücken die übrigen nach (300 ms, ease-in-out). Liegt an der Außenkante ein weiterer Monitor, bleibt die Bewegung auf dem eigenen Bildschirm: Start bzw. Ende an der Bildschirmkante, dazu blendet die Miniatur ein bzw. aus (Deckkraft 0 ↔ 1), damit auf dem Nachbarmonitor nichts erscheint.
 - **Hover-Balken** (an der Innenseite, 5 pt Abstand zur Miniatur, 4 pt breit, Radius 2, volle Miniaturhöhe):
   - Ohne Maus ist er unsichtbar. Erst beim Hovern blendet die graue Spur (weiß 18 %) in **50 ms** ein.
   - Gleichzeitig startet die Füllung `#FFD84D` von oben nach unten, linear in 500 ms.

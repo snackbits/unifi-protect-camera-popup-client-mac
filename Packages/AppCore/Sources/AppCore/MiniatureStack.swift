@@ -11,6 +11,22 @@ public enum MiniaturePhase: Equatable, Sendable {
     case expanded
     /// Sliding out beyond the outer edge; removed afterwards.
     case leaving
+
+    /// A click on the compact popup closes it: as a miniature and while the hover bar runs, not
+    /// once it grows (`expanded`).
+    public var closesOnClick: Bool { self == .mini || self == .armed }
+}
+
+/// Start of the slide-in or end of the slide-out (`PopupStackLayout.slideEnd`).
+public struct MiniatureSlideEnd: Equatable, Sendable {
+    public let frame: CGRect
+    /// Next to a neighbouring screen: the popup stays on its own screen and fades (alpha 0 here).
+    public let fades: Bool
+
+    public init(frame: CGRect, fades: Bool) {
+        self.frame = frame
+        self.fades = fades
+    }
 }
 
 /// Timing of the layout "Miniatur" (spec and mock `popup-miniatur-demo.html`).
@@ -101,10 +117,22 @@ public struct MiniatureStack<ID: Hashable> {
         items[i].fullSize = size
     }
 
-    /// The pointer entered a miniature: the hover bar runs, the stack stands still.
+    /// Running moves were stopped where they are (the pointer entered a miniature): these frames
+    /// replace the targets, so a frozen stack keeps them.
+    public mutating func freeze(at frames: [ID: CGRect]) {
+        for i in items.indices where items[i].phase != .leaving {
+            if let frame = frames[items[i].id] { items[i].frame = frame }
+        }
+    }
+
+    /// The pointer entered a miniature: the hover bar runs, the stack stands still. Only one is
+    /// armed: another armed miniature returns to mini.
     @discardableResult
     public mutating func arm(_ id: ID) -> Bool {
         guard let i = index(of: id), items[i].phase == .mini else { return false }
+        for j in items.indices where items[j].phase == .armed {
+            items[j].phase = .mini
+        }
         items[i].phase = .armed
         return true
     }
@@ -143,17 +171,18 @@ public struct MiniatureStack<ID: Hashable> {
         return relayout()
     }
 
-    /// Starts the slide-out: returns the frame beyond the outer edge of `screenFrame`. The others
-    /// stay where they are until `remove` (the column closes up after the slide-out).
-    public mutating func beginLeaving(_ id: ID, screenFrame: CGRect) -> CGRect? {
+    /// Starts the slide-out: returns its end beyond the outer edge of `screenFrame` (or at the edge,
+    /// fading, next to one of `otherScreens`). The others stay where they are until `remove` (the
+    /// column closes up after the slide-out).
+    public mutating func beginLeaving(_ id: ID, screenFrame: CGRect, otherScreens: [CGRect] = []) -> MiniatureSlideEnd? {
         guard let i = index(of: id), items[i].phase != .leaving else { return nil }
         if growingID == id { growingID = nil }
         items[i].phase = .leaving
         let current = items[i].frame ?? PopupStackLayout.miniatureFrame(
             size: size(of: items[i]), top: miniatureArea.maxY, side: side, area: miniatureArea
         )
-        let out = PopupStackLayout.offscreenFrame(for: current, side: side, screenFrame: screenFrame)
-        items[i].frame = out
+        let out = PopupStackLayout.slideEnd(for: current, side: side, screenFrame: screenFrame, otherScreens: otherScreens)
+        items[i].frame = out.frame
         return out
     }
 
