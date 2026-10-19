@@ -43,6 +43,12 @@ struct StatusPanelView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             header
+            if let hint = certificateHint {
+                Text(hint)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color(nsColor: .systemOrange))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             let recent = events.history.latest(3)
             if !recent.isEmpty {
                 eventList(recent)
@@ -86,6 +92,13 @@ struct StatusPanelView: View {
                 .foregroundStyle(chip.foreground.color)
                 .background(Capsule().fill(chip.background.color))
         }
+    }
+
+    /// Tunnel configured, certificate not confirmed: the app does not connect (wording as in
+    /// Einstellungen › Allgemein).
+    private var certificateHint: String? {
+        let text = TunnelRouteError.certificateUnconfirmed.errorDescription
+        return protect.lastError == text ? text : nil
     }
 
     private var statusChip: (text: String, foreground: ThemeColor, background: ThemeColor) {

@@ -198,24 +198,38 @@ final class ConnectionRouter: ObservableObject {
 
     /// Imports a dropped or picked file and re-evaluates the route on success.
     func importTunnel(data: Data, fileName: String) async -> Result<TunnelImporter.Outcome, TunnelImporter.Failure> {
+        let hadTunnel = store.hasConfiguration
         let result = await TunnelImporter.importData(data, fileName: fileName)
-        if case .success = result { tunnel.stop(); configurationChanged() }
+        if case .success = result { tunnel.stop(); configurationChanged(); trustRuleMayHaveChanged(hadTunnel: hadTunnel) }
         return result
     }
 
     /// Imports pasted text and re-evaluates the route on success.
     func importTunnel(text: String) async -> Result<TunnelImporter.Outcome, TunnelImporter.Failure> {
+        let hadTunnel = store.hasConfiguration
         let result = await TunnelImporter.importData(Data(text.utf8), fileName: TunnelImporter.pastedFileName)
-        if case .success = result { tunnel.stop(); configurationChanged() }
+        if case .success = result { tunnel.stop(); configurationChanged(); trustRuleMayHaveChanged(hadTunnel: hadTunnel) }
         return result
     }
 
     func removeTunnel() {
+        let hadTunnel = store.hasConfiguration
         store.remove()
         testOutcome = nil
         // Down at once, like the import paths: the evaluation only follows after a probe.
         tunnel.stop()
         configurationChanged()
+        trustRuleMayHaveChanged(hadTunnel: hadTunnel)
+    }
+
+    /// Without a pin, a tunnel added or removed blocks or allows connecting at all
+    /// (`RouteDecision.requiresConfirmedPin`); a route change alone would not reconnect.
+    private func trustRuleMayHaveChanged(hadTunnel: Bool) {
+        let pin = settings.protectCertificateFingerprint
+        if RouteDecision.requiresConfirmedPin(hasTunnel: hadTunnel, pinned: pin)
+            != RouteDecision.requiresConfirmedPin(hasTunnel: store.hasConfiguration, pinned: pin) {
+            ProtectSession.shared.reconnect()
+        }
     }
 
     /// „Jetzt testen“: tunnel up, handshake, console answers with the pinned certificate.
@@ -420,6 +434,8 @@ enum TunnelRouteError: LocalizedError, Equatable {
     case streamUnreachable
     case webhookUnreachable
     case pinRequired
+    /// Tunnel configured, nothing pinned: no trust on first use, the set-up confirms it.
+    case certificateUnconfirmed
 
     var errorDescription: String? {
         switch self {
@@ -428,6 +444,7 @@ enum TunnelRouteError: LocalizedError, Equatable {
         case .streamUnreachable: return "Livebild unterwegs nicht erreichbar."
         case .webhookUnreachable: return TunnelText.webhookNotRouted
         case .pinRequired: return "Unterwegs verbindet sich die App erst, wenn das Zertifikat deiner Konsole bestätigt ist."
+        case .certificateUnconfirmed: return "Bestätige das Zertifikat deiner Konsole: Einstellungen › Allgemein › Konsole › Ändern …"
         }
     }
 }

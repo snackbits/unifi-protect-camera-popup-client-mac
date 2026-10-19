@@ -43,7 +43,16 @@ final class ProtectSession: ObservableObject {
         let router = ConnectionRouter.shared
         let pin = settings.protectCertificateFingerprint
         // Away: 127.0.0.1:<forward>, never the direct address as a fallback (fail closed).
-        guard let apiHost = router.apiHost(for: host) else {
+        let apiHost = router.apiHost(for: host)
+        // With a tunnel configured the app may be away, where a foreign device can answer on the
+        // console's address: no trust on first use, neither direct nor through the tunnel.
+        if RouteDecision.requiresConfirmedPin(hasTunnel: TunnelStore.shared.hasConfiguration, pinned: pin) {
+            client = nil
+            cameras = []
+            lastError = TunnelRouteError.certificateUnconfirmed.errorDescription
+            return
+        }
+        guard let apiHost else {
             client = nil
             cameras = []
             lastError = TunnelRouteError.apiUnreachable.errorDescription

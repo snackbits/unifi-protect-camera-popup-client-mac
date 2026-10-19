@@ -72,7 +72,15 @@ public enum RouteDecision {
         }
     }
 
-    /// Whether the set-up must show a console's fingerprint for explicit confirmation before the
+    /// Whether the app must not connect to the configured console at all until its certificate
+    /// is confirmed in the set-up: with a tunnel configured, a direct answer may come from a
+    /// foreign device on the same address, and the tunnel needs a pin anyway. No trust on first
+    /// use in the background, neither direct nor through the tunnel. "" counts as no pin.
+    public static func requiresConfirmedPin(hasTunnel: Bool, pinned: String?) -> Bool {
+        hasTunnel && (pinned?.isEmpty ?? true)
+    }
+
+    /// Set-up: whether it must show a console's fingerprint for explicit confirmation before the
     /// API key is sent there. A direct answer alone does not prove "at home": away, a foreign
     /// router can answer on the same address (192.168.1.1 in a hotel).
     /// - A pin exists: only for another address than the configured console (unchanged rule).

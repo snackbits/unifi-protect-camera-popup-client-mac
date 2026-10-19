@@ -106,6 +106,18 @@ final class TunnelRoutingTests: XCTestCase {
         }
     }
 
+    func testBackgroundConnectNeedsPinWithTunnel() {
+        XCTAssertTrue(RouteDecision.requiresConfirmedPin(hasTunnel: true, pinned: nil))
+        XCTAssertTrue(RouteDecision.requiresConfirmedPin(hasTunnel: true, pinned: ""))
+        XCTAssertFalse(RouteDecision.requiresConfirmedPin(hasTunnel: true, pinned: "AA"))
+    }
+
+    func testBackgroundConnectWithoutTunnelTrustsOnFirstUse() {
+        XCTAssertFalse(RouteDecision.requiresConfirmedPin(hasTunnel: false, pinned: nil))
+        XCTAssertFalse(RouteDecision.requiresConfirmedPin(hasTunnel: false, pinned: ""))
+        XCTAssertFalse(RouteDecision.requiresConfirmedPin(hasTunnel: false, pinned: "AA"))
+    }
+
     func testModeLabels() {
         XCTAssertEqual(TunnelMode.allCases.map(\.label), ["Automatisch", "Immer", "Nie"])
     }

@@ -17,3 +17,6 @@ Schatten, Innenabstand 14, Abstand 10, Schrift 13. 8 unter der Menüleiste.
 Nach der Trennlinie (4) und vor „Einstellungen …“: „Version 1.2.0 (29)“ 11 `muted`. Bei einem Update darunter (Abstand 6)
 Button volle Breite wie die Stumm-Buttons (12/600, 6/0, Radius 7, `accSoft`/`accText`): „Update auf 1.3.0 installieren“
 (gleiche Version, neuerer Build: „Update auf 1.2.0 (30) installieren“); während des Ladens „Lade neue Version …“ / „Installiere …“, gesperrt.
+
+## Hinweis Zertifikat (Nutzerwunsch, gilt vor der Vorlage)
+Ist ein Tunnel eingerichtet und kein Zertifikat der Konsole gepinnt, verbindet die App nicht. Unter dem Kopf (Abstand 10) steht dann 12 `systemOrange`, umbrechend: „Bestätige das Zertifikat deiner Konsole: Einstellungen › Allgemein › Konsole › Ändern …“ – gleicher Text und Stil wie die Fehlerzeile in Einstellungen › Allgemein.
