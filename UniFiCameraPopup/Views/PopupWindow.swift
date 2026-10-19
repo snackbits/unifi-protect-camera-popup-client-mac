@@ -134,6 +134,12 @@ final class PopupWindow: NSPanel {
         thumbnailView.layer?.cornerRadius = Self.cornerRadius
         thumbnailView.layer?.masksToBounds = true
         thumbnailView.alphaValue = 1
+        // A full-size camera still would otherwise push its pixel size onto the window
+        // (NSImageView's intrinsic size) – the image scales into the popup instead.
+        for orientation in [NSLayoutConstraint.Orientation.horizontal, .vertical] {
+            thumbnailView.setContentCompressionResistancePriority(.defaultLow, for: orientation)
+            thumbnailView.setContentHuggingPriority(.defaultLow, for: orientation)
+        }
 
         playerView.translatesAutoresizingMaskIntoConstraints = false
         playerView.wantsLayer = true
