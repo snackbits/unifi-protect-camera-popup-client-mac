@@ -151,14 +151,14 @@ final class SoundStore: ObservableObject {
         return entry
     }
 
-    /// "Ansage aus Text …": new empty text entry for Thorsten (medium), the default Piper voice
-    /// (downloaded on first use like every voice).
+    /// "Ansage aus Text …": new empty text entry for `voice` (Einstellungen › Ton passes the most used
+    /// installed voice, `AnnouncementVoice.preferred`; Thorsten medium is downloaded on first use).
     @discardableResult
-    func addText() -> Announcement {
+    func addText(voice: PiperVoiceRef = .standard) -> Announcement {
         let entry = Announcement(
             name: Announcement.newName,
             kind: .speech,
-            voiceIdentifier: PiperVoiceRef.standard.identifier
+            voiceIdentifier: voice.identifier
         )
         settings.add(entry)
         return entry
@@ -234,6 +234,11 @@ final class SoundStore: ObservableObject {
         if previousFile != latest.fileName {
             deleteFile(previousFile)
         }
+    }
+
+    /// Drag and drop in Einstellungen › Ton (the popup's sound menu uses the same order).
+    func move(id: UUID, to target: UUID) {
+        settings.move(id: id, to: target)
     }
 
     func rename(id: UUID, to name: String) {

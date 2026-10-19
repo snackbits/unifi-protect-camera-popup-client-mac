@@ -130,3 +130,63 @@ final class VoiceMenuTests: XCTestCase {
         XCTAssertEqual(PiperVoiceCatalog.defaultVoice.licenseText, "Lizenz der Stimme: CC0 1.0 · Thorsten-Voice (Thorsten Müller)")
     }
 }
+
+final class PreferredVoiceTests: XCTestCase {
+    private let thorsten = PiperVoiceCatalog.voice(id: PiperVoiceCatalog.defaultVoiceId)!
+    private let emotional = PiperVoiceCatalog.voice(id: "de_DE-thorsten_emotional-medium")!
+
+    private func rendered(_ ref: PiperVoiceRef) -> Announcement {
+        Announcement(name: "X", kind: .speech, text: "Hallo.", voiceIdentifier: ref.identifier, fileName: "x.wav", duration: 1)
+    }
+
+    func testNothingInstalledFallsBackToThorsten() {
+        XCTAssertEqual(AnnouncementVoice.preferred(announcements: [], installed: []), .standard)
+    }
+
+    func testNoUsageTakesTheFirstInstalledVoice() {
+        XCTAssertEqual(AnnouncementVoice.preferred(announcements: [], installed: [emotional]), PiperVoiceRef(voice: emotional))
+    }
+
+    func testMostUsedInstalledVoiceWins() {
+        let angry = PiperVoiceRef(voiceId: emotional.id, speaker: 0)
+        let list = [rendered(.standard), rendered(angry), rendered(angry)]
+        XCTAssertEqual(AnnouncementVoice.preferred(announcements: list, installed: [thorsten, emotional]), angry)
+    }
+
+    func testMostUsedButNotInstalledIsSkipped() {
+        let angry = PiperVoiceRef(voiceId: emotional.id, speaker: 0)
+        let list = [rendered(.standard), rendered(angry), rendered(angry)]
+        XCTAssertEqual(AnnouncementVoice.preferred(announcements: list, installed: [thorsten]), .standard)
+    }
+
+    func testUnrenderedAndBundledEntriesDoNotCount() {
+        let angry = PiperVoiceRef(voiceId: emotional.id, speaker: 0)
+        let draft = Announcement(name: "Neu", kind: .speech, voiceIdentifier: angry.identifier)
+        let list = [draft, draft, SoundSettings.bundledBinGleichDa, rendered(.standard)]
+        XCTAssertEqual(AnnouncementVoice.preferred(announcements: list, installed: [thorsten, emotional]), .standard)
+    }
+
+    func testTieGoesToTheEarlierInstalledVoice() {
+        let angry = PiperVoiceRef(voiceId: emotional.id, speaker: 0)
+        let list = [rendered(angry), rendered(.standard)]
+        XCTAssertEqual(AnnouncementVoice.preferred(announcements: list, installed: [thorsten, emotional]), .standard)
+    }
+
+    func testFallbackOnlyForEntriesWithoutOwnVoice() {
+        let angry = PiperVoiceRef(voiceId: emotional.id, speaker: 0)
+        let mp3 = Announcement(name: "Gong", kind: .file, fileName: "g.mp3", duration: 2)
+        XCTAssertEqual(AnnouncementVoice.initialSelection(for: mp3, fallback: angry), angry)
+        XCTAssertEqual(AnnouncementVoice.initialSelection(for: SoundSettings.bundledBinGleichDa, fallback: angry), .standard)
+        XCTAssertEqual(AnnouncementVoice.initialSelection(for: rendered(.standard), fallback: angry), .standard)
+    }
+
+    func testMoveTakesTheTargetsPlace() {
+        let a = Announcement(name: "A", kind: .file), b = Announcement(name: "B", kind: .file), c = Announcement(name: "C", kind: .file)
+        var settings = SoundSettings()
+        settings.announcements = [a, b, c]
+        settings.move(id: c.id, to: a.id)
+        XCTAssertEqual(settings.announcements.map(\.name), ["C", "A", "B"])
+        settings.move(id: c.id, to: b.id)
+        XCTAssertEqual(settings.announcements.map(\.name), ["A", "B", "C"])
+    }
+}

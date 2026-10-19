@@ -24,6 +24,8 @@ struct SoundTab: View {
     @ObservedObject private var preview = PreviewPlayer.shared
     @ObservedObject private var voices = PiperVoiceStore.shared
     @State private var selectedId: UUID?
+    /// Row being dragged (drag and drop sorts the list live; the system shows the drag image).
+    @State private var draggingId: UUID?
     @State private var draftKind: Announcement.Kind = .speech
     @State private var draftText = ""
     /// Piper voice + speaker for „Anhören“ and „Übernehmen“ of the selected entry.
@@ -81,6 +83,12 @@ struct SoundTab: View {
             Card {
                 ForEach(store.settings.announcements) { sound in
                     row(sound)
+                        .onDrag {
+                            draggingId = sound.id
+                            return NSItemProvider(object: sound.id.uuidString as NSString)
+                        }
+                        .onDrop(of: [.text], delegate: AnnouncementDropDelegate(
+                            target: sound.id, dragging: $draggingId, move: store.move))
                     CardDivider()
                 }
                 HStack(spacing: 14) {
@@ -364,7 +372,7 @@ struct SoundTab: View {
         errorText = nil
         draftKind = sound?.kind ?? .speech
         draftText = sound?.text ?? ""
-        draftVoice = sound.map(AnnouncementVoice.initialSelection) ?? .standard
+        draftVoice = sound.map { AnnouncementVoice.initialSelection(for: $0, fallback: preferredVoice) } ?? preferredVoice
     }
 
     private func addFile() {
@@ -377,7 +385,12 @@ struct SoundTab: View {
     }
 
     private func addText() {
-        select(store.addText())
+        select(store.addText(voice: preferredVoice))
+    }
+
+    /// Most used installed voice, else the first installed one, else Thorsten (medium).
+    private var preferredVoice: PiperVoiceRef {
+        AnnouncementVoice.preferred(announcements: store.settings.announcements, installed: voices.downloadedVoices)
     }
 
     private func chooseFile(for sound: Announcement) {
@@ -481,5 +494,27 @@ struct SoundTab: View {
     private func message(_ error: Error) -> String? {
         if error is CancellationError { return nil }
         return (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+    }
+}
+
+/// Sorting by drag and drop: the dragged row takes the place of the row under the pointer.
+private struct AnnouncementDropDelegate: DropDelegate {
+    let target: UUID
+    @Binding var dragging: UUID?
+    let move: (UUID, UUID) -> Void
+
+    func dropEntered(info: DropInfo) {
+        guard let dragging, dragging != target else { return }
+        withAnimation(.easeInOut(duration: 0.15)) { move(dragging, target) }
+    }
+
+    /// Only rows of this list, no text dragged in from elsewhere.
+    func validateDrop(info: DropInfo) -> Bool { dragging != nil }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? { DropProposal(operation: .move) }
+
+    func performDrop(info: DropInfo) -> Bool {
+        dragging = nil
+        return true
     }
 }

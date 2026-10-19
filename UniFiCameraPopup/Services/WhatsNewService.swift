@@ -22,6 +22,10 @@ struct WhatsNewInfo: Equatable {
 enum WhatsNewService {
     /// Newest version first.
     static let changelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "2.6.0", items: [
+            "Ansagen lassen sich unter Einstellungen › Ton per Ziehen sortieren – das Ansagen-Menü im Popup folgt dieser Reihenfolge.",
+            "Neue Text-Ansagen starten mit deiner meistgenutzten Stimme, sofern sie geladen ist – sonst mit einer bereits geladenen statt immer mit Thorsten.",
+        ]),
         ChangelogEntry(version: "2.5.1", items: [
             "Den Kameraton-Schalter im Popup gibt es jetzt bei jeder Kamera mit Mikrofon – nicht nur bei Kameras mit Lautsprecher.",
         ]),

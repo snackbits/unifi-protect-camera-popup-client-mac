@@ -77,9 +77,32 @@ public enum AnnouncementVoice: Equatable, Sendable {
     }
 
     /// Voice the picker starts with for this entry: its own Piper voice (speaker clamped into the
-    /// voice's range, like the speaker field shows it), else Thorsten (medium).
-    public static func initialSelection(for entry: Announcement) -> PiperVoiceRef {
-        PiperVoiceRef(identifier: entry.voiceIdentifier)?.normalized ?? .standard
+    /// voice's range, like the speaker field shows it); shipped recordings Thorsten (medium);
+    /// anything else (MP3, macOS, removed voice) `fallback` – usually `preferred(…)`.
+    public static func initialSelection(for entry: Announcement, fallback: PiperVoiceRef = .standard) -> PiperVoiceRef {
+        if let own = PiperVoiceRef(identifier: entry.voiceIdentifier)?.normalized { return own }
+        return entry.usesBundledRecording ? .standard : fallback
+    }
+
+    /// Voice for a new text announcement: the installed voice (with speaker) used by the most
+    /// rendered announcements, on a tie the earlier one in `installed`; none used yet → the first
+    /// installed voice; nothing installed → Thorsten (medium), downloaded on first use.
+    /// `installed` in menu order (`PiperVoiceStore.downloadedVoices`).
+    public static func preferred(announcements: [Announcement], installed: [PiperVoice]) -> PiperVoiceRef {
+        guard let first = installed.first else { return .standard }
+        let rank = Dictionary(uniqueKeysWithValues: installed.enumerated().map { ($1.id, $0) })
+        var counts: [PiperVoiceRef: Int] = [:]
+        for entry in announcements where entry.kind == .speech && entry.fileName != nil {
+            guard let ref = PiperVoiceRef(identifier: entry.voiceIdentifier)?.normalized,
+                  rank[ref.voiceId] != nil else { continue }
+            counts[ref, default: 0] += 1
+        }
+        let best = counts.max { a, b in
+            if a.value != b.value { return a.value < b.value }
+            let ra = rank[a.key.voiceId]!, rb = rank[b.key.voiceId]!
+            return ra != rb ? ra > rb : a.key.speaker > b.key.speaker
+        }
+        return best?.key ?? PiperVoiceRef(voice: first)
     }
 
     /// Note under the voice field; nil when the audio already matches.

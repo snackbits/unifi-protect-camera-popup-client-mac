@@ -77,6 +77,15 @@ public struct SoundSettings: Codable, Equatable, Sendable {
         announcements[index] = announcement
     }
 
+    /// Drag and drop in Einstellungen › Ton: `id` takes the place of `target` (the entries between
+    /// move up or down by one); the popup's sound menu follows this order.
+    public mutating func move(id: UUID, to target: UUID) {
+        guard id != target,
+              let from = announcements.firstIndex(where: { $0.id == id }),
+              let to = announcements.firstIndex(where: { $0.id == target }) else { return }
+        announcements.insert(announcements.remove(at: from), at: to)
+    }
+
     /// Removes the entry and returns it (the caller deletes its file).
     @discardableResult
     public mutating func remove(id: UUID) -> Announcement? {
