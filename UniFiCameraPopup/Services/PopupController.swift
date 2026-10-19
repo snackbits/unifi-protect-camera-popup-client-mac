@@ -320,6 +320,7 @@ final class PopupController {
         return MiniatureStackPresenter.Environment(
             side: position.side,
             visible: screen.visibleFrame,
+            screenFrame: screen.frame,
             margin: margin,
             fullSize: { id in
                 guard let popup = popups.first(where: { $0.id == id }) else { return nil }

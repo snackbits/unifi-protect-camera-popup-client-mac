@@ -49,6 +49,12 @@ final class PopupWindow: NSPanel {
     private let chromeLayer = PassthroughView()
     /// Loading text and notices (never take clicks).
     private let hintLayer = PassthroughView(passesAll: true)
+    /// Miniature: the card with everything on it (it slides; the window clips at the screen edge).
+    private let card = NSView()
+    /// Window frame before the slide widened it to the screen edge; card positions in the wide window.
+    private var slide: (base: NSRect, home: NSPoint, outside: NSPoint)?
+    /// A newer `prepareSlide` replaces the running slide (its end no longer shrinks the window).
+    private var slideToken = 0
     /// Miniature: black background and ring as views, so they slide with the content.
     private let backgroundView = PassthroughView(passesAll: true)
     private let ringView = PassthroughView(passesAll: true)
@@ -164,20 +170,28 @@ final class PopupWindow: NSPanel {
     }
 
     private func setupContent(thumbnailDataURI: String?) {
-        guard let content = contentView else { return }
+        guard let root = contentView else { return }
 
-        content.wantsLayer = true
-        content.layer?.backgroundColor = NSColor.black.cgColor
-        content.layer?.cornerRadius = Self.cornerRadius
-        content.layer?.masksToBounds = true
+        root.wantsLayer = true
+        root.layer?.backgroundColor = NSColor.black.cgColor
+        root.layer?.cornerRadius = Self.cornerRadius
+        root.layer?.masksToBounds = true
+        let content: NSView
         if isMiniature {
-            // Miniature: the content slides in and out inside the window (`slideContent`), so the
-            // black background and the ring are views that move with it.
-            content.layer?.backgroundColor = NSColor.clear.cgColor
+            // Miniature: everything lives on a card that slides in from the screen edge and out
+            // again (`prepareSlide`), so the black background and the ring are views on it.
+            root.layer?.backgroundColor = NSColor.clear.cgColor
+            card.frame = root.bounds
+            card.autoresizingMask = [.width, .height]
+            card.wantsLayer = true
+            root.addSubview(card)
+            content = card
             addFullSizeView(backgroundView, to: content)
             backgroundView.wantsLayer = true
             backgroundView.layer?.backgroundColor = NSColor.black.cgColor
             backgroundView.layer?.cornerRadius = Self.cornerRadius
+        } else {
+            content = root
         }
 
         thumbnailView.imageScaling = .scaleProportionallyUpOrDown
@@ -736,63 +750,101 @@ final class PopupWindow: NSPanel {
         waiters.forEach { $0() }
     }
 
-    /// Miniature: puts the content beyond the outer edge without animation (the window shows
-    /// nothing until `slideContent(in: true, …)`).
-    func placeContentOutside(side: PopupAnchor.Horizontal) {
-        guard let layer = contentView?.layer else { return }
+    /// Room for the card's shadow around it while it slides.
+    private static let slideShadowRoom: CGFloat = 16
+
+    /// Miniature, start of the slide-in or slide-out: the window reaches from the card to the outer
+    /// edge of `screenFrame` (the real screen edge, never beyond: nothing on a neighbouring screen),
+    /// the strip in between is transparent. The card keeps its size and gets its own shadow instead
+    /// of the window's. `outside`: the card waits completely beyond the edge (slide-in).
+    func prepareSlide(side: PopupAnchor.Horizontal, screenFrame: CGRect, outside: Bool) {
+        guard isMiniature, let root = contentView else { return }
+        let base = slide?.base ?? frame
+        let room = Self.slideShadowRoom
+        var wide = base.insetBy(dx: -room, dy: -room)
+        switch side {
+        case .leading:
+            wide = NSRect(x: screenFrame.minX, y: wide.minY, width: wide.maxX - screenFrame.minX, height: wide.height)
+        case .trailing, .center:
+            wide.size.width = screenFrame.maxX - wide.minX
+        }
+        // Never beyond the screen (a small edge margin leaves less shadow room there).
+        wide = wide.intersection(screenFrame)
+        let home = NSPoint(x: base.minX - wide.minX, y: base.minY - wide.minY)
+        let beyond = NSPoint(x: side == .leading ? -(base.width + room) : wide.width + room, y: home.y)
+        slide = (base, home, beyond)
+        slideToken += 1
+
         hasShadow = false
+        card.autoresizingMask = []
+        if let layer = card.layer {
+            layer.shadowColor = NSColor.black.cgColor
+            layer.shadowOpacity = 0.35
+            layer.shadowRadius = 8
+            layer.shadowOffset = CGSize(width: 0, height: -3)
+            layer.shadowPath = CGPath(
+                roundedRect: CGRect(origin: .zero, size: base.size),
+                cornerWidth: Self.cornerRadius, cornerHeight: Self.cornerRadius, transform: nil
+            )
+        }
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        layer.sublayerTransform = CATransform3DMakeTranslation(side == .leading ? -frame.width : frame.width, 0, 0)
+        // Only the screen edge cuts the card, not a rounded window corner.
+        root.layer?.cornerRadius = 0
+        setFrame(wide, display: false)
+        card.frame = NSRect(origin: outside ? beyond : home, size: base.size)
         CATransaction.commit()
+        displayIfNeeded()
     }
 
-    func slideContent(
-        in slidingIn: Bool,
-        side: PopupAnchor.Horizontal,
-        curve: CAMediaTimingFunction,
-        animated: Bool = true,
-        completion: @escaping () -> Void
-    ) {
-        guard let layer = contentView?.layer else {
+    /// Miniature: the card slides in one piece from beyond the screen edge to its place (`in`,
+    /// then the window shrinks back to the miniature frame) or out beyond the edge. Needs
+    /// `prepareSlide` first. Not `animated` ("Bewegung reduzieren"): at once.
+    func slideCard(in slidingIn: Bool, curve: CAMediaTimingFunction, animated: Bool = true, completion: @escaping () -> Void) {
+        guard let slide else {
             completion()
             return
+        }
+        let target = slidingIn ? slide.home : slide.outside
+        let token = slideToken
+        let finish = { [weak self] in
+            guard let self, self.slideToken == token else { return }
+            if slidingIn { self.endSlide() }
+            completion()
         }
         guard animated else {
-            CATransaction.begin()
-            CATransaction.setDisableActions(true)
-            layer.sublayerTransform = slidingIn
-                ? CATransform3DIdentity
-                : CATransform3DMakeTranslation(side == .leading ? -frame.width : frame.width, 0, 0)
-            CATransaction.commit()
-            hasShadow = slidingIn
-            if slidingIn { invalidateShadow() }
-            completion()
+            card.setFrameOrigin(target)
+            finish()
             return
         }
-        let distance = side == .leading ? -frame.width : frame.width
-        let outside = CATransform3DMakeTranslation(distance, 0, 0)
-        let from = slidingIn ? outside : CATransform3DIdentity
-        let to = slidingIn ? CATransform3DIdentity : outside
-        hasShadow = false
-        CATransaction.begin()
-        CATransaction.setCompletionBlock { [weak self] in
-            MainActor.assumeIsolated {
-                if slidingIn, let self {
-                    self.hasShadow = true
-                    self.invalidateShadow()
-                }
-                completion()
-            }
+        // Next pass: the card layer has taken its new place, the animation starts from there.
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            NSAnimationContext.runAnimationGroup({ context in
+                context.duration = MiniatureTiming.move
+                context.timingFunction = curve
+                self.card.animator().setFrameOrigin(target)
+            }, completionHandler: {
+                MainActor.assumeIsolated { finish() }
+            })
         }
-        let animation = CABasicAnimation(keyPath: "sublayerTransform")
-        animation.fromValue = NSValue(caTransform3D: from)
-        animation.toValue = NSValue(caTransform3D: to)
-        animation.duration = MiniatureTiming.move
-        animation.timingFunction = curve
-        layer.sublayerTransform = to
-        layer.add(animation, forKey: "slide")
+    }
+
+    /// Back to the miniature frame without a visible jump: the window shrinks to the card.
+    private func endSlide() {
+        guard let slide, let root = contentView else { return }
+        self.slide = nil
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        setFrame(slide.base, display: false)
+        card.frame = root.bounds
+        card.autoresizingMask = [.width, .height]
+        card.layer?.shadowOpacity = 0
+        root.layer?.cornerRadius = Self.cornerRadius
         CATransaction.commit()
+        displayIfNeeded()
+        hasShadow = true
+        invalidateShadow()
     }
 
     /// The overlay layers fill the popup. Miniature: only below the window's own size priority, so

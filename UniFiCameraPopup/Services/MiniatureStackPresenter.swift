@@ -10,6 +10,8 @@ final class MiniatureStackPresenter {
     struct Environment {
         let side: PopupAnchor.Horizontal
         let visible: CGRect
+        /// The real screen edge: the slide-in comes from there (never from a neighbouring screen).
+        let screenFrame: CGRect
         let margin: CGFloat
         /// Current full size of a popup (settings or learned aspect ratio may have changed).
         let fullSize: (UUID) -> CGSize?
@@ -53,9 +55,9 @@ final class MiniatureStackPresenter {
 
     // MARK: Opening and closing
 
-    /// A new miniature at the bottom of the column: the window stands there at once, its content
-    /// slides in from beyond the outer edge (300 ms ease-out) – once a picture is shown, at the
-    /// latest after 3 s. Until then the window is empty and ignores the pointer.
+    /// A new miniature at the bottom of the column: the card slides in one piece from beyond the
+    /// screen edge (300 ms ease-out) – once a picture is shown, at the latest after 3 s. Until the
+    /// card is in place the window is empty or wider and ignores the pointer.
     func add(id: UUID, window: PopupWindow, fullSize: CGSize) {
         let env = environment()
         syncEnvironment(env, instant: true)
@@ -79,7 +81,7 @@ final class MiniatureStackPresenter {
         indicator.setFrame(PopupIndicatorPanel.frame(around: base), display: false)
         entries[id]?.isWaitingForPicture = true
         entries[id]?.isSlidingIn = true
-        window.placeContentOutside(side: env.side)
+        window.prepareSlide(side: env.side, screenFrame: env.screenFrame, outside: true)
         window.ignoresMouseEvents = true
         // Show without stealing focus so the user can keep typing in other apps.
         window.orderFrontRegardless()
@@ -87,9 +89,12 @@ final class MiniatureStackPresenter {
         window.whenPictureShown(timeout: Self.pictureTimeout) { [weak self, weak window] in
             guard let self, let window, self.stack.phase(of: id) != nil, self.stack.phase(of: id) != .leaving else { return }
             self.entries[id]?.isWaitingForPicture = false
-            window.ignoresMouseEvents = false
-            window.slideContent(in: true, side: self.stack.side, curve: Self.slideIn, animated: !self.reduceMotion) { [weak self] in
-                self?.entries[id]?.isSlidingIn = false
+            window.slideCard(in: true, curve: Self.slideIn, animated: !self.reduceMotion) { [weak self, weak window] in
+                guard let self, let window, self.entries[id] != nil else { return }
+                self.entries[id]?.isSlidingIn = false
+                window.ignoresMouseEvents = false
+                // The column may have moved meanwhile.
+                if let target = self.stack.frame(of: id), window.frame != target { self.apply([id: target]) }
             }
         }
         apply(frames)
@@ -97,8 +102,9 @@ final class MiniatureStackPresenter {
         tick()
     }
 
-    /// Closing (button, click on the miniature, auto-close, replaced): the content slides out of
-    /// the standing window (300 ms ease-in), then the window closes and the others close up (`remove`).
+    /// Closing (button, click on the miniature, auto-close, replaced): the card slides out in one
+    /// piece beyond the screen edge (300 ms ease-in), then the window closes and the others close
+    /// up (`remove`).
     private func beginLeave(_ id: UUID) {
         guard let entry = entries[id] else { return }
         cancelArmTimer(of: id)
@@ -110,7 +116,9 @@ final class MiniatureStackPresenter {
             entry.window.finishClose()
             return
         }
-        entry.window.slideContent(in: false, side: stack.side, curve: Self.slideOut) { [weak window = entry.window] in
+        if entry.isAnimating { stopMove(id) }
+        entry.window.prepareSlide(side: stack.side, screenFrame: environment().screenFrame, outside: false)
+        entry.window.slideCard(in: false, curve: Self.slideOut) { [weak window = entry.window] in
             window?.finishClose()
         }
     }
@@ -318,7 +326,8 @@ final class MiniatureStackPresenter {
     private func apply(_ frames: [UUID: CGRect], instant: Bool = false) {
         let now = Date()
         for (id, frame) in frames {
-            guard entries[id] != nil, stack.phase(of: id) != .leaving else { continue }
+            // Sliding in: the window is wider; it moves to its target once the card is in place.
+            guard let entry = entries[id], !entry.isSlidingIn, stack.phase(of: id) != .leaving else { continue }
             let isExpanded = stack.expandedID == id
             if isExpanded { hoverGuard.noteLayoutMove(now: now, duration: MiniatureTiming.move) }
             animate(id, to: frame, curve: Self.move, instant: instant, completion: { [weak self] finished in
