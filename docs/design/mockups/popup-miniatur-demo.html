@@ -1,0 +1,523 @@
+<title>Miniatur-Popups</title>
+<style>
+/* Layout: Bühne (Desktop 1440×900, skaliert) links, Steuerung + Ablauf rechts; darunter Annahmen. Farben = App-Tokens (DesignTokens.swift). */
+:root {
+  --page: #DCDDE6; --win: #FBFBFD; --group: #FFFFFF; --fg: #1D1D1F; --muted: #55555F;
+  --accent: #4B3FD1; --acc-soft: #ECEAFB; --acc-text: #3528A8; --border: #DEDEE6; --seg: #E8E8EE; --seg-on: #FFFFFF;
+  --ok: #1C6B30; --ok-bg: #E3F5E8;
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --page: #121318; --win: #26262C; --group: #2E2E35; --fg: #EDEDF2; --muted: #ABABB7;
+  --accent: #5B4FE0; --acc-soft: #312C5C; --acc-text: #C3BDFF; --border: #3B3B45; --seg: #1C1C21; --seg-on: #3E3E48;
+  --ok: #86E3A6; --ok-bg: #1F3A2A; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --page: #121318; --win: #26262C; --group: #2E2E35; --fg: #EDEDF2; --muted: #ABABB7;
+  --accent: #5B4FE0; --acc-soft: #312C5C; --acc-text: #C3BDFF; --border: #3B3B45; --seg: #1C1C21; --seg-on: #3E3E48;
+  --ok: #86E3A6; --ok-bg: #1F3A2A; color-scheme: dark }
+
+* { box-sizing: border-box }
+body { background: var(--page); color: var(--fg); font-family: var(--font); font-size: 13px; line-height: 1.45; }
+.wrap { max-width: 1320px; margin: 0 auto; padding: 24px 20px 48px; display: grid; gap: 20px; }
+header h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: -.01em; text-wrap: balance }
+header p { margin: 0; color: var(--muted); max-width: 72ch }
+.main { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 20px; align-items: start }
+@media (max-width: 980px) { .main { grid-template-columns: minmax(0, 1fr) } }
+
+/* ---------- Bühne ---------- */
+.stage-col { display: grid; gap: 10px; min-width: 0 }
+.screen-wrap { position: relative; width: 100%; aspect-ratio: 1440 / 900; max-width: 100%; border-radius: 14px; overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.25), 0 18px 50px rgba(0,0,0,.28); background: #1b1b1f }
+.screen { position: absolute; left: 0; top: 0; width: 1440px; height: 900px; transform-origin: 0 0; overflow: hidden;
+  background: linear-gradient(170deg, #3553B0 0%, #2C4598 55%, #3B5BB8 100%); --t: 300ms }
+.menubar { position: absolute; inset: 0 0 auto 0; height: 28px; background: rgba(20,30,80,.35); display: flex; align-items: center; gap: 8px; padding: 0 14px }
+.menubar i { display: block; height: 9px; border-radius: 5px; background: #9DB4F5 }
+.menubar .sp { flex: 1; background: none }
+.bgwin { position: absolute; left: 230px; top: 110px; width: 760px; height: 560px; border-radius: 10px; background: #263A7C; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,.25) }
+.bgwin .tb { height: 44px; background: #1F3170; display: flex; gap: 10px; align-items: center; padding: 0 14px }
+.bgwin .tb i { width: 22px; height: 22px; border-radius: 5px; background: #2E4386 }
+.bgwin .tb .url { flex: 1; height: 24px; border-radius: 6px; background: #2E4386 }
+.bgwin .ln { position: absolute; height: 8px; border-radius: 4px; background: #AFC2F7 }
+.bgwin .tile { position: absolute; top: 300px; width: 150px; height: 150px; border-radius: 10px; background: #1C2A5E; display: grid; place-items: center }
+.dock { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); height: 64px; padding: 8px 10px; display: flex; gap: 8px; border-radius: 18px; background: rgba(40,60,130,.7); box-shadow: inset 0 0 0 1px rgba(255,255,255,.12) }
+.dock i { width: 48px; height: 48px; border-radius: 11px; display: block }
+
+/* Popups */
+.pop { position: absolute; border-radius: 10px; overflow: hidden; cursor: default;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.1), 0 10px 30px rgba(0,0,0,.45);
+  /* Die Außenkante (right bzw. left) bleibt beim Wachsen fest: das Popup skaliert von der oberen Außenecke nach unten innen. */
+  transition: right var(--t) cubic-bezier(.2,.8,.25,1), left var(--t) cubic-bezier(.2,.8,.25,1), top var(--t) ease-in-out, width var(--t) ease-in-out, height var(--t) ease-in-out, translate 120ms linear, opacity 120ms linear; }
+.pop.leaving { transition: right var(--t) cubic-bezier(.55,0,.8,.3), left var(--t) cubic-bezier(.55,0,.8,.3), top var(--t) ease-in-out; }
+/* Restzeit-Linie im Abstand unter der Miniatur; schrumpft zur Außenkante hin */
+.rest { position: absolute; height: 3px; border-radius: 2px; background: rgba(255,255,255,.75); pointer-events: none; transition: left var(--t) ease, top var(--t) ease, width var(--t) ease, transform 120ms linear }
+.rest.warn { background: #FFD84D }
+.scene { position: absolute; inset: 0; background: linear-gradient(180deg, var(--sky) 0 55%, var(--ground) 55% 100%) }
+.scene .house { position: absolute; left: 14%; bottom: 45%; width: 34%; height: 30%; background: var(--sil); clip-path: polygon(0 40%, 50% 0, 100% 40%, 100% 100%, 0 100%) }
+.scene .tree { position: absolute; right: 16%; bottom: 44%; width: 16%; height: 34%; background: var(--sil); border-radius: 50% 50% 8% 8% }
+.scene .person { position: absolute; left: 52%; bottom: 14%; width: 9%; height: 46%; }
+.scene .person::before { content: ""; position: absolute; left: 18%; top: 0; width: 64%; aspect-ratio: 1; border-radius: 50%; background: var(--sil) }
+.scene .person::after { content: ""; position: absolute; left: 0; top: 24%; width: 100%; height: 76%; border-radius: 40% 40% 6% 6%; background: var(--sil) }
+.scene .door { position: absolute; left: 30%; bottom: 0; width: 40%; height: 78%; background: var(--sil); border-radius: 4px 4px 0 0 }
+.scene .live { position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, rgba(255,255,255,.07) 50%, transparent 70%); background-size: 300% 100%; animation: sweep 3.2s linear infinite }
+@keyframes sweep { from { background-position: 150% 0 } to { background-position: -150% 0 } }
+
+.ov { position: absolute; inset: 0; opacity: 0; pointer-events: none; transition: opacity 120ms ease }
+.pop.expanded .ov { opacity: 1; pointer-events: auto; transition: opacity 180ms ease calc(var(--t) * .7) }
+.chip { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); white-space: nowrap; padding: 4px 11px; border-radius: 99px; background: rgba(0,0,0,.62); color: #fff; font-size: 12px; display: flex; gap: 7px; align-items: center }
+.chip .dot { width: 7px; height: 7px; border-radius: 50%; background: #34C759 }
+.chip .k { opacity: .75 }
+.btns { position: absolute; display: flex; gap: 8px }
+.btns.tr { top: 10px; right: 10px }
+.btns.bc { bottom: 12px; left: 50%; transform: translateX(-50%) }
+.cb { width: 30px; height: 30px; border-radius: 50%; border: 0; padding: 0; background: rgba(0,0,0,.62); color: #fff; display: grid; place-items: center; cursor: pointer }
+.cb.big { width: 40px; height: 40px }
+.cb.act { width: auto; padding: 0 14px; border-radius: 99px; font: 12px var(--font); height: 40px }
+.cb svg { width: 15px; height: 15px }
+.cb:hover { background: rgba(0,0,0,.8) }
+
+/* Demo-Hilfe: 500-ms-Hover-Fortschritt außerhalb der Miniatur (in der App unsichtbar) */
+.arm { position: absolute; width: 4px; border-radius: 2px; background: rgba(255,255,255,.18); overflow: hidden; pointer-events: none; opacity: 0; transition: left var(--t) ease, top var(--t) ease, height var(--t) ease, opacity 50ms linear }
+.arm.go { opacity: 1 }
+.arm b { position: absolute; left: 0; top: 0; width: 100%; height: 0; background: #FFD84D; display: block }
+.arm.go b { height: 100%; transition: height var(--hover) linear }
+
+.cursor { position: absolute; left: 0; top: 0; width: 22px; height: 30px; pointer-events: none; z-index: 50; transition: transform 650ms cubic-bezier(.45,.05,.3,1), opacity .2s; opacity: 0 }
+.cursor.on { opacity: 1 }
+.cursor.click svg { transform: scale(.82); transform-origin: 3px 3px; transition: transform .08s }
+.blocker { position: absolute; inset: 0; z-index: 40 }
+
+.caption { display: flex; gap: 10px; align-items: center; min-height: 40px; padding: 9px 14px; border-radius: 10px; background: var(--win); box-shadow: 0 0 0 1px var(--border) }
+.caption .n { flex: none; font: 600 11px var(--mono); color: var(--acc-text); background: var(--acc-soft); border-radius: 6px; padding: 2px 7px }
+
+/* ---------- Seitenleiste ---------- */
+.panel { display: grid; gap: 14px; min-width: 0 }
+.card { background: var(--win); border-radius: 12px; box-shadow: 0 0 0 1px var(--border); padding: 14px; display: grid; gap: 10px }
+.card h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 }
+.row { display: flex; flex-wrap: wrap; gap: 6px }
+button.b { font: 500 12px var(--font); border: 0; border-radius: 7px; padding: 6px 11px; background: var(--seg); color: var(--fg); cursor: pointer; box-shadow: 0 0 0 1px var(--border) inset }
+button.b:hover { background: var(--seg-on) }
+button.b.primary { background: var(--accent); color: #fff; box-shadow: none }
+button.b:focus-visible, .cb:focus-visible, .seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+.seg { display: inline-flex; background: var(--seg); border-radius: 8px; padding: 2px }
+.seg button { border: 0; background: none; color: var(--muted); font: 500 12px var(--font); padding: 4px 10px; border-radius: 6px; cursor: pointer }
+.seg button[aria-pressed="true"] { background: var(--seg-on); color: var(--fg); box-shadow: 0 1px 2px rgba(0,0,0,.2) }
+.lab { display: flex; justify-content: space-between; align-items: center; gap: 8px }
+ol.steps { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; counter-reset: s }
+ol.steps li { counter-increment: s; display: grid; grid-template-columns: 22px 1fr; gap: 6px; padding: 5px 6px; border-radius: 7px; color: var(--muted) }
+ol.steps li::before { content: counter(s); font: 600 11px var(--mono); color: var(--muted); padding-top: 1px }
+ol.steps li.cur { background: var(--acc-soft); color: var(--fg) }
+ol.steps li.cur::before { color: var(--acc-text) }
+ol.steps li.done { color: var(--fg) }
+.list { display: grid; gap: 6px }
+.list .it { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; font-size: 12px }
+.list .bar { grid-column: 1 / -1; height: 3px; border-radius: 2px; background: var(--seg); overflow: hidden }
+.list .bar i { display: block; height: 100%; background: var(--accent) }
+.list .st { font: 11px var(--mono); color: var(--muted) }
+.empty { color: var(--muted); font-size: 12px }
+
+.assume { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px }
+.assume div { background: var(--win); border-radius: 10px; box-shadow: 0 0 0 1px var(--border); padding: 11px 13px; display: grid; grid-template-columns: auto 1fr; gap: 10px }
+.assume b { font: 600 11px var(--mono); color: var(--acc-text); background: var(--acc-soft); border-radius: 6px; padding: 2px 6px; height: fit-content }
+.assume p { margin: 0 }
+h3 { margin: 6px 0 0; font-size: 15px }
+.legend { color: var(--muted); font-size: 12px; display: flex; gap: 6px; align-items: center }
+.legend i { width: 4px; height: 14px; border-radius: 2px; background: #FFD84D; display: inline-block }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Popup-Layout „Miniatur“</h1>
+    <p>Schattengrafik des geplanten Ablaufs. Die Bühne ist ein 1440 × 900-Bildschirm, alle Maße sind in logischen Punkten angegeben. Du kannst selbst Kameras auslösen und mit der Maus darüberfahren oder den Ablauf automatisch abspielen lassen.</p>
+  </header>
+
+  <div class="main">
+    <div class="stage-col">
+      <div class="screen-wrap" id="wrap">
+        <div class="screen" id="screen">
+          <div class="menubar"><i style="width:12px"></i><i style="width:26px"></i><i style="width:46px"></i><i style="width:34px"></i><i style="width:22px"></i><i style="width:30px"></i><i style="width:22px"></i><i class="sp"></i><i style="width:10px"></i><i style="width:10px"></i><i style="width:10px"></i><i style="width:40px"></i></div>
+          <div class="bgwin">
+            <div class="tb"><i></i><i></i><i></i><i></i><div class="url"></div></div>
+            <div class="ln" style="left:120px;top:80px;width:300px"></div>
+            <div class="ln" style="left:120px;top:100px;width:250px;opacity:.8"></div>
+            <div class="ln" style="left:120px;top:140px;width:200px;opacity:.6"></div>
+            <div class="ln" style="left:120px;top:156px;width:200px;opacity:.6"></div>
+            <div class="ln" style="left:120px;top:172px;width:180px;opacity:.6"></div>
+            <div class="ln" style="left:340px;top:140px;width:200px;opacity:.6"></div>
+            <div class="ln" style="left:340px;top:156px;width:200px;opacity:.6"></div>
+            <div class="ln" style="left:340px;top:172px;width:160px;opacity:.6"></div>
+            <div class="tile" style="left:120px"><div style="width:76px;height:76px;border-radius:50%;background:#8B7FF0"></div></div>
+            <div class="tile" style="left:300px"><div style="width:70px;height:70px;border-radius:12px;background:#7CC8F5"></div></div>
+            <div class="tile" style="left:480px"><div style="width:0;height:0;border-left:44px solid transparent;border-right:44px solid transparent;border-bottom:76px solid #F06A4A"></div></div>
+          </div>
+          <div class="dock" id="dock"></div>
+          <div class="cursor" id="cursor"><svg viewBox="0 0 22 30" width="22" height="30"><path d="M2 2 L2 24 L8 18.5 L12 27 L15.5 25.5 L11.6 17.2 L19.5 17.2 Z" fill="#111" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg></div>
+          <div class="blocker" id="blocker" hidden></div>
+        </div>
+      </div>
+      <div class="caption" id="caption"><span class="n" id="capN">–</span><span id="capT">Fahre über eine Miniatur oder starte den Ablauf.</span></div>
+      <div class="legend"><i></i> Beim Darüberfahren blendet an der Innenseite der Miniatur in 50 ms ein grauer Balken ein und füllt sich sofort in 500 ms gelb von oben nach unten. So kommt er auch in die App.</div>
+    </div>
+
+    <aside class="panel">
+      <div class="card">
+        <h2>Ablauf</h2>
+        <div class="row">
+          <button class="b primary" id="play" type="button">Ablauf abspielen</button>
+          <button class="b" id="reset" type="button">Leeren</button>
+        </div>
+        <div class="lab"><span>Tempo</span>
+          <div class="seg" id="speed"><button type="button" data-s="1" aria-pressed="true">Echtzeit</button><button type="button" data-s="4" aria-pressed="false">Zeitlupe ×4</button></div>
+        </div>
+        <ol class="steps" id="steps">
+          <li>Ereignis: Miniatur gleitet vom Rand herein</li>
+          <li>Weitere Kameras stapeln sich darunter</li>
+          <li>Maus bleibt 500 ms auf einer Miniatur</li>
+          <li>Popup wächst, Overlays erscheinen, die Miniaturen darunter rutschen nach unten</li>
+          <li>Maus verlässt das Popup: zurück zur Miniatur</li>
+          <li>Schneller Klick schließt: gleitet zum Rand hinaus</li>
+          <li>Mehr Popups als Platz: sie verschwinden unten</li>
+          <li>Automatisch schließen: gleitet zum Rand hinaus</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h2>Darstellung</h2>
+        <div class="lab"><span>Popup-Position</span>
+          <div class="seg" id="side"><button type="button" data-v="left" aria-pressed="false">Links</button><button type="button" data-v="right" aria-pressed="true">Rechts</button></div>
+        </div>
+        <div class="lab"><span>Restzeit</span>
+          <div class="seg" id="restSeg"><button type="button" data-v="line" aria-pressed="true">Linie</button><button type="button" data-v="nudge" aria-pressed="false">Vorwarnung</button><button type="button" data-v="both" aria-pressed="false">Beides</button><button type="button" data-v="off" aria-pressed="false">Aus</button></div>
+        </div>
+        <p class="empty" id="restHint" style="margin:0"></p>
+      </div>
+      <div class="card">
+        <h2>Kamera auslösen</h2>
+        <div class="row" id="trig"></div>
+      </div>
+      <div class="card">
+        <h2>Aktive Popups · Auto-Schließen 20 s</h2>
+        <div class="list" id="list"><span class="empty">Keine Popups offen.</span></div>
+      </div>
+    </aside>
+  </div>
+
+  <section>
+    <h3>Annahmen, die du bestätigen solltest</h3>
+    <p style="color:var(--muted);margin:4px 0 10px">An diesen Stellen hat deine Beschreibung keine Antwort gegeben. Die Demo verhält sich so:</p>
+    <div class="assume">
+      <div><b>A1</b><p>Die Miniatur ist 200 pt breit. Ihre Höhe folgt dem Seitenverhältnis der Kamera, eine Klingel ist also hochkant.</p></div>
+      <div><b>A2</b><p>„Popup-Position“ kennt nur noch Links und Rechts, Standard ist Rechts. Sie gilt für „Miniatur“ und „Voll“. Der Stapel beginnt oben unter der Menüleiste. Es gelten der Randabstand (20 px) und 10 pt Abstand zwischen den Popups.</p></div>
+      <div><b>A3</b><p>Das Popup skaliert von der oberen Außenecke nach unten innen, rechts also nach unten links. Die Ecke bleibt stehen, so bleibt die Maus darauf.</p></div>
+      <div><b>A4</b><p>Verlässt die Maus das große Popup, schrumpft es ohne Verzögerung zurück zur Miniatur.</p></div>
+      <div><b>A5</b><p>Auto-Schließen läuft auch bei Miniaturen. Solange die Maus darauf ist oder das Popup groß ist, pausiert der Timer.</p></div>
+      <div><b>A6</b><p>Neue Kameras reihen sich unten an. Löst eine Kamera erneut aus, die schon offen ist, startet nur ihr Timer neu, wie heute.</p></div>
+      <div><b>A7</b><p>Schließt oben eine Miniatur, rücken die unteren nach, auch die bisher unsichtbaren. Gescrollt wird nicht.</p></div>
+      <div><b>A8</b><p>Ist „Bewegung reduzieren“ aktiv, erscheinen, wachsen und verschwinden Popups ohne Animation.</p></div>
+      <div><b>A9</b><p>Ist „Alle aktiven Kameras zeigen“ aus, gibt es immer nur eine Miniatur. Eine neue Kamera ersetzt sie.</p></div>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+  const W = 1440, H = 900, MENU = 28, M = 20, GAP = 10, MINI = 200, AUTO = 20000;
+  const screen = document.getElementById('screen'), wrap = document.getElementById('wrap');
+  const cursor = document.getElementById('cursor'), blocker = document.getElementById('blocker');
+  const capN = document.getElementById('capN'), capT = document.getElementById('capT');
+  let S = 1, SIDE = 'right', REST = 'line';
+
+  // Bühne skalieren
+  const fit = () => { screen.style.transform = `scale(${wrap.clientWidth / W})`; };
+  new ResizeObserver(fit).observe(wrap); fit();
+
+  // Dock
+  const dockColors = ['#4F8DF7','#F2B63C','#E9586A','#52C26B','#F5D54A','#F4F4F6','#76C6F2','#8A7CF0','|','#5B5F6B','#52C26B','#A9ACB4'];
+  document.getElementById('dock').innerHTML = dockColors.map(c => c === '|' ? '<span style="width:2px;margin:6px 2px;background:rgba(255,255,255,.35)"></span>' : `<i style="background:${c}"></i>`).join('');
+
+  const ICON = {
+    x: '<svg viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+    bell: '<svg viewBox="0 0 16 16"><path d="M8 2.2a3.8 3.8 0 0 0-3.8 3.8v2.6L3 10.6h10l-1.2-2V6A3.8 3.8 0 0 0 8 2.2zM6.5 12.4a1.5 1.5 0 0 0 3 0" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>',
+    gear: '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 1.8v2M8 12.2v2M1.8 8h2M12.2 8h2M3.6 3.6l1.4 1.4M11 11l1.4 1.4M3.6 12.4L5 11M11 5l1.4-1.4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+    mic: '<svg viewBox="0 0 16 16"><rect x="5.5" y="1.8" width="5" height="8" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M3.5 7.5a4.5 4.5 0 0 0 9 0M8 12v2.2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+    spk: '<svg viewBox="0 0 16 16"><path d="M2.5 6h2.5l3.5-3v10L5 10H2.5z" fill="currentColor"/><path d="M11 5.5a3.5 3.5 0 0 1 0 5M12.8 3.8a6 6 0 0 1 0 8.4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>',
+  };
+
+  const CAMS = [
+    { id: 'haustuer', name: 'Haustür', kind: 'Klingel', ar: 3/4, full: [405, 540], sky: '#4A5466', ground: '#2B303B', sil: '#1A1D24', scene: 'door', action: 'Tür öffnen' },
+    { id: 'einfahrt', name: 'Einfahrt', kind: 'Fahrzeug', ar: 16/9, full: [560, 315], sky: '#56657A', ground: '#353D49', sil: '#20252E', scene: 'house', action: 'Tor öffnen' },
+    { id: 'garten', name: 'Garten (nord)', kind: 'Person', ar: 16/9, full: [560, 315], sky: '#4E6A64', ground: '#2E4038', sil: '#1A2622', scene: 'yard' },
+    { id: 'garage', name: 'Garage', kind: 'Bewegung', ar: 4/3, full: [480, 360], sky: '#5A5A6E', ground: '#36364A', sil: '#212130', scene: 'house', action: 'Licht an' },
+    { id: 'terrasse', name: 'Terrasse', kind: 'Person', ar: 16/9, full: [560, 315], sky: '#6A5E52', ground: '#40372F', sil: '#26201B', scene: 'yard' },
+    { id: 'carport', name: 'Carport', kind: 'Fahrzeug', ar: 16/9, full: [560, 315], sky: '#566B82', ground: '#344354', sil: '#1E2833', scene: 'house' },
+    { id: 'hof', name: 'Hof', kind: 'Tier', ar: 16/9, full: [560, 315], sky: '#5F6A55', ground: '#3A4234', sil: '#22281E', scene: 'yard' },
+    { id: 'keller', name: 'Kellertür', kind: 'Bewegung', ar: 4/3, full: [480, 360], sky: '#5B5466', ground: '#383242', sil: '#211D28', scene: 'door' },
+  ];
+  const byId = Object.fromEntries(CAMS.map(c => [c.id, c]));
+
+  /** @type {{cam, el, arm, state:'mini'|'expanded'|'leaving', left, remaining, timer, hovered}[]} */
+  let pops = [];
+
+  const sceneHTML = c => {
+    const parts = c.scene === 'door' ? '<div class="door"></div><div class="person" style="left:44%;bottom:6%;width:14%;height:62%"></div>'
+      : c.scene === 'house' ? '<div class="house"></div><div class="tree"></div>'
+      : '<div class="tree" style="left:10%;right:auto"></div><div class="tree"></div><div class="person"></div>';
+    return `<div class="scene" style="--sky:${c.sky};--ground:${c.ground};--sil:${c.sil}">${parts}<div class="live"></div></div>`;
+  };
+
+  const now = () => new Date().toLocaleTimeString('de-DE');
+
+  function make(cam) {
+    const el = document.createElement('div');
+    el.className = 'pop';
+    el.innerHTML = sceneHTML(cam) + `
+      <div class="ov">
+        <div class="chip"><span class="dot"></span><span>${cam.name}</span><span class="k clock">${now()}</span><span class="k">· ${cam.kind}</span></div>
+        <div class="btns tr">
+          <button class="cb" type="button" data-a="gear" aria-label="Einstellungen dieser Kamera">${ICON.gear}</button>
+          <button class="cb" type="button" data-a="mute" aria-label="Diese Kamera stummschalten">${ICON.bell}</button>
+          <button class="cb" type="button" data-a="close" aria-label="Schließen">${ICON.x}</button>
+        </div>
+        <div class="btns bc">
+          <button class="cb big" type="button" data-a="talk" aria-label="Sprechen">${ICON.mic}</button>
+          <button class="cb big" type="button" data-a="sound" aria-label="Ansage">${ICON.spk}</button>
+          ${cam.action ? `<button class="cb act" type="button" data-a="act">${cam.action}</button>` : ''}
+        </div>
+      </div>`;
+    const arm = document.createElement('div');
+    arm.className = 'arm'; arm.innerHTML = '<b></b>';
+    const rest = document.createElement('div');
+    rest.className = 'rest';
+    screen.insertBefore(arm, cursor); screen.insertBefore(rest, cursor); screen.insertBefore(el, cursor);
+    const p = { cam, el, arm, rest, state: 'mini', remaining: AUTO, timer: null, hovered: false };
+    el.addEventListener('pointerenter', () => hoverStart(p));
+    el.addEventListener('pointerleave', () => hoverEnd(p));
+    el.addEventListener('click', e => {
+      const a = e.target.closest('[data-a]')?.dataset.a;
+      if (p.state === 'mini') return quickClick(p);
+      if (a === 'close') close(p, 'Schließen-Knopf');
+      else if (a === 'mute') close(p, 'Stummgeschaltet');
+    });
+    return p;
+  }
+
+  const sizeOf = p => p.state === 'expanded' ? { w: p.cam.full[0], h: p.cam.full[1] } : { w: MINI, h: Math.round(MINI / p.cam.ar) };
+
+  // Die Außenkante (SIDE) ist der Anker: beim Wachsen bleibt die obere Außenecke stehen.
+  function layout() {
+    let y = MENU + M;
+    const inner = SIDE === 'right' ? 'left' : 'right';
+    for (const p of pops) {
+      const { w, h } = sizeOf(p);
+      const x = SIDE === 'right' ? W - M - w : M;
+      p.el.style[inner] = 'auto';
+      Object.assign(p.el.style, { [SIDE]: (p.state === 'leaving' ? -(w + 30) : M) + 'px', top: y + 'px', width: w + 'px', height: h + 'px' });
+      p.rect = { x, y, w, h };
+      // Hover-Balken an der Innenseite
+      Object.assign(p.arm.style, { left: (SIDE === 'right' ? x - 9 : x + w + 5) + 'px', top: y + 'px', height: h + 'px', display: p.state === 'mini' ? '' : 'none' });
+      Object.assign(p.rest.style, { left: x + 'px', top: (y + h + 4) + 'px', width: w + 'px', transformOrigin: SIDE === 'right' ? 'right center' : 'left center' });
+      if (p.state !== 'leaving') y += h + GAP;
+    }
+    paintRest();
+  }
+
+  // Restzeit: Linie unter der Miniatur und/oder Vorwarnung in den letzten 3 s
+  const WARN = 3000;
+  function paintRest() {
+    for (const p of pops) {
+      const mini = p.state === 'mini';
+      const frac = Math.max(0, p.remaining / AUTO);
+      p.rest.hidden = !(mini && (REST === 'line' || REST === 'both'));
+      p.rest.style.transform = `scaleX(${frac})`;
+      p.rest.classList.toggle('warn', p.remaining < WARN && !p.hovered);
+      const nudge = mini && !p.hovered && (REST === 'nudge' || REST === 'both') && p.remaining < WARN;
+      const k = nudge ? 1 - p.remaining / WARN : 0;
+      p.el.style.translate = `${(SIDE === 'right' ? 1 : -1) * k * 36}px 0`;
+      p.el.style.opacity = nudge ? String(1 - .3 * k) : '';
+    }
+  }
+
+  function trigger(id) {
+    const existing = pops.find(p => p.cam.id === id && p.state !== 'leaving');
+    if (existing) { existing.remaining = AUTO; renderList(); return; }
+    const p = make(byId[id]);
+    const { w, h } = sizeOf(p);
+    // Startposition rechts außerhalb, auf der künftigen Höhe – dann hereingleiten.
+    let y = MENU + M; for (const q of pops) if (q.state !== 'leaving') y += sizeOf(q).h + GAP;
+    p.el.style[SIDE === 'right' ? 'left' : 'right'] = 'auto';
+    Object.assign(p.el.style, { [SIDE]: -(w + 30) + 'px', top: y + 'px', width: w + 'px', height: h + 'px', transition: 'none' });
+    pops.push(p);
+    p.el.getBoundingClientRect();
+    p.el.style.transition = '';
+    layout(); renderList();
+  }
+
+  function hoverStart(p) {
+    if (p.state !== 'mini') return;
+    p.hovered = true;
+    p.arm.classList.remove('go'); p.arm.getBoundingClientRect(); p.arm.classList.add('go');
+    clearTimeout(p.timer);
+    p.timer = setTimeout(() => { p.timer = null; expand(p); }, 500 * S);
+  }
+  function hoverEnd(p) {
+    p.hovered = false;
+    clearTimeout(p.timer); p.timer = null;
+    p.arm.classList.remove('go');
+    if (p.state === 'expanded') { p.state = 'mini'; layout(); renderList(); }
+  }
+  function expand(p) {
+    if (p.state !== 'mini') return;
+    // Nur eins gleichzeitig groß
+    pops.forEach(q => { if (q !== p && q.state === 'expanded') q.state = 'mini'; });
+    p.state = 'expanded'; p.arm.classList.remove('go'); layout(); renderList();
+  }
+  function quickClick(p) { clearTimeout(p.timer); p.timer = null; close(p, 'Schneller Klick'); }
+  function close(p) {
+    if (p.state === 'leaving') return;
+    p.state = 'leaving'; p.el.classList.add('leaving'); p.el.classList.remove('expanded');
+    p.arm.classList.remove('go');
+    layout(); renderList();
+    setTimeout(() => {
+      p.el.remove(); p.arm.remove(); p.rest.remove();
+      pops = pops.filter(q => q !== p); layout(); renderList();
+    }, 320 * S);
+  }
+  // Klasse für Overlays synchron halten
+  const syncClasses = () => pops.forEach(p => p.el.classList.toggle('expanded', p.state === 'expanded'));
+  const _layout = layout; layout = function () { syncClasses(); _layout(); };
+
+  // Auto-Schließen
+  setInterval(() => {
+    for (const p of pops) {
+      if (p.state !== 'mini' || p.hovered) continue;
+      p.remaining -= 100 / S;
+      if (p.remaining <= 0) close(p);
+    }
+    pops.forEach(p => { const c = p.el.querySelector('.clock'); if (c) c.textContent = now(); });
+    paintRest(); renderList();
+  }, 100);
+
+  const listEl = document.getElementById('list');
+  function renderList() {
+    const live = pops.filter(p => p.state !== 'leaving');
+    if (!live.length) { listEl.innerHTML = '<span class="empty">Keine Popups offen.</span>'; return; }
+    listEl.innerHTML = live.map(p => {
+      const vis = p.rect && p.rect.y < H;
+      const st = p.state === 'expanded' ? 'groß · pausiert' : p.hovered ? 'Maus darauf · pausiert' : `${Math.ceil(p.remaining / 1000)} s`;
+      return `<div class="it"><span>${p.cam.name}${vis ? '' : ' <span class="st">(unter dem Bildschirmrand)</span>'}</span><span class="st">${st}</span><div class="bar"><i style="width:${Math.max(0, p.remaining / AUTO * 100)}%"></i></div></div>`;
+    }).join('');
+  }
+
+  // Trigger-Knöpfe
+  document.getElementById('trig').innerHTML = CAMS.map(c => `<button class="b" type="button" data-id="${c.id}">${c.name}</button>`).join('');
+  document.getElementById('trig').addEventListener('click', e => { const id = e.target.dataset.id; if (id) { stop(); trigger(id); } });
+
+  // Tempo
+  const speed = document.getElementById('speed');
+  speed.addEventListener('click', e => {
+    const s = +e.target.dataset.s; if (!s) return;
+    S = s; screen.style.setProperty('--t', (300 * S) + 'ms'); screen.style.setProperty('--hover', (500 * S) + 'ms');
+    cursor.style.transitionDuration = (650 * S) + 'ms, .2s';
+    speed.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b === e.target));
+  });
+  screen.style.setProperty('--hover', '500ms');
+
+  // Position links/rechts
+  const sideSeg = document.getElementById('side');
+  sideSeg.addEventListener('click', e => {
+    const v = e.target.dataset.v; if (!v || v === SIDE) return;
+    SIDE = v;
+    sideSeg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b === e.target));
+    const all = pops.flatMap(p => [p.el, p.arm, p.rest]);
+    all.forEach(n => n.style.transition = 'none');
+    layout(); screen.getBoundingClientRect();
+    all.forEach(n => n.style.transition = '');
+  });
+
+  // Restzeit-Variante
+  const REST_HINT = {
+    line: 'Eine dünne Linie im Abstand unter der Miniatur schrumpft über die ganze Laufzeit zum Rand hin. In den letzten 3 s wird sie gelb.',
+    nudge: 'In den letzten 3 s rückt die Miniatur langsam bis zu 36 pt zum Rand hinaus und wird blasser. Danach gleitet sie ganz hinaus.',
+    both: 'Linie über die ganze Laufzeit, dazu die Vorwarnung in den letzten 3 s.',
+    off: 'Keine Anzeige. Die Miniatur verschwindet ohne Vorankündigung.',
+  };
+  const restSeg = document.getElementById('restSeg'), restHint = document.getElementById('restHint');
+  const setRest = v => {
+    REST = v; restHint.textContent = REST_HINT[v] + (v === 'off' ? '' : ' Bleibt die Maus darauf, pausiert der Timer und die Anzeige springt zurück.');
+    restSeg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === v));
+    paintRest();
+  };
+  restSeg.addEventListener('click', e => { if (e.target.dataset.v) setRest(e.target.dataset.v); });
+  setRest('line');
+
+  function clearAll() { pops.forEach(p => { clearTimeout(p.timer); p.el.remove(); p.arm.remove(); p.rest.remove(); }); pops = []; renderList(); }
+  document.getElementById('reset').addEventListener('click', () => { stop(); clearAll(); caption('–', 'Fahre über eine Miniatur oder starte den Ablauf.'); });
+
+  // ---------- Automatischer Ablauf ----------
+  const stepsEl = [...document.querySelectorAll('#steps li')];
+  let run = 0;
+  const sleep = (ms, token) => new Promise((res, rej) => setTimeout(() => token === run ? res() : rej('stop'), ms * S));
+  function caption(n, t) { capN.textContent = n; capT.textContent = t; }
+  function step(i, t) {
+    stepsEl.forEach((li, k) => { li.classList.toggle('cur', k === i); li.classList.toggle('done', k < i); });
+    caption(String(i + 1), t);
+  }
+  function moveCursor(x, y) { cursor.classList.add('on'); cursor.style.transform = `translate(${x}px, ${y}px)`; }
+  const center = p => [p.rect.x + p.rect.w * .55, p.rect.y + p.rect.h * .5];
+  async function click(t) { cursor.classList.add('click'); await sleep(90, t); cursor.classList.remove('click'); }
+  function stop() {
+    run++; blocker.hidden = true; cursor.classList.remove('on');
+    stepsEl.forEach(li => li.classList.remove('cur', 'done'));
+    document.getElementById('play').textContent = 'Ablauf abspielen';
+  }
+  const find = id => pops.find(p => p.cam.id === id && p.state !== 'leaving');
+
+  async function play() {
+    const t = ++run;
+    clearAll(); blocker.hidden = false;
+    document.getElementById('play').textContent = 'Ablauf stoppen';
+    moveCursor(700, 520);
+    try {
+      step(0, 'Ereignis an der Haustür: die Miniatur gleitet vom Rand herein, ohne Overlays.');
+      await sleep(500, t); trigger('haustuer'); await sleep(1300, t);
+      step(1, 'Einfahrt und Garten lösen aus. Die Miniaturen stapeln sich in einer Spalte darunter.');
+      trigger('einfahrt'); await sleep(700, t); trigger('garten'); await sleep(1300, t);
+
+      step(2, 'Die Maus fährt auf „Einfahrt“ und bleibt 500 ms (gelber Balken, nur in der Demo).');
+      const e = find('einfahrt'); moveCursor(...center(e)); await sleep(750, t);
+      hoverStart(e); await sleep(520, t);
+      step(3, 'Das Popup skaliert von der oberen Außenecke nach unten innen auf seine Größe. Overlays und Aktionen erscheinen, „Garten“ rutscht nach unten.');
+      await sleep(1500, t);
+      moveCursor(e.rect.x + e.rect.w - 60, e.rect.y + 24); await sleep(1200, t);
+
+      step(4, 'Die Maus verlässt das Popup und es schrumpft zurück zur Miniatur.');
+      moveCursor(820, 470); await sleep(250, t); hoverEnd(e); await sleep(1400, t);
+
+      step(5, 'Ein schneller Klick unter 500 ms auf „Haustür“ schließt es. Es gleitet zum Rand hinaus, der Stapel rückt auf.');
+      const h = find('haustuer'); moveCursor(...center(h)); await sleep(800, t);
+      hoverStart(h); await sleep(160, t); await click(t); quickClick(h); await sleep(400, t);
+      moveCursor(820, 470); hoverEnd(h); await sleep(1100, t);
+
+      step(6, 'Fünf weitere Kameras lösen aus. Was nicht mehr passt, liegt unterhalb des Bildschirmrands. Es gibt keine zweite Spalte.');
+      for (const id of ['garage', 'terrasse', 'carport', 'hof', 'keller']) { trigger(id); await sleep(450, t); }
+      await sleep(900, t);
+      const g = find('garten'); moveCursor(...center(g)); await sleep(750, t);
+      hoverStart(g); await sleep(520, t); await sleep(1700, t);
+      moveCursor(820, 470); await sleep(250, t); hoverEnd(g); await sleep(1200, t);
+
+      step(7, 'Der Timer von „Einfahrt“ läuft ab. Die Restzeit-Anzeige kündigt es an, dann gleitet die Miniatur zum Rand hinaus und alle darunter rücken nach.');
+      const e2 = find('einfahrt'); if (e2) e2.remaining = 4000; await sleep(5200, t);
+
+      stepsEl.forEach(li => { li.classList.remove('cur'); li.classList.add('done'); });
+      caption('✓', 'Ende des Ablaufs. Die Popups bleiben offen, du kannst sie jetzt selbst ausprobieren.');
+      blocker.hidden = true; cursor.classList.remove('on');
+      document.getElementById('play').textContent = 'Ablauf abspielen';
+    } catch (_) { /* gestoppt */ }
+  }
+  document.getElementById('play').addEventListener('click', () => {
+    if (!blocker.hidden) { stop(); caption('–', 'Ablauf gestoppt.'); } else play();
+  });
+
+  // Start mit einem realistischen Zustand
+  trigger('haustuer'); trigger('einfahrt'); trigger('garten');
+})();
+</script>
