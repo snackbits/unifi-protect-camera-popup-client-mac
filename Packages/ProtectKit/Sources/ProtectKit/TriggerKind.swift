@@ -19,29 +19,60 @@ public enum TriggerKind: String, Codable, CaseIterable, Sendable {
     case siren
     case carHorn
     case burglar
+    /// Line crossings (Protect event `smartDetectLine`), separate from detections in a zone.
+    /// Protect does not say which line was crossed, only what crossed it.
+    case personLine
+    case vehicleLine
+    case animalLine
 
     /// Display order in the UI.
     public static let ordered: [TriggerKind] = [
         .ring, .person, .package, .animal, .vehicle, .licensePlate, .face, .motion,
-        .speak, .bark, .babyCry, .glassBreak, .smoke, .carbonMonoxide, .siren, .carHorn, .burglar
+        .speak, .bark, .babyCry, .glassBreak, .smoke, .carbonMonoxide, .siren, .carHorn, .burglar,
+        .personLine, .vehicleLine, .animalLine,
     ]
 
-    /// Chip order in settings and onboarding (template): specific detections first, motion last.
+    /// Chip order in settings and onboarding (template): specific detections first, motion last,
+    /// then the line crossings (their own chip row).
     public static let displayOrder: [TriggerKind] = [
         .ring, .person, .package, .animal, .vehicle, .licensePlate, .face,
         .speak, .bark, .babyCry, .glassBreak, .smoke, .carbonMonoxide, .siren, .carHorn, .burglar,
         .motion,
+        .personLine, .vehicleLine, .animalLine,
     ]
 
-    /// Offered even when a camera cannot detect them (shown struck through).
-    public static let alwaysShown: Set<TriggerKind> = [.ring, .person, .package, .animal, .vehicle]
+    /// The line-crossing kinds, in chip order.
+    public static let lineKinds: [TriggerKind] = [.personLine, .vehicleLine, .animalLine]
 
-    /// Chips for one camera: supported kinds in display order, then the unsupported core kinds.
-    /// The order depends only on the camera, so chips never jump when toggled.
-    public static func chips(supported: Set<TriggerKind>) -> [TriggerChipItem] {
-        let shown = displayOrder.filter { supported.contains($0) || alwaysShown.contains($0) }
-        return shown.filter { supported.contains($0) }.map { TriggerChipItem(kind: $0, isSupported: true) }
-            + shown.filter { !supported.contains($0) }.map { TriggerChipItem(kind: $0, isSupported: false) }
+    public var isLine: Bool { Self.lineKinds.contains(self) }
+
+    /// The line-crossing kind for an object kind (person → personLine); nil for everything that
+    /// cannot cross a line.
+    public var lineVariant: TriggerKind? {
+        switch self {
+        case .person: return .personLine
+        case .vehicle: return .vehicleLine
+        case .animal: return .animalLine
+        default: return nil
+        }
+    }
+
+    /// The object kind of a line crossing (personLine → person); the kind itself otherwise.
+    public var base: TriggerKind {
+        switch self {
+        case .personLine: return .person
+        case .vehicleLine: return .vehicle
+        case .animalLine: return .animal
+        default: return self
+        }
+    }
+
+    /// Chips for one camera: only what is switched on in Protect (`enabled`), in display order –
+    /// zone/sound/motion kinds in `detections`, line crossings in `lines`. The order depends only
+    /// on the camera, so chips never jump when toggled.
+    public static func chips(enabled: Set<TriggerKind>) -> (detections: [TriggerKind], lines: [TriggerKind]) {
+        let shown = displayOrder.filter(enabled.contains)
+        return (shown.filter { !$0.isLine }, shown.filter(\.isLine))
     }
 
     /// Maps Protect `smartDetectTypes` / audio type wire values.
@@ -85,11 +116,12 @@ public enum TriggerKind: String, Codable, CaseIterable, Sendable {
         case .siren: return "Sirene"
         case .carHorn: return "Hupe"
         case .burglar: return "Einbruchalarm"
+        case .personLine: return "Person überquert Linie"
+        case .vehicleLine: return "Fahrzeug überquert Linie"
+        case .animalLine: return "Tier überquert Linie"
         }
     }
-}
 
-public struct TriggerChipItem: Equatable, Sendable {
-    public let kind: TriggerKind
-    public let isSupported: Bool
+    /// Chip text: line crossings sit in their own row („Linie überquert“), so only the object.
+    public var chipLabel: String { isLine ? base.label : label }
 }

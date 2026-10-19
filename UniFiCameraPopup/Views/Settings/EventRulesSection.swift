@@ -72,10 +72,10 @@ struct EventRulesSection: View {
         }
     }
 
-    /// What the camera can report, in chip order; without camera data the common ones.
+    /// What is switched on in Protect for the camera, in chip order; without camera data the common ones.
     private var kinds: [TriggerKind] {
         guard let camera else { return [.ring, .person, .vehicle, .animal, .package, .motion] }
-        return TriggerKind.displayOrder.filter { camera.supportedTriggers.contains($0) }
+        return TriggerKind.displayOrder.filter { camera.enabledTriggers.contains($0) }
     }
 
     static func label(_ kind: String) -> String {

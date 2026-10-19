@@ -80,9 +80,14 @@ struct CamerasTab: View {
     }
 
     private func stateText(_ mapping: WebhookMapping) -> String {
-        let labels = mapping.protectCameraId == nil
-            ? []
-            : TriggerKind.displayOrder.filter { mapping.triggers.contains($0) }.map(\.label)
+        var labels: [String] = []
+        if let cameraId = mapping.protectCameraId {
+            // Kinds switched off in Protect stay stored but do not count; line crossings as one word.
+            let enabled = protect.cameras.first { $0.id == cameraId }?.enabledTriggers
+            let chosen = TriggerKind.displayOrder.filter { mapping.triggers.contains($0) && enabled?.contains($0) != false }
+            labels = chosen.filter { !$0.isLine }.map(\.label)
+            if chosen.contains(where: \.isLine) { labels.append("Linie") }
+        }
         return DisplayText.cameraState(
             triggerLabels: labels,
             webhook: mapping.webhookTriggerEnabled,

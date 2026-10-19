@@ -17,12 +17,12 @@ final class ModelsTests: XCTestCase {
         XCTAssertEqual(door.modelName, "G4 Doorbell Pro")
         XCTAssertTrue(door.isConnected)
         XCTAssertTrue(door.hasSpeaker)
-        XCTAssertEqual(door.supportedTriggers, [.ring, .motion, .person, .package, .vehicle, .speak])
-        XCTAssertEqual(door.enabledTriggers, [.ring, .motion, .person, .package])
+        XCTAssertEqual(door.supportedTriggers, [.ring, .motion, .person, .package, .vehicle, .speak, .personLine, .vehicleLine])
+        XCTAssertEqual(door.enabledTriggers, [.ring, .motion, .person, .package, .personLine])
 
         let drive = cams[1]
         XCTAssertFalse(drive.hasSpeaker)
-        XCTAssertEqual(drive.supportedTriggers, [.motion, .person, .vehicle, .licensePlate])
+        XCTAssertEqual(drive.supportedTriggers, [.motion, .person, .vehicle, .licensePlate, .personLine, .vehicleLine])
         XCTAssertFalse(drive.supportedTriggers.contains(.ring))
 
         let old = cams[2]

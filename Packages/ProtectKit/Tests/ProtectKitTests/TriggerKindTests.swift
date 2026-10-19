@@ -41,18 +41,32 @@ final class TriggerKindTests: XCTestCase {
         XCTAssertEqual(try JSONDecoder().decode([TriggerKind].self, from: data), [.ring, .person])
     }
 
-    func testChipsFollowTemplateOrder() {
-        let doorbell: Set<TriggerKind> = [.ring, .person, .package, .animal, .speak, .glassBreak, .motion]
-        let chips = TriggerKind.chips(supported: doorbell)
-        XCTAssertEqual(chips.map { $0.kind.label },
-                       ["Klingel", "Person", "Paket", "Tier", "Sprache", "Glasbruch", "Bewegung", "Fahrzeug"])
-        XCTAssertEqual(chips.map { $0.isSupported }, [true, true, true, true, true, true, true, false])
+    func testChipsShowOnlyEnabledKindsInTemplateOrder() {
+        let enabled: Set<TriggerKind> = [.ring, .person, .package, .animal, .speak, .glassBreak, .motion,
+                                         .personLine, .animalLine]
+        let chips = TriggerKind.chips(enabled: enabled)
+        XCTAssertEqual(chips.detections.map(\.label),
+                       ["Klingel", "Person", "Paket", "Tier", "Sprache", "Glasbruch", "Bewegung"])
+        XCTAssertEqual(chips.lines, [.personLine, .animalLine])
+        XCTAssertEqual(chips.lines.map(\.chipLabel), ["Person", "Tier"])
     }
 
-    func testChipsAlwaysOfferCoreKinds() {
-        let chips = TriggerKind.chips(supported: [.motion])
-        XCTAssertEqual(chips.map { $0.kind }, [.motion, .ring, .person, .package, .animal, .vehicle])
-        XCTAssertEqual(chips.filter { $0.isSupported }.map { $0.kind }, [.motion])
+    func testChipsWithoutSmartDetections() {
+        let chips = TriggerKind.chips(enabled: [.motion])
+        XCTAssertEqual(chips.detections, [.motion])
+        XCTAssertEqual(chips.lines, [])
+    }
+
+    func testLineVariantsAndBase() {
+        XCTAssertEqual(TriggerKind.person.lineVariant, .personLine)
+        XCTAssertEqual(TriggerKind.vehicle.lineVariant, .vehicleLine)
+        XCTAssertEqual(TriggerKind.animal.lineVariant, .animalLine)
+        XCTAssertNil(TriggerKind.licensePlate.lineVariant)
+        XCTAssertNil(TriggerKind.personLine.lineVariant)
+        XCTAssertEqual(TriggerKind.vehicleLine.base, .vehicle)
+        XCTAssertEqual(TriggerKind.ring.base, .ring)
+        XCTAssertEqual(TriggerKind.personLine.label, "Person überquert Linie")
+        XCTAssertEqual(TriggerKind.person.chipLabel, "Person")
     }
 
     func testDisplayOrderCoversAllKindsOnce() {

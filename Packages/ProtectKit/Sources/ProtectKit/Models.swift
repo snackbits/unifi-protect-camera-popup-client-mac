@@ -51,6 +51,8 @@ public struct ProtectCamera: Decodable, Equatable, Identifiable, Sendable {
             .compactMap(TriggerKind.init(wireValue:))
         var supported = Set(smart).union([.motion])
         if isDoorbell { supported.insert(.ring) }
+        // Every object kind can also be reported crossing a line (if lines are set up in Protect).
+        supported.formUnion(supported.compactMap(\.lineVariant))
         supportedTriggers = supported
 
         let settings = (try? c.decodeIfPresent(SmartSettings.self, forKey: .smartDetectSettings)) ?? nil
@@ -58,6 +60,7 @@ public struct ProtectCamera: Decodable, Equatable, Identifiable, Sendable {
             .compactMap(TriggerKind.init(wireValue:))
         var enabled = Set(enabledSmart).union([.motion])
         if isDoorbell { enabled.insert(.ring) }
+        enabled.formUnion(enabled.compactMap(\.lineVariant))
         enabledTriggers = enabled.intersection(supported)
     }
 }

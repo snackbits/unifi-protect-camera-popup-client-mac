@@ -82,7 +82,7 @@ enum SnapshotRenderer {
             EventRule(kind: "package", soundId: SoundSettings.bundledPaket.id, delaySeconds: 20),
         ]
         let door = WebhookMapping(label: "Haustür", actions: actions, protectCameraId: "cam-door",
-                                  triggers: [.ring, .person], chimeOnOpen: true, eventRules: rules)
+                                  triggers: [.ring, .person, .personLine], chimeOnOpen: true, eventRules: rules)
         let garage = WebhookMapping(label: "Garage", protectCameraId: "cam-garage", triggers: [.vehicle, .motion])
         let garden = WebhookMapping(label: "Garten", protectCameraId: "cam-garden", triggers: [.person, .animal])
         settings.mappings = [door, garage, garden]

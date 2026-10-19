@@ -18,8 +18,12 @@ final class EventMessageTests: XCTestCase {
     }
 
     func testSmartDetectLineAndAudio() throws {
-        XCTAssertEqual(EventMessage.parse(msg(#"{"type":"add","item":{"id":"e3","modelKey":"event","type":"smartDetectLine","start":1,"device":"c","smartDetectTypes":["animal"]}}"#))?.kinds, [.animal])
+        XCTAssertEqual(EventMessage.parse(msg(#"{"type":"add","item":{"id":"e3","modelKey":"event","type":"smartDetectLine","start":1,"device":"c","smartDetectTypes":["animal","licensePlate"]}}"#))?.kinds, [.animalLine, .licensePlate])
         XCTAssertEqual(EventMessage.parse(msg(#"{"type":"add","item":{"id":"e4","modelKey":"event","type":"smartAudioDetect","start":1,"device":"c","smartDetectTypes":["alrmSpeak"]}}"#))?.kinds, [.speak])
+    }
+
+    func testLoiterZoneCountsAsZoneDetection() {
+        XCTAssertEqual(EventMessage.parse(msg(#"{"type":"add","item":{"id":"e9","modelKey":"event","type":"smartDetectLoiterZone","start":1,"device":"c","smartDetectTypes":["person"]}}"#))?.kinds, [.person])
     }
 
     func testMotion() {
@@ -77,6 +81,17 @@ final class EventMessageTests: XCTestCase {
         let tracked = try XCTUnwrap(tracker.ingest(update("e1", ["person"])))
         XCTAssertEqual(tracked.trigger.kinds, [.person])
         XCTAssertEqual(tracked.previousKinds, [])
+    }
+
+    func testTrackerMapsUpdatesOfLineCrossingsToLineKinds() throws {
+        var tracker = EventTracker()
+        XCTAssertNil(tracker.ingest(msg(#"{"type":"add","item":{"id":"l1","modelKey":"event","type":"smartDetectLine","start":1,"device":"drive","smartDetectTypes":[]}}"#)))
+        let first = try XCTUnwrap(tracker.ingest(update("l1", ["vehicle"])))
+        XCTAssertEqual(first.trigger.kinds, [.vehicleLine])
+        XCTAssertEqual(first.trigger.cameraId, "drive")
+        let second = try XCTUnwrap(tracker.ingest(update("l1", ["vehicle", "person"])))
+        XCTAssertEqual(second.trigger.kinds, [.personLine])
+        XCTAssertEqual(second.previousKinds, [.vehicleLine])
     }
 
     func testTrackerIgnoresDuplicatesUnknownIdsAndOtherFrames() throws {

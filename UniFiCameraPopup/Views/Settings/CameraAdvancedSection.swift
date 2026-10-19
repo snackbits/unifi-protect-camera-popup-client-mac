@@ -160,12 +160,13 @@ struct CameraAdvancedSection: View {
         [(value: nil, title: "Standard")] + PopupPosition.allCases.map { (value: Optional($0), title: $0.label) }
     }
 
-    /// A newly linked camera without triggers starts with Klingel + Person where supported.
+    /// A newly linked camera without triggers starts with Klingel + Person (zone and line) where
+    /// switched on in Protect.
     private func applyDefaultTriggers(for cameraId: String?) {
         guard mapping.triggers.isEmpty,
               let cameraId,
               let camera = protect.cameras.first(where: { $0.id == cameraId }) else { return }
-        mapping.triggers = Set<TriggerKind>([.ring, .person]).intersection(camera.supportedTriggers)
+        mapping.triggers = Set<TriggerKind>([.ring, .person, .personLine]).intersection(camera.enabledTriggers)
     }
 
     private var streamURLWarning: String? {
