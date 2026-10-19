@@ -40,7 +40,7 @@ if [[ -e "${RES}/voices" ]] || find "${APP_PATH}/Contents" -name '*.onnx' | grep
   exit 1
 fi
 NOTICES="${APP_PATH}/Contents/Resources/ThirdPartyNotices.txt"
-for marker in "Sprachausgabe (Piper)" "--- espeak-ng" "GPL-3.0-or-later" "--- onnxruntime" "Thorsten-Voice" "M-AILABS" "CC BY 4.0"; do
+for marker in "Sprachausgabe (Piper)" "--- espeak-ng" "GPL-3.0-or-later" "--- onnxruntime" "Thorsten-Voice" "M-AILABS" "dataset-voice-kerstin"; do
   if ! grep -qF -- "${marker}" "${NOTICES}"; then
     echo "ERROR: ThirdPartyNotices.txt lacks \"${marker}\" – run piper/scripts/collect-notices.sh, then wgtunnel/scripts/collect-notices.sh." >&2
     exit 1
