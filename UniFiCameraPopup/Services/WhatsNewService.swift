@@ -22,6 +22,12 @@ struct WhatsNewInfo: Equatable {
 enum WhatsNewService {
     /// Newest version first.
     static let changelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "2.1.0", items: [
+            "Bildqualität pro Kamera (Hoch, Mittel, Niedrig – Standard Mittel): Niedriger startet das Livebild schneller.",
+            "Kein schwarzes Popup mehr: Bis das erste Bild da ist, steht „Stream wird geladen …“.",
+            "Ereignis, Kameraname und eine live mitlaufende Uhr stehen jetzt mittig oben im Popup – standardmäßig eingeschaltet.",
+            "Alle Geheimnisse liegen in einem einzigen Schlüsselbund-Eintrag: weniger Passwortabfragen nach Updates.",
+        ]),
         ChangelogEntry(version: "2.0.0", items: [
             "Einrichtung in wenigen Schritten: Die Konsole wird im Netzwerk gefunden, ein API-Schlüssel genügt.",
             "Popups bei Klingel, Person, Tier, Fahrzeug, Sprache und mehr – direkt aus Protect.",

@@ -188,8 +188,10 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
     var webhookTriggerEnabled: Bool
     /// "Hinweiston beim Öffnen": system sound when a triggered popup opens.
     var chimeOnOpen: Bool
-    /// „Name und Zeit einblenden“: the app's own chip (camera OSD shows the same). Default off.
+    /// „Name und Zeit einblenden“: the chip with event, camera and live clock. Default on (2.1.0).
     var showNameAndTime: Bool
+    /// „Bildqualität“ (2.1.0). Stored only in `settingsExtensionsV3`, not in the main blob.
+    var streamQuality: StreamQuality = .standard
     /// Kameras › Ereignisse (Phase 5). Tokens only in memory/keychain, never encoded.
     var eventRules: [EventRule]
     /// „Größe“ (Phase 5): empty = automatic (42 % of the screen height). `width`/`height` stay the
@@ -239,7 +241,7 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
         triggers: Set<TriggerKind> = [.ring, .person],
         webhookTriggerEnabled: Bool = false,
         chimeOnOpen: Bool = false,
-        showNameAndTime: Bool = false,
+        showNameAndTime: Bool = true,
         sizeOverride: PopupSizeOverride = .automatic,
         eventRules: [EventRule] = []
     ) {
@@ -295,8 +297,8 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
         webhookTriggerEnabled = (try? container.decodeIfPresent(Bool.self, forKey: .webhookTriggerEnabled))
             ?? !webhookId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         chimeOnOpen = (try? container.decodeIfPresent(Bool.self, forKey: .chimeOnOpen)) ?? false
-        // Phase 5: existing cameras start without the chip, too.
-        showNameAndTime = (try? container.decodeIfPresent(Bool.self, forKey: .showNameAndTime)) ?? false
+        // Missing → on (2.1.0); entries from 2.0.0 are switched on once by SettingsStore.
+        showNameAndTime = (try? container.decodeIfPresent(Bool.self, forKey: .showNameAndTime)) ?? true
         // Written before Phase 5: the old default 480 × 270 becomes automatic, other sizes stay.
         sizeOverride = ((try? container.decodeIfPresent(PopupSizeOverride.self, forKey: .sizeOverride)) ?? nil)
             ?? .migrated(width: width, height: height)

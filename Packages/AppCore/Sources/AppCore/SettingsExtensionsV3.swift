@@ -10,20 +10,29 @@ public struct SettingsExtensionsV3: Codable, Equatable, Sendable {
         public var size: PopupSizeOverride?
         /// Without tokens.
         public var eventRules: EventRuleList?
+        /// „Bildqualität“ (2.1.0); nil = `StreamQuality.standard`.
+        public var streamQuality: StreamQuality?
 
-        public init(showNameAndTime: Bool? = nil, size: PopupSizeOverride? = nil, eventRules: EventRuleList? = nil) {
+        public init(
+            showNameAndTime: Bool? = nil,
+            size: PopupSizeOverride? = nil,
+            eventRules: EventRuleList? = nil,
+            streamQuality: StreamQuality? = nil
+        ) {
             self.showNameAndTime = showNameAndTime
             self.size = size
             self.eventRules = eventRules
+            self.streamQuality = streamQuality
         }
 
-        private enum CodingKeys: String, CodingKey { case showNameAndTime, size, eventRules }
+        private enum CodingKeys: String, CodingKey { case showNameAndTime, size, eventRules, streamQuality }
 
         public init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
             showNameAndTime = (try? c.decodeIfPresent(Bool.self, forKey: .showNameAndTime)) ?? nil
             size = (try? c.decodeIfPresent(PopupSizeOverride.self, forKey: .size)) ?? nil
             eventRules = (try? c.decodeIfPresent(EventRuleList.self, forKey: .eventRules)) ?? nil
+            streamQuality = (try? c.decodeIfPresent(StreamQuality.self, forKey: .streamQuality)) ?? nil
         }
     }
 

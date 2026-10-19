@@ -23,15 +23,22 @@ public enum DisplayText {
         formatter("HH:mm", timeZone).string(from: date)
     }
 
+    /// "10:41:07"
+    public static func timeWithSeconds(_ date: Date, timeZone: TimeZone = .current) -> String {
+        formatter("HH:mm:ss", timeZone).string(from: date)
+    }
+
     /// Popup chip: "Klingel · Haustür · 10:41"; without a kind "Haustür · 10:41";
-    /// without a name "Kamera · 10:41".
-    public static func popupChip(kind: String?, camera: String, date: Date, timeZone: TimeZone = .current) -> String {
+    /// without a name "Kamera · 10:41". `seconds`: the live clock, "… · 10:41:07".
+    public static func popupChip(
+        kind: String?, camera: String, date: Date, seconds: Bool = false, timeZone: TimeZone = .current
+    ) -> String {
         let name = camera.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedKind = kind?.trimmingCharacters(in: .whitespacesAndNewlines)
         let parts = [
             trimmedKind?.isEmpty == false ? trimmedKind : nil,
             name.isEmpty ? "Kamera" : name,
-            time(date, timeZone: timeZone),
+            seconds ? timeWithSeconds(date, timeZone: timeZone) : time(date, timeZone: timeZone),
         ]
         return parts.compactMap { $0 }.joined(separator: " · ")
     }

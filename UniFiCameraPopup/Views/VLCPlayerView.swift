@@ -11,6 +11,9 @@ final class VLCPlayerContainerView: NSView, VLCMediaPlayerDelegate {
 
     private var onFirstFrame: (() -> Void)?
     private var hasNotifiedFirstFrame = false
+    /// Watches VLC's displayed-picture counter: audio and an empty video output come seconds before
+    /// the first key frame, so neither may reveal the (still black) player.
+    private var firstFrameTimer: Timer?
     private var pendingURL: String?
     /// URL as handed in (direct console address); mapped per playback start, so a
     /// route change or a tunnel reset can replay the same stream on the new path.
@@ -256,11 +259,30 @@ final class VLCPlayerContainerView: NSView, VLCMediaPlayerDelegate {
         player.media = media
         player.audio?.isMuted = !soundEnabled
         player.play()
+        watchForFirstPicture(of: media)
 
         NSLog("VLC: starting playback for \(url.host ?? "unknown")")
     }
 
+    private func watchForFirstPicture(of media: VLCMedia) {
+        firstFrameTimer?.invalidate()
+        guard !hasNotifiedFirstFrame else { return }
+        let started = Date()
+        firstFrameTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self, weak media] timer in
+            MainActor.assumeIsolated {
+                guard let self, let media, self.player.media === media else { timer.invalidate(); return }
+                // A stream that never reports pictures still gets shown after 20 s.
+                if media.statistics.displayedPictures > 0 || Date().timeIntervalSince(started) > 20 {
+                    timer.invalidate()
+                    self.notifyFirstFrameIfNeeded()
+                }
+            }
+        }
+    }
+
     func stop() {
+        firstFrameTimer?.invalidate()
+        firstFrameTimer = nil
         pendingURL = nil
         originalURL = nil
         playbackGeneration += 1
@@ -277,21 +299,13 @@ final class VLCPlayerContainerView: NSView, VLCMediaPlayerDelegate {
         let stateName = VLCMediaPlayerStateToString(player.state) ?? "unknown"
         NSLog("VLC state: \(stateName)")
 
+        // The first picture is detected by `watchForFirstPicture` – `.playing`, `.buffering`,
+        // `hasVideoOut` and a running clock all come before it (black popup with sound only).
         switch player.state {
-        case .playing where player.hasVideoOut:
-            // Not on `.buffering`: that comes before any picture, the popup would fade to black.
-            notifyFirstFrameIfNeeded()
         case .error:
             NSLog("VLC playback error for stream")
         default:
             break
-        }
-    }
-
-    func mediaPlayerTimeChanged(_ aNotification: Notification!) {
-        guard let player = aNotification.object as? VLCMediaPlayer else { return }
-        if player.time.intValue > 0 {
-            notifyFirstFrameIfNeeded()
         }
     }
 

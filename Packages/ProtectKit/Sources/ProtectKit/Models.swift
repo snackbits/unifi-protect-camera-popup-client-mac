@@ -74,4 +74,9 @@ public struct RTSPSStreams: Decodable, Equatable, Sendable {
     public var preferred: String? {
         urls["high"] ?? urls["medium"] ?? urls["low"]
     }
+
+    /// First quality of `order` the camera has a URL for (e.g. `["medium", "high", "low"]`).
+    public func url(in order: [String]) -> String? {
+        order.lazy.compactMap { urls[$0] }.first
+    }
 }

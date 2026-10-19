@@ -3,8 +3,9 @@ import AppKit
 
 /// What the popup chrome shows (template B). nil in crop selection mode.
 struct PopupOverlayContent {
-    /// „Klingel · Haustür · 10:41“; nil = „Name und Zeit einblenden“ is off (no chip).
-    let chipText: String?
+    /// „Klingel · Haustür · 10:41:07“ for a given moment (the chip ticks with the live clock);
+    /// nil = „Name und Zeit einblenden“ is off (no chip).
+    let chip: ((Date) -> String)?
     let cameraName: String
     let muteOptions: [MuteDuration]
     let onMute: (MuteDuration) -> Void
@@ -26,15 +27,17 @@ extension NSView {
 /// "Klingel · Haustür · 10:41": capsule `overlay`, padding 4/9, 11 pt semibold, white. Click-through.
 final class OverlayChipView: NSView {
     private let label = NSTextField(labelWithString: "")
+    private let text: (Date) -> String
+    private var clock: Timer?
 
-    init(text: String) {
+    init(text: @escaping (Date) -> String) {
+        self.text = text
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         wantsLayer = true
         layer?.backgroundColor = Tokens.overlay.light.nsColor.cgColor
 
-        label.stringValue = text
-        label.font = .systemFont(ofSize: 11, weight: .semibold)
+        label.font = .monospacedDigitSystemFont(ofSize: 11, weight: .semibold)
         label.textColor = .white
         label.lineBreakMode = .byTruncatingTail
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -48,10 +51,31 @@ final class OverlayChipView: NSView {
         ])
         setAccessibilityElement(true)
         setAccessibilityRole(.staticText)
-        setAccessibilityLabel(text)
+        tick()
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    private func tick() {
+        let value = text(Date())
+        label.stringValue = value
+        setAccessibilityLabel(value)
+    }
+
+    /// Ticks on the full second while on screen.
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        clock?.invalidate()
+        clock = nil
+        guard window != nil else { return }
+        tick()
+        let next = Date(timeIntervalSinceReferenceDate: Date().timeIntervalSinceReferenceDate.rounded(.down) + 1)
+        let timer = Timer(fire: next, interval: 1, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.tick() }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        clock = timer
+    }
 
     override func layout() {
         super.layout()

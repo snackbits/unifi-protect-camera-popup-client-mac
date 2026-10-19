@@ -115,14 +115,19 @@ public final class ProtectClient: NSObject, URLSessionTaskDelegate, @unchecked S
         try await get("/v1/cameras")
     }
 
-    public func rtspURL(cameraId: String) async throws -> String? {
+    /// RTSP URL for the first quality of `order` (nearest first). A missing wanted quality is created
+    /// once (Protect only shares streams someone asked for); if the camera cannot offer it, the
+    /// nearest existing one is used.
+    public func rtspURL(cameraId: String, order: [String] = ["high", "medium", "low"]) async throws -> String? {
+        guard let wanted = order.first else { return nil }
         let existing: RTSPSStreams = try await get("/v1/cameras/\(cameraId)/rtsps-stream")
-        if let url = existing.preferred { return StreamURL.normalizedRTSP(url) }
-        let created: RTSPSStreams = try await send(
+        if let url = existing.urls[wanted] { return StreamURL.normalizedRTSP(url) }
+        let created: RTSPSStreams? = try? await send(
             "POST", "/v1/cameras/\(cameraId)/rtsps-stream",
-            body: Data(#"{"qualities":["high"]}"#.utf8)
+            body: Data(#"{"qualities":["\#(wanted)"]}"#.utf8)
         )
-        return created.preferred.map(StreamURL.normalizedRTSP)
+        let url = created?.urls[wanted] ?? existing.url(in: order) ?? created?.url(in: order)
+        return url.map(StreamURL.normalizedRTSP)
     }
 
     /// Current still image of a camera (JPEG). Used for thumbnails in settings and the menu panel.

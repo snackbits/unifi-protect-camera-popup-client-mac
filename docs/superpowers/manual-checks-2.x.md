@@ -151,3 +151,8 @@ Vorher: `defaults export com.snackbits.UniFiCameraPopup ~/ucp-backup-phase6.plis
 - [ ] Abfrage mit „Ablehnen“ beantworten → App läuft ohne Geheimnisse weiter, fragt bis zum nächsten Start nicht erneut und überschreibt den Eintrag nicht.
 - [ ] `build-release.sh` erzeugt zusätzlich `server/public/UniFi-Camera-Popup.dmg` (erster Lauf: Terminal darf Finder steuern → erlauben). DMG öffnen: Fenster mit Titel, Pfeil, App links, „Programme“ rechts, Hinweis „Beim ersten Öffnen“ vollständig sichtbar; in Hell- und Dunkelmodus lesbare Symbolnamen. App auf „Programme“ ziehen → installiert.
 - [ ] `deploy-release.sh --dry-run`, dann `deploy-release.sh --nginx` (erstes Mal, DMG-Location): Diff ansehen, bestätigen; am Ende „Live: 2.0.0 (build N)“. `https://unifi-protect-camera-popup-server.snackbits.dev/UniFi-Camera-Popup.dmg` lädt die DMG.
+
+## 2.1.0 (2026-10-19)
+- [ ] Kameras: Zeile „Bildqualität“ (Hoch/Mittel/Niedrig), Standard Mittel. Umschalten → nächstes Popup nutzt den anderen Stream (Log: rtsps-Alias wechselt).
+- [ ] Popup: Während nur Ton läuft, bleibt „Stream wird geladen …“ stehen; das Bild blendet erst mit dem ersten echten Bild ein (kein schwarzes Popup).
+- [ ] Chip mittig oben: „Bewegung · Garten · 10:41:07“, Sekunden laufen live mit; nach dem Update bei allen Kameras an, ausschalten bleibt nach Neustart aus. Schmales Popup: Chip rückt nach links/kürzt, überdeckt Stumm/Schließen nicht.
