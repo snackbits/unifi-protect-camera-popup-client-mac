@@ -268,11 +268,17 @@ final class VLCPlayerContainerView: NSView, VLCMediaPlayerDelegate {
         firstFrameTimer?.invalidate()
         guard !hasNotifiedFirstFrame else { return }
         let started = Date()
-        firstFrameTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self, weak media] timer in
+        // `player.media` hands out a new wrapper object per call – never compare it by identity;
+        // the playback generation tells whether this media is still the one playing.
+        let generation = playbackGeneration
+        firstFrameTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] timer in
             MainActor.assumeIsolated {
-                guard let self, let media, self.player.media === media else { timer.invalidate(); return }
-                // A stream that never reports pictures still gets shown after 20 s.
-                if media.statistics.displayedPictures > 0 || Date().timeIntervalSince(started) > 20 {
+                guard let self, generation == self.playbackGeneration, !self.hasNotifiedFirstFrame else {
+                    timer.invalidate()
+                    return
+                }
+                // A stream that never reports pictures still gets shown after 10 s.
+                if media.statistics.displayedPictures > 0 || Date().timeIntervalSince(started) > 10 {
                     timer.invalidate()
                     self.notifyFirstFrameIfNeeded()
                 }

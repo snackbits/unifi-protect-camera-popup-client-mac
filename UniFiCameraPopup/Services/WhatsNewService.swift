@@ -22,6 +22,9 @@ struct WhatsNewInfo: Equatable {
 enum WhatsNewService {
     /// Newest version first.
     static let changelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "2.1.1", items: [
+            "Behoben: Das Livebild blieb bei „Stream wird geladen …“ stehen, obwohl der Ton schon lief.",
+        ]),
         ChangelogEntry(version: "2.1.0", items: [
             "Bildqualität pro Kamera (Hoch, Mittel, Niedrig – Standard Mittel): Niedriger startet das Livebild schneller.",
             "Kein schwarzes Popup mehr: Bis das erste Bild da ist, steht „Stream wird geladen …“.",
