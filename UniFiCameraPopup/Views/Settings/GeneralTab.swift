@@ -155,24 +155,10 @@ struct GeneralTab: View {
         .padding(.horizontal, 14)
     }
 
-    // MARK: Darstellung und Verhalten
+    // MARK: Verhalten (Darstellung und Popup: Reiter Erscheinungsbild)
 
     private var preferencesCard: some View {
         Card {
-            CardRow(title: "Erscheinungsbild") {
-                TokenSegmented(
-                    selection: $settings.appearance,
-                    options: AppearanceMode.allCases.map { (value: $0, title: $0.label) }
-                )
-            }
-            CardDivider()
-            CardRow(title: "Popup-Position") {
-                PopUpField(
-                    selection: $settings.defaultPosition,
-                    options: PopupPosition.allCases.map { (value: $0, title: $0.label) }
-                )
-            }
-            CardDivider()
             CardToggleRow(title: "Im Fokus-Modus keine Popups", isOn: $settings.disableDuringDND)
             if settings.disableDuringDND && !dndHasFullDiskAccess {
                 CardDivider()
@@ -242,29 +228,6 @@ struct GeneralTab: View {
     private var advanced: some View {
         VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 6) {
-                SectionLabel(text: "Popup")
-                Card {
-                    CardRow(title: "Bildschirm") {
-                        PopUpField(
-                            selection: $settings.screenTarget,
-                            options: ScreenTarget.allCases.map { (value: $0, title: $0.label) }
-                        )
-                    }
-                    CardDivider()
-                    sliderRow("Randabstand", value: $settings.edgeMargin, range: 0...120, step: 1,
-                              text: "\(Int(settings.edgeMargin)) px")
-                    CardDivider()
-                    sliderRow("Automatisch schließen", value: $settings.autoCloseTimeout, range: 0...300, step: 5,
-                              text: settings.autoCloseTimeout > 0 ? "\(Int(settings.autoCloseTimeout)) s" : "Aus")
-                    CardDivider()
-                    CardToggleRow(
-                        title: "Alle aktiven Kameras zeigen",
-                        subtitle: "Jede auslösende Kamera bekommt ein eigenes Popup, untereinander gestapelt. Ohne diese Option ersetzt eine neue Kamera das aktuelle Popup.",
-                        isOn: $settings.showAllActiveCameras
-                    )
-                }
-            }
-            VStack(alignment: .leading, spacing: 6) {
                 SectionLabel(text: "Updates")
                 Card {
                     CardToggleRow(title: "Bei neuer Version nachfragen", isOn: $settings.autoUpdate)
@@ -288,21 +251,6 @@ struct GeneralTab: View {
                 }
             }
         }
-    }
-
-    private func sliderRow(_ title: String, value: Binding<Double>, range: ClosedRange<Double>, step: Double, text: String) -> some View {
-        HStack(spacing: 10) {
-            Text(title).frame(width: 170, alignment: .leading)
-            Slider(value: value, in: range, step: step)
-                .controlSize(.small)
-                .tint(Tokens.accent.color)
-            Text(text)
-                .font(.system(size: 12).monospacedDigit())
-                .foregroundStyle(Tokens.muted.color)
-                .frame(width: 52, alignment: .trailing)
-        }
-        .padding(.vertical, 10)
-        .padding(.horizontal, 14)
     }
 
     private var relaySection: some View {

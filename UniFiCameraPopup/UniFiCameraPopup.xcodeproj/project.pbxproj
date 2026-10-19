@@ -50,6 +50,8 @@
 		A10000000000000000000072 /* PopUpField.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000072 /* PopUpField.swift */; };
 		A10000000000000000000073 /* SettingsWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000073 /* SettingsWindow.swift */; };
 		A10000000000000000000074 /* GeneralTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000074 /* GeneralTab.swift */; };
+		F71000000000000000000002 /* PopupLayoutPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = F72000000000000000000002 /* PopupLayoutPreview.swift */; };
+		F71000000000000000000001 /* AppearanceTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = F72000000000000000000001 /* AppearanceTab.swift */; };
 		A10000000000000000000080 /* PopupOverlayViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000080 /* PopupOverlayViews.swift */; };
 		A10000000000000000000078 /* SoundAndRemoteTabs.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000078 /* SoundAndRemoteTabs.swift */; };
 		C31000000000000000000001 /* SoundStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C32000000000000000000001 /* SoundStore.swift */; };
@@ -119,6 +121,8 @@
 		A20000000000000000000072 /* PopUpField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopUpField.swift; sourceTree = "<group>"; };
 		A20000000000000000000073 /* SettingsWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindow.swift; sourceTree = "<group>"; };
 		A20000000000000000000074 /* GeneralTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneralTab.swift; sourceTree = "<group>"; };
+		F72000000000000000000002 /* PopupLayoutPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopupLayoutPreview.swift; sourceTree = "<group>"; };
+		F72000000000000000000001 /* AppearanceTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceTab.swift; sourceTree = "<group>"; };
 		A20000000000000000000080 /* PopupOverlayViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopupOverlayViews.swift; sourceTree = "<group>"; };
 		A20000000000000000000078 /* SoundAndRemoteTabs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundAndRemoteTabs.swift; sourceTree = "<group>"; };
 		C32000000000000000000001 /* SoundStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundStore.swift; sourceTree = "<group>"; };
@@ -282,6 +286,8 @@
 				E52000000000000000000002 /* EventRulesSection.swift */,
 				A20000000000000000000073 /* SettingsWindow.swift */,
 				A20000000000000000000074 /* GeneralTab.swift */,
+				F72000000000000000000002 /* PopupLayoutPreview.swift */,
+				F72000000000000000000001 /* AppearanceTab.swift */,
 				A20000000000000000000078 /* SoundAndRemoteTabs.swift */,
 				C32000000000000000000007 /* SoundTab.swift */,
 				A20000000000000000000075 /* CamerasTab.swift */,
@@ -508,6 +514,8 @@
 				A10000000000000000000072 /* PopUpField.swift in Sources */,
 				A10000000000000000000073 /* SettingsWindow.swift in Sources */,
 				A10000000000000000000074 /* GeneralTab.swift in Sources */,
+				F71000000000000000000002 /* PopupLayoutPreview.swift in Sources */,
+				F71000000000000000000001 /* AppearanceTab.swift in Sources */,
 				A10000000000000000000075 /* CamerasTab.swift in Sources */,
 				A10000000000000000000076 /* CameraAdvancedSection.swift in Sources */,
 				A10000000000000000000077 /* ActionEditorSheet.swift in Sources */,

@@ -42,6 +42,8 @@ enum SnapshotRenderer {
     nonisolated(unsafe) static var tunnelPhase: TunnelPhase?
     /// Read by `SettingsRootView`: a taller window for renders that must show a whole tab (S2).
     nonisolated(unsafe) static var settingsHeight: CGFloat?
+    /// Read by the Erscheinungsbild tab: freezes the layout illustrations at this point of the cycle.
+    nonisolated(unsafe) static var layoutPreviewProgress: Double?
 
     /// Call first in `applicationDidFinishLaunching`; renders and terminates when requested.
     @MainActor
@@ -144,6 +146,34 @@ enum SnapshotRenderer {
             }
             write(window: settingsWindow(tab: .general), appearance: appearance,
                   to: directory.appendingPathComponent("S1-allgemein-\(suffix).png"))
+            // Erscheinungsbild: illustrations frozen in their resting frame; once at the window
+            // height, once tall enough for the whole tab.
+            SnapshotRenderer.layoutPreviewProgress = PopupLayoutPreview.restProgress(for: .miniature)
+            write(window: settingsWindow(tab: .appearance), appearance: appearance,
+                  to: directory.appendingPathComponent("S7-erscheinungsbild-\(suffix).png"))
+            SnapshotRenderer.settingsHeight = 900
+            let tallAppearance = settingsWindow(tab: .appearance)
+            tallAppearance.setFrame(NSRect(x: 0, y: 0, width: 760, height: 900), display: false)
+            write(window: tallAppearance, appearance: appearance,
+                  to: directory.appendingPathComponent("S7-erscheinungsbild-ganz-\(suffix).png"))
+            SnapshotRenderer.settingsHeight = nil
+            SnapshotRenderer.layoutPreviewProgress = nil
+            // Frames of the two illustrations through the 7 s cycle (fixed scene colors: once).
+            if suffix == "light" {
+                for mode in PopupLayoutMode.allCases {
+                    for percent in [5, 20, 30, 37, 43, 55, 68, 88] {
+                        let frame = PopupLayoutScene(mode: mode, progress: Double(percent) / 100)
+                            .frame(width: 319, height: 199.375)
+                        let renderer = ImageRenderer(content: frame)
+                        renderer.scale = 2
+                        if let image = renderer.nsImage, let tiff = image.tiffRepresentation,
+                           let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) {
+                            let name = String(format: "L-%@-%02d.png", mode.rawValue, percent)
+                            try? png.write(to: directory.appendingPathComponent(name))
+                        }
+                    }
+                }
+            }
             // S2 tall enough for the whole camera page down to the „Ereignisse“ card.
             SnapshotRenderer.settingsHeight = 760
             let tallCameras = settingsWindow(tab: .cameras, entry: sample.door.entryId)

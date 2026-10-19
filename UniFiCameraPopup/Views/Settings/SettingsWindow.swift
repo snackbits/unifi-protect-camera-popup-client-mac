@@ -5,6 +5,7 @@ import SwiftUI
 
 enum SettingsTab: Int, CaseIterable, Identifiable {
     case general
+    case appearance
     case cameras
     case sound
     case remote
@@ -15,6 +16,7 @@ enum SettingsTab: Int, CaseIterable, Identifiable {
     var label: String {
         switch self {
         case .general: return "Allgemein"
+        case .appearance: return "Erscheinungsbild"
         case .cameras: return "Kameras"
         case .sound: return "Ton"
         case .remote: return "Unterwegs"
@@ -25,6 +27,7 @@ enum SettingsTab: Int, CaseIterable, Identifiable {
     var windowTitle: String {
         switch self {
         case .general: return "Allgemein"
+        case .appearance: return "Erscheinungsbild"
         case .cameras: return "Kameras"
         case .sound: return "Ton & Sprechen"
         case .remote: return "Unterwegs"
@@ -34,6 +37,7 @@ enum SettingsTab: Int, CaseIterable, Identifiable {
     var icon: TemplateIcon {
         switch self {
         case .general: return .tabGeneral
+        case .appearance: return .tabAppearance
         case .cameras: return .tabCameras
         case .sound: return .tabSound
         case .remote: return .tabRemote
@@ -147,6 +151,7 @@ struct SettingsRootView: View {
     private var content: some View {
         switch navigation.tab {
         case .general: GeneralTab()
+        case .appearance: AppearanceTab()
         case .cameras: CamerasTab(navigation: navigation)
         case .sound: SoundTab()
         case .remote: RemoteTab()
@@ -154,7 +159,7 @@ struct SettingsRootView: View {
     }
 }
 
-/// Centered tab buttons: 78 wide, padding 5/0, radius 7, icon 20 + 3 + label 11.
+/// Centered tab buttons: at least 78 wide (longer labels: padding 10), padding 5, radius 7, icon 20 + 3 + label 11.
 struct SettingsTabBar: View {
     @Binding var selection: SettingsTab
 
@@ -165,10 +170,12 @@ struct SettingsTabBar: View {
                 Button { selection = tab } label: {
                     VStack(spacing: 3) {
                         tab.icon.image(size: 20)
-                        Text(tab.label).font(.system(size: 11))
+                        Text(tab.label).font(.system(size: 11)).lineLimit(1).fixedSize()
                     }
                     .foregroundStyle(isOn ? Tokens.accText.color : Tokens.muted.color)
-                    .frame(width: 78)
+                    // Longer labels („Erscheinungsbild“) widen the button: padding 10 as in the mock.
+                    .padding(.horizontal, 10)
+                    .frame(minWidth: 78)
                     .padding(.vertical, 5)
                     .background(RoundedRectangle(cornerRadius: 7).fill(isOn ? Tokens.tabOn.color : Color.clear))
                     .contentShape(Rectangle())

@@ -8,6 +8,8 @@ import SwiftUI
 /// (vector, template rendering: tinted by the surrounding foreground color).
 enum TemplateIcon: String, CaseIterable {
     case tabGeneral, tabCameras, tabSound, tabRemote
+    /// Screen frame with two small popups at the right edge (Einstellungen › Erscheinungsbild).
+    case tabAppearance
     case chevronUpDown, chevronRight, chevronDown
     case close, bellSlash, speakerMute, check, play, shieldCheck
     /// Lucide „settings“ (same stroke style as the template icons): popup → camera settings.
@@ -65,16 +67,27 @@ struct CardDivider: View {
     }
 }
 
-/// Card row: title fills, trailing controls on the right (gap 10).
+/// Card row: title fills, trailing controls on the right (gap 10);
+/// optional 11 pt subtitle under the title (gap 2, as in `CardToggleRow`).
 struct CardRow<Trailing: View>: View {
     let title: String
+    var subtitle: String? = nil
     var vertical: CGFloat = 10
     var horizontal: CGFloat = 14
     @ViewBuilder var trailing: Trailing
 
     var body: some View {
         HStack(spacing: 10) {
-            Text(title).frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.system(size: 11))
+                        .foregroundStyle(Tokens.muted.color)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
             trailing
         }
         .padding(.vertical, vertical)
