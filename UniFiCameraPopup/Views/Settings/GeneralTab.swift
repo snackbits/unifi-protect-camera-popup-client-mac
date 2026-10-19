@@ -267,7 +267,7 @@ struct GeneralTab: View {
             VStack(alignment: .leading, spacing: 6) {
                 SectionLabel(text: "Updates")
                 Card {
-                    CardToggleRow(title: "Automatisch aktualisieren", isOn: $settings.autoUpdate)
+                    CardToggleRow(title: "Bei neuer Version nachfragen", isOn: $settings.autoUpdate)
                     CardDivider()
                     CardRow(title: "Version") {
                         Text("\(AppConfig.shortVersion) (\(AppConfig.buildNumber))")

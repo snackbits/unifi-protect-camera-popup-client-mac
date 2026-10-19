@@ -22,6 +22,10 @@ struct WhatsNewInfo: Equatable {
 enum WhatsNewService {
     /// Newest version first.
     static let changelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "2.2.0", items: [
+            "Updates installieren sich nicht mehr unbemerkt: Bei einer neuen Version fragt die App nach und zeigt, was neu ist.",
+            "Die Einstellung heißt jetzt „Bei neuer Version nachfragen“ (Allgemein).",
+        ]),
         ChangelogEntry(version: "2.1.1", items: [
             "Behoben: Das Livebild blieb bei „Stream wird geladen …“ stehen, obwohl der Ton schon lief.",
         ]),

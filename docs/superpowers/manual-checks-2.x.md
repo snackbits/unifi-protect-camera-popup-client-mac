@@ -156,3 +156,7 @@ Vorher: `defaults export com.snackbits.UniFiCameraPopup ~/ucp-backup-phase6.plis
 - [ ] Kameras: Zeile „Bildqualität“ (Hoch/Mittel/Niedrig), Standard Mittel. Umschalten → nächstes Popup nutzt den anderen Stream (Log: rtsps-Alias wechselt).
 - [ ] Popup: Während nur Ton läuft, bleibt „Stream wird geladen …“ stehen; das Bild blendet erst mit dem ersten echten Bild ein (kein schwarzes Popup).
 - [ ] Chip mittig oben: „Bewegung · Garten · 10:41:07“, Sekunden laufen live mit; nach dem Update bei allen Kameras an, ausschalten bleibt nach Neustart aus. Schmales Popup: Chip rückt nach links/kürzt, überdeckt Stumm/Schließen nicht.
+
+## 2.2.0 (2026-10-19)
+- [ ] Neue Version auf dem Server → Dialog „Version X ist verfügbar“ mit den Neuerungen als Liste und Hinweis auf die Passwortabfrage; „Später“ → kein Download, Dialog erst nach Neustart der App wieder; „Jetzt aktualisieren“ → lädt, installiert, startet neu.
+- [ ] Allgemein: „Bei neuer Version nachfragen“ aus → kein Dialog, nur „Auf neue Version aktualisieren“ im Menü.

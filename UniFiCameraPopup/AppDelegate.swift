@@ -66,7 +66,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Mirrors `ConnectionRouter.shared.route == .tunnel` for the status line.
     private var isViaTunnel = false
     /// Prevents retry loops when an automatic install fails.
-    private var autoInstallAttemptedVersionId: String?
+    /// Version the update question was shown for in this run („Später“ asks again after a restart).
+    private var updatePromptedVersionId: String?
 
     /// How often to poll the server for a newer build while the app is running.
     private let updateCheckInterval: TimeInterval = 6 * 60 * 60
@@ -432,7 +433,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             updateMenuItem.title = "Auf neue Version aktualisieren"
             updateMenuItem.isHidden = false
             updateMenuItem.isEnabled = true
-            autoInstallUpdateIfNeeded()
+            promptForUpdateIfNeeded()
 
         case .downloading:
             updateMenuItem.title = "Lade neue Version…"
@@ -517,31 +518,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return image
     }
 
-    private func autoInstallUpdateIfNeeded() {
+    /// A new version asks once per run instead of installing silently: the keychain password
+    /// prompt after the restart only makes sense when the user chose to update.
+    private func promptForUpdateIfNeeded() {
         guard settings.autoUpdate,
               let manifest = updateService.availableManifest,
               !updateService.isInstalling,
-              manifest.versionId != autoInstallAttemptedVersionId else {
+              manifest.versionId != updatePromptedVersionId else {
             return
         }
-
-        autoInstallAttemptedVersionId = manifest.versionId
-        Task { await updateService.installUpdate() }
+        updatePromptedVersionId = manifest.versionId
+        // Not on top of a popup or another dialog that is being dealt with right now.
+        DispatchQueue.main.async { [weak self] in self?.confirmAndInstall(manifest) }
     }
 
     @objc private func installUpdate() {
         guard let manifest = updateService.availableManifest else { return }
+        updatePromptedVersionId = manifest.versionId
+        confirmAndInstall(manifest)
+    }
 
+    private func confirmAndInstall(_ manifest: UpdateManifest) {
+        guard !updateService.isInstalling, NSApp.modalWindow == nil else { return }
         let alert = NSAlert()
-        alert.messageText = "Neue Version installieren?"
-        var info = "Version \(manifest.buildNumber) wird heruntergeladen und installiert. "
-            + "Die App startet anschließend neu."
-        if let notes = manifest.notes, !notes.isEmpty {
-            info += "\n\n\(notes)"
+        let version = manifest.shortVersion.map { "Version \($0)" } ?? "Eine neue Version"
+        alert.messageText = "\(version) ist verfügbar"
+        var info = ""
+        if let notes = manifest.notes?.trimmingCharacters(in: .whitespacesAndNewlines), !notes.isEmpty {
+            info += "\(notes)\n\n"
         }
+        info += "Die App lädt das Update, installiert es und startet neu. Danach fragt macOS eventuell "
+            + "einmal nach deinem Anmeldepasswort, damit die neue Version deine gespeicherten Zugangsdaten "
+            + "(API-Schlüssel, Tunnel) lesen darf – dann „Immer erlauben“ (Always Allow) wählen."
         alert.informativeText = info
-        alert.addButton(withTitle: "Aktualisieren")
-        alert.addButton(withTitle: "Abbrechen")
+        alert.addButton(withTitle: "Jetzt aktualisieren")
+        alert.addButton(withTitle: "Später")
         NSApp.activate(ignoringOtherApps: true)
 
         guard alert.runModal() == .alertFirstButtonReturn else { return }
