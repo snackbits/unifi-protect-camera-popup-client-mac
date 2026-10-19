@@ -61,6 +61,9 @@ final class PopupWindow: NSPanel {
     var compactClickCloses: (() -> Bool)?
     private var isClosing = false
     private var isClosed = false
+    /// A picture is shown: the event still, the first video frame or a camera still.
+    private var hasPicture = false
+    private var pictureWaiters: [() -> Void] = []
     private var isRunningModal = false
     private var clock: AutoCloseClock?
     private var clockPaused = false
@@ -149,6 +152,7 @@ final class PopupWindow: NSPanel {
 
         playerView.play(urlString: streamURL, soundEnabled: soundEnabled) { [weak self] in
             guard let self else { return }
+            self.pictureShown()
             self.stopStills()
             NSAnimationContext.runAnimationGroup { context in
                 context.duration = 0.25
@@ -349,6 +353,7 @@ final class PopupWindow: NSPanel {
 
         if let thumbnailDataURI, let image = imageFromDataURI(thumbnailDataURI) {
             thumbnailView.image = image
+            hasPicture = true
         }
         if isMiniature {
             // On top like the layer border it replaces (the overlays go into their layers).
@@ -479,6 +484,7 @@ final class PopupWindow: NSPanel {
                 guard let self, self.stillsTimer != nil, let image else { return }
                 self.thumbnailView.image = image
                 self.thumbnailView.alphaValue = 1
+                self.pictureShown()
             }
         }
         let timer = Timer(timeInterval: 1, repeats: true) { _ in refresh() }
@@ -706,8 +712,61 @@ final class PopupWindow: NSPanel {
     /// (`side`) or out beyond it, inside the window and cut off at its rounded edge; the window
     /// itself stands still, so nothing shows on a neighbouring screen. No shadow while it slides
     /// (it would show the empty window's outline).
-    func slideContent(in slidingIn: Bool, side: PopupAnchor.Horizontal, curve: CAMediaTimingFunction, completion: @escaping () -> Void) {
+    /// Miniature: `action` runs once a picture is shown (event still, first video frame or camera
+    /// still), at the latest after `timeout` – so a miniature never slides in as an empty black card.
+    func whenPictureShown(timeout: TimeInterval, _ action: @escaping () -> Void) {
+        if hasPicture {
+            action()
+            return
+        }
+        var done = false
+        let once = {
+            guard !done else { return }
+            done = true
+            action()
+        }
+        pictureWaiters.append(once)
+        DispatchQueue.main.asyncAfter(deadline: .now() + timeout) { once() }
+    }
+
+    private func pictureShown() {
+        hasPicture = true
+        let waiters = pictureWaiters
+        pictureWaiters = []
+        waiters.forEach { $0() }
+    }
+
+    /// Miniature: puts the content beyond the outer edge without animation (the window shows
+    /// nothing until `slideContent(in: true, …)`).
+    func placeContentOutside(side: PopupAnchor.Horizontal) {
+        guard let layer = contentView?.layer else { return }
+        hasShadow = false
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        layer.sublayerTransform = CATransform3DMakeTranslation(side == .leading ? -frame.width : frame.width, 0, 0)
+        CATransaction.commit()
+    }
+
+    func slideContent(
+        in slidingIn: Bool,
+        side: PopupAnchor.Horizontal,
+        curve: CAMediaTimingFunction,
+        animated: Bool = true,
+        completion: @escaping () -> Void
+    ) {
         guard let layer = contentView?.layer else {
+            completion()
+            return
+        }
+        guard animated else {
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            layer.sublayerTransform = slidingIn
+                ? CATransform3DIdentity
+                : CATransform3DMakeTranslation(side == .leading ? -frame.width : frame.width, 0, 0)
+            CATransaction.commit()
+            hasShadow = slidingIn
+            if slidingIn { invalidateShadow() }
             completion()
             return
         }

@@ -20,6 +20,8 @@ final class MiniatureStackPresenter {
         let indicator: PopupIndicatorPanel
         var animationToken = 0
         var isAnimating = false
+        /// No picture yet: the window is empty, the content waits beyond the edge.
+        var isWaitingForPicture = false
         /// The content still slides in: the remaining-time line appears afterwards.
         var isSlidingIn = false
     }
@@ -28,6 +30,8 @@ final class MiniatureStackPresenter {
     private static let slideIn = CAMediaTimingFunction(controlPoints: 0.2, 0.8, 0.25, 1)
     private static let slideOut = CAMediaTimingFunction(controlPoints: 0.55, 0, 0.8, 0.3)
     private static let move = CAMediaTimingFunction(name: .easeInEaseOut)
+    /// The slide-in waits this long at most for the first picture.
+    private static let pictureTimeout: TimeInterval = 3
 
     private let environment: () -> Environment
     private var stack: MiniatureStack<UUID>
@@ -50,7 +54,8 @@ final class MiniatureStackPresenter {
     // MARK: Opening and closing
 
     /// A new miniature at the bottom of the column: the window stands there at once, its content
-    /// slides in from beyond the outer edge (300 ms ease-out).
+    /// slides in from beyond the outer edge (300 ms ease-out) – once a picture is shown, at the
+    /// latest after 3 s. Until then the window is empty and ignores the pointer.
     func add(id: UUID, window: PopupWindow, fullSize: CGSize) {
         let env = environment()
         syncEnvironment(env, instant: true)
@@ -72,15 +77,21 @@ final class MiniatureStackPresenter {
         guard let base = frames.removeValue(forKey: id) ?? stack.frame(of: id) else { return }
         window.setFrame(base, display: false)
         indicator.setFrame(PopupIndicatorPanel.frame(around: base), display: false)
-        if !reduceMotion {
-            entries[id]?.isSlidingIn = true
-            window.slideContent(in: true, side: env.side, curve: Self.slideIn) { [weak self] in
-                self?.entries[id]?.isSlidingIn = false
-            }
-        }
+        entries[id]?.isWaitingForPicture = true
+        entries[id]?.isSlidingIn = true
+        window.placeContentOutside(side: env.side)
+        window.ignoresMouseEvents = true
         // Show without stealing focus so the user can keep typing in other apps.
         window.orderFrontRegardless()
         indicator.orderFrontRegardless()
+        window.whenPictureShown(timeout: Self.pictureTimeout) { [weak self, weak window] in
+            guard let self, let window, self.stack.phase(of: id) != nil, self.stack.phase(of: id) != .leaving else { return }
+            self.entries[id]?.isWaitingForPicture = false
+            window.ignoresMouseEvents = false
+            window.slideContent(in: true, side: self.stack.side, curve: Self.slideIn, animated: !self.reduceMotion) { [weak self] in
+                self?.entries[id]?.isSlidingIn = false
+            }
+        }
         apply(frames)
         startTicking()
         tick()
@@ -94,7 +105,8 @@ final class MiniatureStackPresenter {
         if stack.expandedID == id { hoverGuard = MiniatureHoverGuard() }
         entry.indicator.stopHoverBar(animated: false)
         entry.indicator.showRest(.neutral)
-        guard stack.beginLeaving(id), !reduceMotion else {
+        // Not slid in yet: nothing to see, close at once.
+        guard stack.beginLeaving(id), !reduceMotion, !entry.isWaitingForPicture else {
             entry.window.finishClose()
             return
         }
