@@ -435,8 +435,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             updateMenuItem.isHidden = true
             updateMenuItem.isEnabled = true
 
-        case .available(let buildNumber, let shortVersion):
-            let target = shortVersion.map { "\($0) (\(buildNumber))" } ?? "\(buildNumber)"
+        case .available(_, let shortVersion):
+            let target = shortVersion ?? "neue Version"
             versionMenuItem.title = "\(currentVersionLabel) → \(target)"
             updateMenuItem.title = "Auf neue Version aktualisieren"
             updateMenuItem.isHidden = false
@@ -595,7 +595,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private var currentVersionLabel: String {
-        "Version: \(AppConfig.shortVersion) (\(AppConfig.buildNumber))"
+        "Version: \(AppConfig.shortVersion)"
     }
 
     /// Announces what changed once after an update. Fresh installs see nothing.

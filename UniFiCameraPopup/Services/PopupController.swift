@@ -160,7 +160,11 @@ final class PopupController {
             onMute: { [weak self] duration in
                 self?.settings.mute(entryId: entryId, for: duration)
             },
-            talk: TalkbackService.shared.canTalk(mapping) ? PopupTalkContent(entryId: entryId) : nil,
+            talk: TalkbackService.shared.canTalk(mapping)
+                ? PopupTalkContent(entryId: entryId, soundEnabled: mapping.soundEnabled) { [weak self] enabled in
+                    self?.settings.setSoundEnabled(enabled, for: entryId)
+                }
+                : nil,
             onOpenSettings: { AppActions.openCameraSettings(entryId) }
         )
         return PopupWindow(

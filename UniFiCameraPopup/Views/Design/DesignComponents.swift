@@ -15,6 +15,10 @@ enum TemplateIcon: String, CaseIterable {
     case actionDoor, actionBulb, actionHouse, actionBolt
     case fileDownload
     case mic, soundPlay
+    /// Lucide „megaphone“: announcements (MP3, AI voice) in the popup.
+    case megaphone
+    /// `soundPlay` struck through: camera sound off in the popup.
+    case speakerOff
 
     func image(size: CGFloat) -> some View {
         Image(rawValue)

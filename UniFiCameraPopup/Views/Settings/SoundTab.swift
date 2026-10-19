@@ -77,7 +77,7 @@ struct SoundTab: View {
 
     private var announcementList: some View {
         VStack(alignment: .leading, spacing: 5) {
-            SectionLabel(text: "Ansagen für „Ton abspielen“")
+            SectionLabel(text: "Ansagen für „Ansage abspielen“")
             Card {
                 ForEach(store.settings.announcements) { sound in
                     row(sound)

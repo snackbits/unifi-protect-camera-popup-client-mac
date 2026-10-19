@@ -230,6 +230,12 @@ final class VLCPlayerContainerView: NSView, VLCMediaPlayerDelegate {
 
     private var soundEnabled = true
 
+    /// Camera sound switched while the stream runs (popup sound button).
+    func setSoundEnabled(_ enabled: Bool) {
+        soundEnabled = enabled
+        player.audio?.isMuted = !enabled
+    }
+
     /// Maps the URL onto the current route first. Away and not reachable through the tunnel:
     /// no fallback to the direct address – `onUnavailable` reports it instead.
     private func beginPlayback(urlString: String) {

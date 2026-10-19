@@ -270,7 +270,7 @@ struct GeneralTab: View {
                     CardToggleRow(title: "Bei neuer Version nachfragen", isOn: $settings.autoUpdate)
                     CardDivider()
                     CardRow(title: "Version") {
-                        Text("\(AppConfig.shortVersion) (\(AppConfig.buildNumber))")
+                        Text(AppConfig.shortVersion)
                             .foregroundStyle(Tokens.muted.color)
                     }
                 }
