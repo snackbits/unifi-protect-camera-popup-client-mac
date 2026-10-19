@@ -362,7 +362,8 @@ enum SnapshotRenderer {
                     actions: Array(sample.door.actions.prefix(2)),
                     overlay: PopupOverlayContent(
                         chip: { _ in "Klingel · Haustür · 10:41:07" }, cameraName: "Haustür",
-                        muteOptions: sample.settings.muteOptions, onMute: { _ in }
+                        muteOptions: sample.settings.muteOptions, onMute: { _ in },
+                        sound: PopupSoundContent(enabled: true) { _ in }
                     ),
                     onClose: {}
                 )
