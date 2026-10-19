@@ -49,6 +49,9 @@ final class PopupWindow: NSPanel {
     private let chromeLayer = PassthroughView()
     /// Loading text and notices (never take clicks).
     private let hintLayer = PassthroughView(passesAll: true)
+    /// Miniature: black background and ring as views, so they slide with the content.
+    private let backgroundView = PassthroughView(passesAll: true)
+    private let ringView = PassthroughView(passesAll: true)
     /// Pointer entered (true) or left (false) the popup (tracking area of the click catcher).
     var onHoverChange: ((Bool) -> Void)?
     /// Set by the controller: closing slides the miniature out first and then calls `finishClose()`.
@@ -163,6 +166,15 @@ final class PopupWindow: NSPanel {
         content.layer?.backgroundColor = NSColor.black.cgColor
         content.layer?.cornerRadius = Self.cornerRadius
         content.layer?.masksToBounds = true
+        if isMiniature {
+            // Miniature: the content slides in and out inside the window (`slideContent`), so the
+            // black background and the ring are views that move with it.
+            content.layer?.backgroundColor = NSColor.clear.cgColor
+            addFullSizeView(backgroundView, to: content)
+            backgroundView.wantsLayer = true
+            backgroundView.layer?.backgroundColor = NSColor.black.cgColor
+            backgroundView.layer?.cornerRadius = Self.cornerRadius
+        }
 
         thumbnailView.imageScaling = .scaleProportionallyUpOrDown
         thumbnailView.translatesAutoresizingMaskIntoConstraints = false
@@ -276,6 +288,7 @@ final class PopupWindow: NSPanel {
         content.addSubview(cropActionBar)
         // Miniature: loading text and notices in one layer (never takes clicks); the compact
         // miniature hides it. "Voll": the notices directly, they take clicks as before.
+        let hintParent: NSView = isMiniature ? hintLayer : content
         if isMiniature {
             addFullSizeLayer(hintLayer, to: content)
             hintLayer.addSubview(loadingLabel)
@@ -301,14 +314,14 @@ final class PopupWindow: NSPanel {
         loadingLabel.alignment = .center
 
         NSLayoutConstraint.activate([
-            loadingLabel.centerXAnchor.constraint(equalTo: content.centerXAnchor),
-            loadingLabel.centerYAnchor.constraint(equalTo: content.centerYAnchor),
-            streamNotice.centerXAnchor.constraint(equalTo: content.centerXAnchor),
-            streamNotice.centerYAnchor.constraint(equalTo: content.centerYAnchor),
-            streamNotice.widthAnchor.constraint(lessThanOrEqualTo: content.widthAnchor, constant: -20),
-            stillsNotice.centerXAnchor.constraint(equalTo: content.centerXAnchor),
-            stillsNotice.topAnchor.constraint(equalTo: content.topAnchor, constant: 42),
-            stillsNotice.widthAnchor.constraint(lessThanOrEqualTo: content.widthAnchor, constant: -20),
+            loadingLabel.centerXAnchor.constraint(equalTo: hintParent.centerXAnchor),
+            loadingLabel.centerYAnchor.constraint(equalTo: hintParent.centerYAnchor),
+            streamNotice.centerXAnchor.constraint(equalTo: hintParent.centerXAnchor),
+            streamNotice.centerYAnchor.constraint(equalTo: hintParent.centerYAnchor),
+            streamNotice.widthAnchor.constraint(lessThanOrEqualTo: hintParent.widthAnchor, constant: -20),
+            stillsNotice.centerXAnchor.constraint(equalTo: hintParent.centerXAnchor),
+            stillsNotice.topAnchor.constraint(equalTo: hintParent.topAnchor, constant: 42),
+            stillsNotice.widthAnchor.constraint(lessThanOrEqualTo: hintParent.widthAnchor, constant: -20),
 
             thumbnailView.leadingAnchor.constraint(equalTo: content.leadingAnchor),
             thumbnailView.trailingAnchor.constraint(equalTo: content.trailingAnchor),
@@ -337,13 +350,23 @@ final class PopupWindow: NSPanel {
         if let thumbnailDataURI, let image = imageFromDataURI(thumbnailDataURI) {
             thumbnailView.image = image
         }
+        if isMiniature {
+            // On top like the layer border it replaces (the overlays go into their layers).
+            addFullSizeView(ringView, to: content)
+            ringView.wantsLayer = true
+            ringView.layer?.cornerRadius = Self.cornerRadius
+            ringView.layer?.borderWidth = 1
+            ringView.layer?.borderColor = Tokens.popupRing.light.nsColor.cgColor
+        }
         setupOverlay(in: content)
     }
 
     /// Template B chrome (docs/design/popup.md): event chip, mute + close, mute menu, button pill.
     private func setupOverlay(in content: NSView) {
-        content.layer?.borderWidth = 1
-        content.layer?.borderColor = Tokens.popupRing.light.nsColor.cgColor
+        if !isMiniature {
+            content.layer?.borderWidth = 1
+            content.layer?.borderColor = Tokens.popupRing.light.nsColor.cgColor
+        }
         guard let overlay else { return }
 
         let close = CircleIconButton(icon: .close, iconSize: 11, diameter: 24,
@@ -370,22 +393,22 @@ final class PopupWindow: NSPanel {
         chrome.addSubview(mute)
         chrome.addSubview(settingsButton)
         var constraints = [
-            close.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -10),
-            close.topAnchor.constraint(equalTo: content.topAnchor, constant: 10),
-            mute.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -40),
-            mute.topAnchor.constraint(equalTo: content.topAnchor, constant: 10),
-            settingsButton.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -70),
-            settingsButton.topAnchor.constraint(equalTo: content.topAnchor, constant: 10),
+            close.trailingAnchor.constraint(equalTo: chrome.trailingAnchor, constant: -10),
+            close.topAnchor.constraint(equalTo: chrome.topAnchor, constant: 10),
+            mute.trailingAnchor.constraint(equalTo: chrome.trailingAnchor, constant: -40),
+            mute.topAnchor.constraint(equalTo: chrome.topAnchor, constant: 10),
+            settingsButton.trailingAnchor.constraint(equalTo: chrome.trailingAnchor, constant: -70),
+            settingsButton.topAnchor.constraint(equalTo: chrome.topAnchor, constant: 10),
         ]
         if let chipText = overlay.chip {
             let chip = OverlayChipView(text: chipText)
             chrome.addSubview(chip)
             // Centred; on a narrow popup it moves left (and truncates) before touching the buttons.
-            let centered = chip.centerXAnchor.constraint(equalTo: content.centerXAnchor)
+            let centered = chip.centerXAnchor.constraint(equalTo: chrome.centerXAnchor)
             centered.priority = .defaultHigh
             constraints += [
                 centered,
-                chip.leadingAnchor.constraint(greaterThanOrEqualTo: content.leadingAnchor, constant: 10),
+                chip.leadingAnchor.constraint(greaterThanOrEqualTo: chrome.leadingAnchor, constant: 10),
                 chip.centerYAnchor.constraint(equalTo: close.centerYAnchor),
                 chip.trailingAnchor.constraint(lessThanOrEqualTo: settingsButton.leadingAnchor, constant: -8),
             ]
@@ -422,16 +445,16 @@ final class PopupWindow: NSPanel {
             }
             chrome.addSubview(pill)
             constraints += [
-                pill.centerXAnchor.constraint(equalTo: content.centerXAnchor),
-                pill.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -12),
+                pill.centerXAnchor.constraint(equalTo: chrome.centerXAnchor),
+                pill.bottomAnchor.constraint(equalTo: chrome.bottomAnchor, constant: -12),
             ]
             talkControls?.install(in: chrome, above: pill)
         }
         // Last, so the open menu lies above the pill and the chip.
         chrome.addSubview(menu)
         constraints += [
-            menu.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -10),
-            menu.topAnchor.constraint(equalTo: content.topAnchor, constant: 40),
+            menu.trailingAnchor.constraint(equalTo: chrome.trailingAnchor, constant: -10),
+            menu.topAnchor.constraint(equalTo: chrome.topAnchor, constant: 40),
         ]
         NSLayoutConstraint.activate(constraints)
         muteMenu = menu
@@ -668,15 +691,68 @@ final class PopupWindow: NSPanel {
         invalidateCursorRects(for: clickCatcher)
     }
 
+    private func addFullSizeView(_ view: NSView, to content: NSView) {
+        view.translatesAutoresizingMaskIntoConstraints = false
+        content.addSubview(view)
+        NSLayoutConstraint.activate([
+            view.leadingAnchor.constraint(equalTo: content.leadingAnchor),
+            view.trailingAnchor.constraint(equalTo: content.trailingAnchor),
+            view.topAnchor.constraint(equalTo: content.topAnchor),
+            view.bottomAnchor.constraint(equalTo: content.bottomAnchor),
+        ])
+    }
+
+    /// Miniature: the content (video, still, background, ring) slides in from beyond the outer edge
+    /// (`side`) or out beyond it, inside the window and cut off at its rounded edge; the window
+    /// itself stands still, so nothing shows on a neighbouring screen. No shadow while it slides
+    /// (it would show the empty window's outline).
+    func slideContent(in slidingIn: Bool, side: PopupAnchor.Horizontal, curve: CAMediaTimingFunction, completion: @escaping () -> Void) {
+        guard let layer = contentView?.layer else {
+            completion()
+            return
+        }
+        let distance = side == .leading ? -frame.width : frame.width
+        let outside = CATransform3DMakeTranslation(distance, 0, 0)
+        let from = slidingIn ? outside : CATransform3DIdentity
+        let to = slidingIn ? CATransform3DIdentity : outside
+        hasShadow = false
+        CATransaction.begin()
+        CATransaction.setCompletionBlock { [weak self] in
+            MainActor.assumeIsolated {
+                if slidingIn, let self {
+                    self.hasShadow = true
+                    self.invalidateShadow()
+                }
+                completion()
+            }
+        }
+        let animation = CABasicAnimation(keyPath: "sublayerTransform")
+        animation.fromValue = NSValue(caTransform3D: from)
+        animation.toValue = NSValue(caTransform3D: to)
+        animation.duration = MiniatureTiming.move
+        animation.timingFunction = curve
+        layer.sublayerTransform = to
+        layer.add(animation, forKey: "slide")
+        CATransaction.commit()
+    }
+
+    /// The overlay layers fill the popup. Miniature: only below the window's own size priority, so
+    /// the minimum size of chip, buttons, pill and menus (wider than a 200 pt miniature) can never
+    /// enlarge the window – it would grow right and up past the edge margin. The layers are hidden
+    /// then; at full size nothing conflicts.
     private func addFullSizeLayer(_ layer: NSView, to content: NSView) {
         layer.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(layer)
-        NSLayoutConstraint.activate([
+        let edges = [
             layer.leadingAnchor.constraint(equalTo: content.leadingAnchor),
             layer.trailingAnchor.constraint(equalTo: content.trailingAnchor),
             layer.topAnchor.constraint(equalTo: content.topAnchor),
             layer.bottomAnchor.constraint(equalTo: content.bottomAnchor),
-        ])
+        ]
+        if isMiniature {
+            for edge in edges { edge.priority = NSLayoutConstraint.Priority(NSLayoutConstraint.Priority.windowSizeStayPut.rawValue - 10) }
+        }
+        NSLayoutConstraint.activate(edges)
     }
 
     /// Saved pan -> current player size (`toReference: false`) or back (`true`).

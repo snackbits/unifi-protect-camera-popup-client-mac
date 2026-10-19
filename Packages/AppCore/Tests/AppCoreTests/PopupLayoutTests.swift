@@ -180,32 +180,32 @@ final class PopupLayoutTests: XCTestCase {
         let right = miniFrames([wide, wide, wide], side: .trailing)
         XCTAssertEqual(right, [
             CGRect(x: 1224, y: 771, width: 200, height: 113),
-            CGRect(x: 1224, y: 648, width: 200, height: 113),
-            CGRect(x: 1224, y: 525, width: 200, height: 113),
+            CGRect(x: 1224, y: 643, width: 200, height: 113),
+            CGRect(x: 1224, y: 515, width: 200, height: 113),
         ])
         let left = miniFrames([wide, wide, wide], side: .leading)
         XCTAssertEqual(left.map(\.minX), [16, 16, 16])
-        XCTAssertEqual(left.map(\.minY), [771, 648, 525])
+        XCTAssertEqual(left.map(\.minY), [771, 643, 515])
     }
 
     func testExpandedKeepsTopOuterCornerAndPushesFollowersDown() {
         let right = miniFrames([wide, wide, wide], expanded: 1, side: .trailing)
         XCTAssertEqual(right[0], CGRect(x: 1224, y: 771, width: 200, height: 113))
-        XCTAssertEqual(right[1], CGRect(x: 752, y: 383, width: 672, height: 378))
+        XCTAssertEqual(right[1], CGRect(x: 752, y: 378, width: 672, height: 378))
         XCTAssertEqual(right[1].maxX, 1424, "top right corner stays where the miniature's was")
-        XCTAssertEqual(right[1].maxY, 761)
-        XCTAssertEqual(right[2], CGRect(x: 1224, y: 260, width: 200, height: 113))
+        XCTAssertEqual(right[1].maxY, 756)
+        XCTAssertEqual(right[2], CGRect(x: 1224, y: 250, width: 200, height: 113))
 
         let left = miniFrames([wide, wide], expanded: 0, side: .leading)
         XCTAssertEqual(left[0], CGRect(x: 16, y: 506, width: 672, height: 378))
-        XCTAssertEqual(left[1], CGRect(x: 16, y: 383, width: 200, height: 113))
+        XCTAssertEqual(left[1], CGRect(x: 16, y: 378, width: 200, height: 113))
     }
 
     func testOverflowRunsBelowScreenWithoutSecondColumn() {
         let frames = miniFrames(Array(repeating: wide, count: 10), side: .trailing)
         XCTAssertEqual(Set(frames.map(\.minX)), [1224])
         XCTAssertTrue(frames.allSatisfy { $0.size == CGSize(width: 200, height: 113) }, "nothing shrinks")
-        XCTAssertEqual(frames[7].minY, 771 - 7 * 123)
+        XCTAssertEqual(frames[7].minY, 771 - 7 * 128)
         XCTAssertLessThan(frames[9].maxY, visible.minY)
     }
 
@@ -218,43 +218,6 @@ final class PopupLayoutTests: XCTestCase {
 
     func testMiniatureEmptyInput() {
         XCTAssertTrue(miniFrames([], side: .trailing).isEmpty)
-    }
-
-    func testOffscreenFrameBeyondOuterEdge() {
-        let screen = CGRect(x: 0, y: 0, width: 1440, height: 925)
-        let right = CGRect(x: 1224, y: 771, width: 200, height: 113)
-        XCTAssertEqual(PopupStackLayout.offscreenFrame(for: right, side: .trailing, screenFrame: screen),
-                       CGRect(x: 1470, y: 771, width: 200, height: 113))
-        let left = CGRect(x: 16, y: 771, width: 200, height: 113)
-        XCTAssertEqual(PopupStackLayout.offscreenFrame(for: left, side: .leading, screenFrame: screen),
-                       CGRect(x: -230, y: 771, width: 200, height: 113))
-        let second = CGRect(x: 1440, y: -200, width: 1920, height: 1080)
-        XCTAssertEqual(PopupStackLayout.offscreenFrame(for: left, side: .leading, screenFrame: second).minX, 1440 - 230)
-        XCTAssertEqual(PopupStackLayout.offscreenFrame(for: right, side: .trailing, screenFrame: second).minX, 3360 + 30)
-    }
-
-    func testSlideEndOnASingleScreenGoesBeyondTheEdge() {
-        let screen = CGRect(x: 0, y: 0, width: 1440, height: 925)
-        let right = CGRect(x: 1224, y: 771, width: 200, height: 113)
-        XCTAssertEqual(PopupStackLayout.slideEnd(for: right, side: .trailing, screenFrame: screen, otherScreens: []),
-                       MiniatureSlideEnd(frame: CGRect(x: 1470, y: 771, width: 200, height: 113), fades: false))
-        // A screen above or below does not lie in the path.
-        let above = CGRect(x: 1000, y: 925, width: 1920, height: 1080)
-        XCTAssertEqual(PopupStackLayout.slideEnd(for: right, side: .trailing, screenFrame: screen, otherScreens: [above]).fades, false)
-    }
-
-    func testSlideEndNextToANeighbourStaysOnTheScreenAndFades() {
-        let screen = CGRect(x: 0, y: 0, width: 1440, height: 925)
-        let right = CGRect(x: 1224, y: 771, width: 200, height: 113)
-        let neighbourRight = CGRect(x: 1440, y: -200, width: 1920, height: 1080)
-        XCTAssertEqual(PopupStackLayout.slideEnd(for: right, side: .trailing, screenFrame: screen, otherScreens: [neighbourRight]),
-                       MiniatureSlideEnd(frame: CGRect(x: 1240, y: 771, width: 200, height: 113), fades: true))
-        let left = CGRect(x: 16, y: 771, width: 200, height: 113)
-        let neighbourLeft = CGRect(x: -1920, y: 0, width: 1920, height: 1080)
-        XCTAssertEqual(PopupStackLayout.slideEnd(for: left, side: .leading, screenFrame: screen, otherScreens: [neighbourLeft]),
-                       MiniatureSlideEnd(frame: CGRect(x: 0, y: 771, width: 200, height: 113), fades: true))
-        // The neighbour on the other side is not in the way.
-        XCTAssertEqual(PopupStackLayout.slideEnd(for: left, side: .leading, screenFrame: screen, otherScreens: [neighbourRight]).fades, false)
     }
 
     // MARK: Position

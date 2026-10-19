@@ -9,24 +9,12 @@ public enum MiniaturePhase: Equatable, Sendable {
     case armed
     /// Full size with overlays (timer paused). Only one popup at a time.
     case expanded
-    /// Sliding out beyond the outer edge; removed afterwards.
+    /// Its content slides out beyond the outer edge (the window stays); removed afterwards.
     case leaving
 
     /// A click on the compact popup closes it: as a miniature and while the hover bar runs, not
     /// once it grows (`expanded`).
     public var closesOnClick: Bool { self == .mini || self == .armed }
-}
-
-/// Start of the slide-in or end of the slide-out (`PopupStackLayout.slideEnd`).
-public struct MiniatureSlideEnd: Equatable, Sendable {
-    public let frame: CGRect
-    /// Next to a neighbouring screen: the popup stays on its own screen and fades (alpha 0 here).
-    public let fades: Bool
-
-    public init(frame: CGRect, fades: Bool) {
-        self.frame = frame
-        self.fades = fades
-    }
 }
 
 /// Timing of the layout "Miniatur" (spec and mock `popup-miniatur-demo.html`).
@@ -58,7 +46,7 @@ public struct MiniatureStack<ID: Hashable> {
         public let id: ID
         public var fullSize: CGSize
         public var phase: MiniaturePhase
-        /// Last target frame without the warning nudge; nil until placed.
+        /// Last target frame; nil until placed.
         public var frame: CGRect?
     }
 
@@ -173,19 +161,14 @@ public struct MiniatureStack<ID: Hashable> {
         return relayout()
     }
 
-    /// Starts the slide-out: returns its end beyond the outer edge of `screenFrame` (or at the edge,
-    /// fading, next to one of `otherScreens`). The others stay where they are until `remove` (the
-    /// column closes up after the slide-out).
-    public mutating func beginLeaving(_ id: ID, screenFrame: CGRect, otherScreens: [CGRect] = []) -> MiniatureSlideEnd? {
-        guard let i = index(of: id), items[i].phase != .leaving else { return nil }
+    /// Starts the slide-out. The popup keeps its frame (only its content slides out of the
+    /// window), the others stay where they are until `remove` (the column closes up afterwards).
+    @discardableResult
+    public mutating func beginLeaving(_ id: ID) -> Bool {
+        guard let i = index(of: id), items[i].phase != .leaving else { return false }
         if growingID == id { growingID = nil }
         items[i].phase = .leaving
-        let current = items[i].frame ?? PopupStackLayout.miniatureFrame(
-            size: size(of: items[i]), top: miniatureArea.maxY, side: side, area: miniatureArea
-        )
-        let out = PopupStackLayout.slideEnd(for: current, side: side, screenFrame: screenFrame, otherScreens: otherScreens)
-        items[i].frame = out.frame
-        return out
+        return true
     }
 
     /// Slide-out finished (or the window is gone): the others close up unless the stack is frozen.
@@ -411,11 +394,10 @@ public struct AutoCloseClock: Equatable {
     }
 }
 
-/// Remaining-time display of a miniature ("Beides": line + warning nudge).
+/// Remaining-time display of a miniature: a line under it that shrinks with the remaining time,
+/// yellow in the last 3 s. The miniature itself stands still until the time is over.
 public struct MiniatureRestIndicator: Equatable {
     public static let warningTime: TimeInterval = 3
-    public static let nudgeDistance: CGFloat = 36
-    public static let warningOpacity: CGFloat = 0.7
 
     /// Line under the miniature (only mini/armed with a running timeout).
     public var lineVisible: Bool
@@ -423,44 +405,17 @@ public struct MiniatureRestIndicator: Equatable {
     public var lineFraction: Double
     /// Line in `#FFD84D` instead of white 75 %.
     public var lineWarning: Bool
-    /// Shift towards the outer edge in points.
-    public var nudge: CGFloat
-    public var opacity: CGFloat
 
-    public static let neutral = MiniatureRestIndicator(lineVisible: false, lineFraction: 1, lineWarning: false, nudge: 0, opacity: 1)
+    public static let neutral = MiniatureRestIndicator(lineVisible: false, lineFraction: 1, lineWarning: false)
 
-    /// While hovered (armed) or expanded the timer pauses and the display jumps back: no nudge,
-    /// full opacity, white line. "Bewegung reduzieren": the warning only fades.
-    public static func state(
-        remaining: TimeInterval,
-        total: TimeInterval,
-        phase: MiniaturePhase,
-        reduceMotion: Bool
-    ) -> MiniatureRestIndicator {
+    /// While hovered (armed) the timer pauses and the line turns white again.
+    public static func state(remaining: TimeInterval, total: TimeInterval, phase: MiniaturePhase) -> MiniatureRestIndicator {
         guard total > 0, phase == .mini || phase == .armed else { return neutral }
         let remaining = max(0, remaining)
-        let fraction = min(1, remaining / total)
-        guard phase == .mini, remaining < warningTime else {
-            return MiniatureRestIndicator(lineVisible: true, lineFraction: fraction, lineWarning: false, nudge: 0, opacity: 1)
-        }
-        let k = CGFloat(min(1, max(0, 1 - remaining / warningTime)))
         return MiniatureRestIndicator(
             lineVisible: true,
-            lineFraction: fraction,
-            lineWarning: true,
-            nudge: reduceMotion ? 0 : nudgeDistance * k,
-            opacity: 1 - (1 - warningOpacity) * k
+            lineFraction: min(1, remaining / total),
+            lineWarning: phase == .mini && remaining < warningTime
         )
-    }
-}
-
-public extension CGRect {
-    /// `self` moved `distance` points towards the outer edge of `side`.
-    func nudged(_ distance: CGFloat, towards side: PopupAnchor.Horizontal) -> CGRect {
-        guard distance != 0 else { return self }
-        switch side {
-        case .leading: return offsetBy(dx: -distance, dy: 0)
-        case .trailing, .center: return offsetBy(dx: distance, dy: 0)
-        }
     }
 }

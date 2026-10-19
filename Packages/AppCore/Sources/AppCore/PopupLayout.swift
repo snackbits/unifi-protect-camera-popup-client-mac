@@ -157,9 +157,8 @@ public enum PopupStackLayout {
     }
 
     public static let miniatureWidth: CGFloat = 200
-    public static let miniatureGap: CGFloat = 10
-    /// How far beyond the screen edge a sliding miniature starts and ends.
-    public static let offscreenDistance: CGFloat = 30
+    /// Room between two entries of the column (the remaining-time line sits inside it).
+    public static let miniatureGap: CGFloat = 15
 
     /// Layout "Miniatur": one column at `side`, starting at the top of the visible area minus
     /// `margin`, `gap` apart. Every entry is `miniWidth` wide with the aspect of its full size,
@@ -246,51 +245,6 @@ public enum PopupStackLayout {
         case .center: x = (area.midX - size.width / 2).rounded()
         }
         return CGRect(x: x, y: top - size.height, width: size.width, height: size.height)
-    }
-
-    /// `frame` moved horizontally completely beyond the outer edge of `screenFrame`
-    /// (+ `offscreenDistance`): start of the slide-in and end of the slide-out.
-    public static func offscreenFrame(
-        for frame: CGRect,
-        side: PopupAnchor.Horizontal,
-        screenFrame: CGRect
-    ) -> CGRect {
-        var result = frame
-        switch side {
-        case .leading: result.origin.x = screenFrame.minX - frame.width - offscreenDistance
-        case .trailing, .center: result.origin.x = screenFrame.maxX + offscreenDistance
-        }
-        return result
-    }
-
-    /// Start of the slide-in and end of the slide-out of a miniature at `frame`: beyond the outer
-    /// edge (`offscreenFrame`) as long as no other screen lies there. Next to a neighbouring screen
-    /// the popup would show on it while sliding: it stays on its own screen instead, touching the
-    /// outer edge, and fades (`fades`: alpha 0 at this end).
-    public static func slideEnd(
-        for frame: CGRect,
-        side: PopupAnchor.Horizontal,
-        screenFrame: CGRect,
-        otherScreens: [CGRect]
-    ) -> MiniatureSlideEnd {
-        let outside = offscreenFrame(for: frame, side: side, screenFrame: screenFrame)
-        let path: CGRect
-        var inside = frame
-        switch side {
-        case .leading:
-            path = CGRect(x: outside.minX, y: frame.minY, width: screenFrame.minX - outside.minX, height: frame.height)
-            inside.origin.x = screenFrame.minX
-        case .trailing, .center:
-            path = CGRect(x: screenFrame.maxX, y: frame.minY, width: outside.maxX - screenFrame.maxX, height: frame.height)
-            inside.origin.x = screenFrame.maxX - frame.width
-        }
-        let crossesNeighbour = otherScreens.contains { screen in
-            let overlap = screen.intersection(path)
-            return !overlap.isNull && overlap.width > 0 && overlap.height > 0
-        }
-        return crossesNeighbour
-            ? MiniatureSlideEnd(frame: inside, fades: true)
-            : MiniatureSlideEnd(frame: outside, fades: false)
     }
 
     /// Consecutive groups: the first `ceil(n / count)` popups in column 1, and so on.

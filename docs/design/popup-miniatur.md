@@ -27,8 +27,8 @@ Reihenfolge der Abschnitte:
 
 ## Verhalten im Layout „Miniatur“
 - **Miniatur**: 200 pt breit, Höhe aus dem Seitenverhältnis der Popup-Größe der Kamera. Reines Video ohne Overlays: kein Chip, keine Knöpfe, keine Leiste, keine Hinweise.
-- **Stapel**: eine Spalte an der gewählten Seite, beginnt oben (sichtbarer Bereich minus Randabstand), Abstand 10 pt. Was nicht mehr passt, liegt unterhalb des Bildschirms. Es wird nicht geschrumpft und es gibt keine zweite Spalte. Neue Kameras reihen sich unten an. Löst eine offene Kamera erneut aus, startet nur ihr Timer neu.
-- **Einschub/Ausschub**: Neue Miniaturen gleiten von außerhalb der Außenkante herein (300 ms, ease-out). Beim Schließen gleiten sie auf demselben Weg hinaus (300 ms, ease-in), danach rücken die übrigen nach (300 ms, ease-in-out). Liegt an der Außenkante ein weiterer Monitor, bleibt die Bewegung auf dem eigenen Bildschirm: Start bzw. Ende an der Bildschirmkante, dazu blendet die Miniatur ein bzw. aus (Deckkraft 0 ↔ 1), damit auf dem Nachbarmonitor nichts erscheint.
+- **Stapel**: eine Spalte an der gewählten Seite, beginnt oben (sichtbarer Bereich minus Randabstand), Abstand 15 pt, auch zwischen dem großen Popup und den Miniaturen (Nutzerwunsch 19.10.2026, 20:49; die Restzeit-Linie liegt in diesem Abstand). Die Außenkante liegt genau den Randabstand vom Rand des sichtbaren Bereichs entfernt, die Oberkante genau den Randabstand unter seiner Oberkante (Nutzerwunsch 19.10.2026, 20:49: Die ausgeblendeten Overlays dürfen das Fenster nicht vergrößern). Was nicht mehr passt, liegt unterhalb des Bildschirms. Es wird nicht geschrumpft und es gibt keine zweite Spalte. Neue Kameras reihen sich unten an. Löst eine offene Kamera erneut aus, startet nur ihr Timer neu.
+- **Einschub/Ausschub** (Nutzerwunsch 19.10.2026, 20:49): Das Fenster steht sofort an seinem Platz (beim Ausschub bleibt es stehen). Nur der Inhalt (Video bzw. Standbild mit Hintergrund und Rand) gleitet im Fenster von außerhalb der Außenkante herein (300 ms, ease-out) bzw. hinaus (300 ms, ease-in) und wird an der abgerundeten Fensterkante abgeschnitten. So erscheint auf einem Nachbarmonitor nichts, und es wird nichts ein- oder ausgeblendet. Danach rücken die übrigen nach (300 ms, ease-in-out). Die Restzeit-Linie erscheint erst nach dem Einschub und verschwindet mit Beginn des Ausschubs; der Hover-Balken ist dabei ohnehin unsichtbar. Der Fensterschatten fehlt während des Gleitens.
 - **Hover-Balken** (an der Innenseite, 5 pt Abstand zur Miniatur, 4 pt breit, Radius 2, volle Miniaturhöhe):
   - Ohne Maus ist er unsichtbar. Erst beim Hovern blendet die graue Spur (weiß 18 %) in **50 ms** ein.
   - Gleichzeitig startet die Füllung `#FFD84D` von oben nach unten, linear in 500 ms.
@@ -36,7 +36,7 @@ Reihenfolge der Abschnitte:
 - **Wachsen**: Nach 500 ms Hover skaliert das Popup auf seine echte Größe (`popupSize`). Die obere Außenecke bleibt stehen, rechts wächst es also nach unten links (300 ms, ease-in-out). Die Popups darunter rutschen nach unten. Overlays und Aktionen blenden danach ein (180 ms). Es ist immer nur ein Popup groß.
 - **Ausweichen nach oben** (Nutzerwunsch 19.10.2026): Würde das große Popup an der Oberkante seiner Miniatur unter den sichtbaren Bereich ragen (`visible.minY` + Randabstand), rückt es so weit nach oben, dass es ganz sichtbar ist: Unterkante bei `visible.minY` + Randabstand, höchstens bis zur Oberkante des Stapels. Wachsen und Hochrücken sind eine gemeinsame Bewegung (300 ms, ease-in-out). Es überdeckt dabei keine anderen Miniaturen:
   - Miniaturen davor, die vollständig oberhalb seiner neuen Oberkante passen, bleiben in ihrer Reihenfolge stehen.
-  - Die übrigen davor folgen in ihrer Reihenfolge direkt unter dem großen Popup (Abstand 10 pt), danach die Miniaturen, die ohnehin danach kamen. Sie dürfen unter den Bildschirm hinausragen.
+  - Die übrigen davor folgen in ihrer Reihenfolge direkt unter dem großen Popup (Abstand 15 pt), danach die Miniaturen, die ohnehin danach kamen. Sie dürfen unter den Bildschirm hinausragen.
   - Beim Zurückschrumpfen gilt wieder die ursprüngliche Stapelreihenfolge.
   - Rutscht das Popup dabei unter der Maus weg, gilt die Schonfrist von 2 s (siehe unten). Ausgewichen wird erst ab dem Wachsen; solange der Hover-Balken läuft, steht der Stapel still.
 - **Klick** (Nutzerwunsch 19.10.2026):
@@ -48,10 +48,10 @@ Reihenfolge der Abschnitte:
   Erst wenn das Popup vollständig geöffnet ist, also das Wachsen abgeschlossen ist, wird nachgeholt: Das Popup darf hochrutschen, die übrigen rücken nach.
 - **Kein Zuklappen durch Verschieben**: Rutscht das große Popup durch ein Nachrücken unter der Maus weg, schrumpft es nicht sofort. Es gibt eine Schonfrist von 2 s, in der man die Maus wieder darauf bewegen kann. Kommt die Maus zurück, bleibt es groß. Sonst schrumpft es nach Ablauf zurück. Sofortiges Zuklappen gilt nur, wenn der Nutzer die Maus selbst hinausbewegt.
   Dasselbe gilt, wenn ein Popup oberhalb schließt, während das große Popup gehovert wird.
-- **Restzeit** (Variante „Beides“):
+- **Restzeit** (nur die Linie, Nutzerwunsch 19.10.2026, 20:49):
   - *Linie*: 3 pt hoch, Radius 2, 4 pt unter der Miniatur, so breit wie die Miniatur mal Restanteil. Sie schrumpft zur Außenkante hin. Farbe weiß 75 %, in den letzten 3 s `#FFD84D`. Nur im Miniatur-Zustand sichtbar.
-  - *Vorwarnung*: In den letzten 3 s rückt die Miniatur linear bis zu 36 pt zur Außenkante hinaus, die Deckkraft sinkt von 1 auf 0,7. Danach folgt der normale Ausschub.
-  - Bei Hover oder im großen Zustand pausiert der Timer. Linie und Vorwarnung springen dann zurück: keine Verschiebung, volle Deckkraft, Linie wieder weiß.
-- **Bewegung reduzieren**: Kein Gleiten, Skalieren oder Verschieben, Rahmen werden direkt gesetzt. Hover-Balken und Linie bleiben (Fortschrittsanzeigen), die Vorwarnung wirkt nur über die Deckkraft.
+  - *Keine Vorwarnung* (Nutzerwunsch 19.10.2026, 20:49): Die Miniatur steht still, bis die Linie abgelaufen ist; sie rückt nicht nach außen und ändert ihre Deckkraft nicht. Danach gleitet sie vollständig hinaus (Ausschub).
+  - Bei Hover oder im großen Zustand pausiert der Timer. Die Linie wird dann wieder weiß.
+- **Bewegung reduzieren**: Kein Gleiten, Skalieren oder Verschieben, Rahmen werden direkt gesetzt. Hover-Balken und Linie bleiben (Fortschrittsanzeigen).
 - „Alle aktiven Kameras zeigen“ aus: Es gibt höchstens eine Miniatur, eine neue Kamera ersetzt sie.
 - Zuschnitt-Auswahl (Crop) öffnet weiter in voller Größe.
