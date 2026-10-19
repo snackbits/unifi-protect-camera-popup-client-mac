@@ -167,7 +167,7 @@ Vorher: `defaults export com.snackbits.UniFiCameraPopup ~/ucp-backup-3.0.plist`.
 Migration
 - [ ] Update über 2.6.x mit Popup-Position „Oben links“ / „Mitte links“ / „Unten links“ → Erscheinungsbild zeigt „Links“; mit „Oben rechts“, „Mitte rechts“, „Unten rechts“ oder „Mitte“ → „Rechts“. Dasselbe für eine Kamera mit eigener Position (Kameras › Erweitert › Position).
 - [ ] Nach dem Update steht „Popup-Layout“ auf „Miniatur“, auch bei bestehenden Einstellungen. Bildschirm, Randabstand, Automatisch schließen und „Alle aktiven Kameras zeigen“ haben ihre alten Werte.
-- [ ] Rückweg 3.0.0 → 2.6.1 (nur mit Backup): 2.6.1 kennt „left“/„right“ nicht, das Dekodieren scheitert, 2.6.1 startet mit Standardwerten und legt die Rohdaten als Sicherung ab. Nichts in 2.6.1 ändern, wieder 3.0.0 starten → alle Einstellungen sind wieder da. Ergebnis notieren.
+- [ ] Rückweg 3.0.0 → 2.6.1 (nur mit Backup): Die Position steht weiter als „topLeft“/„topRight“ in den Einstellungen, 2.6.1 liest sie also und zeigt „Oben links“ bzw. „Oben rechts“; alle übrigen Einstellungen sind da. 2.6.1 kennt `popupLayoutMode` nicht und schreibt beim Start beide Blobs ohne diesen Schlüssel neu. Erwartet: Zurück in 3.0.0 steht das Layout wieder auf „Miniatur“, auch wenn vorher „Voll“ gewählt war; die Position bleibt erhalten. Ergebnis notieren.
 - [ ] „Was ist neu“ zeigt den Eintrag 3.0.0.
 
 Reiter „Erscheinungsbild“
