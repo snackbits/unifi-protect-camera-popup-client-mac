@@ -174,6 +174,9 @@ final class PopupController {
             autoCloseSeconds: settings.autoCloseTimeout,
             actions: Self.popupActions(of: mapping),
             overlay: overlay,
+            snapshotSource: mapping.protectCameraId.map { cameraId in
+                { await ProtectSession.shared.snapshot(cameraId: cameraId, maxAge: 0) }
+            },
             onWillClose: { [weak self] scale, panOffset in
                 self?.settings.saveZoom(for: entryId, scale: scale, panOffset: panOffset)
             }

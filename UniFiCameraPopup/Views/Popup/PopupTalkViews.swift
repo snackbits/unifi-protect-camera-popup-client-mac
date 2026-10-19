@@ -411,16 +411,23 @@ final class PopupNoticeView: NSView {
 
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
-    func show(_ text: String) {
+    /// `persistent`: stays until `hide()` (otherwise gone after 6 s).
+    func show(_ text: String, persistent: Bool = false) {
         label.stringValue = text
         toolTip = text
         setAccessibilityLabel(text)
         isHidden = false
         NSAccessibility.post(element: self, notification: .announcementRequested, userInfo: [.announcement: text])
         hideWork?.cancel()
+        guard !persistent else { return }
         let work = DispatchWorkItem { [weak self] in self?.isHidden = true }
         hideWork = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 6, execute: work)
+    }
+
+    func hide() {
+        hideWork?.cancel()
+        isHidden = true
     }
 }
 

@@ -23,6 +23,11 @@ final class VLCPlayerContainerView: NSView, VLCMediaPlayerDelegate {
     private var playbackGeneration = 0
     /// Called when the stream cannot be reached on the current route (away, not in the tunnel).
     var onUnavailable: ((String) -> Void)?
+    /// The stream plays but yields no picture (codec the player cannot handle, e.g. AV1 from
+    /// Protect's „Super Encoding“). `isAV1`: the stream announced AV1. Called at most once per
+    /// playback; a picture arriving later still calls `onFirstFrame`.
+    var onNoPicture: ((_ isAV1: Bool) -> Void)?
+    private var hasReportedNoPicture = false
 
     private static let minZoom: CGFloat = 1.0
     private static let maxZoom: CGFloat = 5.0
@@ -264,26 +269,65 @@ final class VLCPlayerContainerView: NSView, VLCMediaPlayerDelegate {
         NSLog("VLC: starting playback for \(url.host ?? "unknown")")
     }
 
+    /// VLC fourcc of AV1 (`VLC_FOURCC('a','v','0','1')`, little endian).
+    private static let av1FourCC: UInt32 = 0x3130_7661
+
     private func watchForFirstPicture(of media: VLCMedia) {
         firstFrameTimer?.invalidate()
         guard !hasNotifiedFirstFrame else { return }
+        hasReportedNoPicture = false
         let started = Date()
         // `player.media` hands out a new wrapper object per call – never compare it by identity;
         // the playback generation tells whether this media is still the one playing.
         let generation = playbackGeneration
+        var ticks = 0
         firstFrameTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] timer in
             MainActor.assumeIsolated {
                 guard let self, generation == self.playbackGeneration, !self.hasNotifiedFirstFrame else {
                     timer.invalidate()
                     return
                 }
-                // A stream that never reports pictures still gets shown after 10 s.
-                if media.statistics.displayedPictures > 0 || Date().timeIntervalSince(started) > 10 {
+                ticks += 1
+                let stats = media.statistics
+                let elapsed = Date().timeIntervalSince(started)
+                if stats.displayedPictures > 0 {
                     timer.invalidate()
                     self.notifyFirstFrameIfNeeded()
+                    return
+                }
+                guard !self.hasReportedNoPicture else {
+                    // Keep watching a little longer: a picture may still come (back to live).
+                    if elapsed > 120 { timer.invalidate() }
+                    return
+                }
+                if ticks % 5 == 0, Self.announcesAV1(media) {
+                    self.reportNoPicture(isAV1: true)
+                } else if elapsed > 10 {
+                    // Decoding works but the statistics stay at 0: show the video as before.
+                    if stats.decodedVideo > 0, self.player.hasVideoOut {
+                        timer.invalidate()
+                        self.notifyFirstFrameIfNeeded()
+                    } else {
+                        self.reportNoPicture(isAV1: false)
+                    }
                 }
             }
         }
+    }
+
+    private static func announcesAV1(_ media: VLCMedia) -> Bool {
+        media.tracksInformation.contains { item in
+            guard let track = item as? [String: Any],
+                  track[VLCMediaTracksInformationType] as? String == VLCMediaTracksInformationTypeVideo,
+                  let codec = track[VLCMediaTracksInformationCodec] as? NSNumber else { return false }
+            return codec.uint32Value == av1FourCC
+        }
+    }
+
+    private func reportNoPicture(isAV1: Bool) {
+        hasReportedNoPicture = true
+        NSLog("VLC: no picture from stream (AV1: \(isAV1)) – showing stills")
+        onNoPicture?(isAV1)
     }
 
     func stop() {

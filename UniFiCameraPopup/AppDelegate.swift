@@ -70,7 +70,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var updatePromptedVersionId: String?
 
     /// How often to poll the server for a newer build while the app is running.
-    private let updateCheckInterval: TimeInterval = 6 * 60 * 60
+    private let updateCheckInterval: TimeInterval = 30 * 60
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         #if DEBUG
@@ -267,12 +267,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         observeClockJumps()
     }
 
-    /// Timers do not fire reliably across sleep or a clock change: re-prune and re-arm.
+    /// Timers do not fire reliably across sleep or a clock change: re-prune and re-arm, and look
+    /// for a new version (after a short delay, once the network is back).
     private func observeClockJumps() {
         let refresh: (Notification) -> Void = { [weak self] _ in
             Task { @MainActor in
                 self?.settings.pruneMutes()
                 self?.scheduleMuteExpiryRefresh()
+                try? await Task.sleep(nanoseconds: 20_000_000_000)
+                await self?.updateService.checkForUpdates()
             }
         }
         wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(

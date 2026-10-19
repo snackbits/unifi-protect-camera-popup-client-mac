@@ -22,6 +22,10 @@ struct WhatsNewInfo: Equatable {
 enum WhatsNewService {
     /// Newest version first.
     static let changelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "2.4.1", items: [
+            "Kamera liefert kein Livebild (z. B. AV1 über Protects „Super Encoding“)? Das Popup zeigt dann jede Sekunde ein frisches Standbild und sagt, woran es liegt.",
+            "Neue Versionen werden alle 30 Minuten und nach dem Aufwachen gesucht – die Update-Frage kommt also auch ohne Klick aufs Menüleisten-Symbol.",
+        ]),
         ChangelogEntry(version: "2.4.0", items: [
             "Zahnrad im Popup (links neben der Glocke): öffnet direkt die Einstellungen dieser Kamera.",
         ]),
