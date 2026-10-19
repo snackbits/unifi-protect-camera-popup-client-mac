@@ -53,8 +53,14 @@ if [[ -z "$DEVICE" || ! -d "$MOUNT" ]]; then
   exit 1
 fi
 
-# Content 600 × 400 (matches make-background.swift; 28 pt title bar), icons centred at (160, 165)
-# and (440, 165). Hidden folders go below the visible area for people who show hidden files.
+# Finder needs a moment to see a freshly attached volume.
+for _ in {1..20}; do
+  [[ "$(osascript -e "tell application \"Finder\" to exists disk \"${VOLUME}\"")" == "true" ]] && break
+  sleep 0.5
+done
+
+# Content 600 × 400 (matches make-background.swift; 28 pt title bar), icons centred at (160, 140)
+# and (440, 140). Hidden folders go below the visible area for people who show hidden files.
 osascript <<OSA
 tell application "Finder"
   tell disk "${VOLUME}"
@@ -69,8 +75,8 @@ tell application "Finder"
     set icon size of viewOptions to 112
     set text size of viewOptions to 13
     set background picture of viewOptions to file ".background:background.tiff"
-    set position of item "${APP_NAME}" of container window to {160, 165}
-    set position of item "Programme" of container window to {440, 165}
+    set position of item "${APP_NAME}" of container window to {160, 140}
+    set position of item "Programme" of container window to {440, 140}
     try
       set position of item ".background" of container window to {160, 560}
       set position of item ".fseventsd" of container window to {440, 560}
