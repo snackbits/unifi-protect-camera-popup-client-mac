@@ -36,6 +36,10 @@ Reihenfolge der Abschnitte:
 - **Wachsen**: Nach 500 ms Hover skaliert das Popup auf seine echte Größe (`popupSize`). Die obere Außenecke bleibt stehen, rechts wächst es also nach unten links (300 ms, ease-in-out). Die Popups darunter rutschen nach unten. Overlays und Aktionen blenden danach ein (180 ms). Es ist immer nur ein Popup groß.
 - **Schneller Klick** auf die Miniatur vor Ablauf der 500 ms schließt sie (Ausschub).
 - **Maus verlässt das große Popup**: Es schrumpft sofort zurück zur Miniatur, die Overlays verschwinden sofort. Ausnahme: Solange ein Menü des Popups offen ist oder gesprochen bzw. eine Ansage gesendet wird, bleibt es groß.
+- **Stapel steht still während des Hoverns** (Nutzerwunsch 19.10.2026, 19:05): Solange eine Miniatur gehovert wird, also der 500-ms-Balken läuft, bewegt sich der Stapel nicht. Schließt in dieser Zeit ein Popup darüber, gleitet nur dieses hinaus und die Lücke bleibt offen. Die gehoverte Miniatur und alle darunter bleiben stehen, damit die Maus nicht von der Miniatur rutscht.
+  Erst wenn das Popup vollständig geöffnet ist, also das Wachsen abgeschlossen ist, wird nachgeholt: Das Popup darf hochrutschen, die übrigen rücken nach.
+- **Kein Zuklappen durch Verschieben**: Rutscht das große Popup durch ein Nachrücken unter der Maus weg, schrumpft es nicht sofort. Es gibt eine Schonfrist von 2 s, in der man die Maus wieder darauf bewegen kann. Kommt die Maus zurück, bleibt es groß. Sonst schrumpft es nach Ablauf zurück. Sofortiges Zuklappen gilt nur, wenn der Nutzer die Maus selbst hinausbewegt.
+  Dasselbe gilt, wenn ein Popup oberhalb schließt, während das große Popup gehovert wird.
 - **Restzeit** (Variante „Beides“):
   - *Linie*: 3 pt hoch, Radius 2, 4 pt unter der Miniatur, so breit wie die Miniatur mal Restanteil. Sie schrumpft zur Außenkante hin. Farbe weiß 75 %, in den letzten 3 s `#FFD84D`. Nur im Miniatur-Zustand sichtbar.
   - *Vorwarnung*: In den letzten 3 s rückt die Miniatur linear bis zu 36 pt zur Außenkante hinaus, die Deckkraft sinkt von 1 auf 0,7. Danach folgt der normale Ausschub.
