@@ -15,6 +15,10 @@ final class PopupWindow: NSPanel {
     private let streamNotice = PopupNoticeView()
     /// Centered while the stream starts; gone with the first frame or when the stream is unreachable.
     private let loadingLabel = NSTextField(labelWithString: "Stream wird geladen …")
+    /// Stills mode: the stream yields no picture (e.g. AV1), so camera snapshots stand in for it.
+    private let stillsNotice = PopupNoticeView()
+    private let snapshotSource: (() async -> NSImage?)?
+    private var stillsTimer: Timer?
     private var autoCloseTimer: Timer?
     private var zoomSaveTimer: Timer?
     private var escapeMonitor: Any?
@@ -47,6 +51,7 @@ final class PopupWindow: NSPanel {
         cropSelectionMode: Bool = false,
         actions: [CameraAction] = [],
         overlay: PopupOverlayContent? = nil,
+        snapshotSource: (() async -> NSImage?)? = nil,
         onWillClose: ((CGFloat, CGPoint) -> Void)? = nil,
         onCropSave: ((CameraCrop, CGSize) -> Void)? = nil,
         onCropCancel: (() -> Void)? = nil,
@@ -61,6 +66,7 @@ final class PopupWindow: NSPanel {
         self.cropSelectionMode = cropSelectionMode
         self.actions = cropSelectionMode ? [] : actions
         self.overlay = cropSelectionMode ? nil : overlay
+        self.snapshotSource = snapshotSource
         self.onWillClose = onWillClose
         self.onCropSave = onCropSave
         self.onCropCancel = onCropCancel
@@ -104,6 +110,7 @@ final class PopupWindow: NSPanel {
 
         playerView.play(urlString: streamURL, soundEnabled: soundEnabled) { [weak self] in
             guard let self else { return }
+            self.stopStills()
             NSAnimationContext.runAnimationGroup { context in
                 context.duration = 0.25
                 self.playerView.animator().alphaValue = 1
@@ -208,6 +215,10 @@ final class PopupWindow: NSPanel {
             self?.loadingLabel.isHidden = true
             self?.streamNotice.show(text)
         }
+        content.addSubview(stillsNotice)
+        playerView.onNoPicture = { [weak self] isAV1 in
+            self?.startStills(isAV1: isAV1)
+        }
 
         loadingLabel.translatesAutoresizingMaskIntoConstraints = false
         loadingLabel.font = .systemFont(ofSize: 13, weight: .medium)
@@ -220,6 +231,9 @@ final class PopupWindow: NSPanel {
             streamNotice.centerXAnchor.constraint(equalTo: content.centerXAnchor),
             streamNotice.centerYAnchor.constraint(equalTo: content.centerYAnchor),
             streamNotice.widthAnchor.constraint(lessThanOrEqualTo: content.widthAnchor, constant: -20),
+            stillsNotice.centerXAnchor.constraint(equalTo: content.centerXAnchor),
+            stillsNotice.topAnchor.constraint(equalTo: content.topAnchor, constant: 42),
+            stillsNotice.widthAnchor.constraint(lessThanOrEqualTo: content.widthAnchor, constant: -20),
 
             thumbnailView.leadingAnchor.constraint(equalTo: content.leadingAnchor),
             thumbnailView.trailingAnchor.constraint(equalTo: content.trailingAnchor),
@@ -338,6 +352,39 @@ final class PopupWindow: NSPanel {
         ]
         NSLayoutConstraint.activate(constraints)
         muteMenu = menu
+    }
+
+    /// No picture from the stream: show a fresh camera still every second instead (sound,
+    /// talk and buttons keep working). Ends with the first real picture or the popup.
+    private func startStills(isAV1: Bool) {
+        loadingLabel.isHidden = true
+        stillsNotice.show(isAV1
+            ? "Standbilder – AV1 wird nicht unterstützt (Protect: Super Encoding auf „Auto“)"
+            : "Standbilder – Livebild nicht abspielbar (Kamera-Einstellung, z. B. AV1?)",
+            persistent: true)
+        guard let snapshotSource, stillsTimer == nil else { return }
+        var loading = false
+        let refresh = { [weak self] in
+            guard !loading else { return }
+            loading = true
+            Task { @MainActor [weak self] in
+                let image = await snapshotSource()
+                loading = false
+                guard let self, self.stillsTimer != nil, let image else { return }
+                self.thumbnailView.image = image
+                self.thumbnailView.alphaValue = 1
+            }
+        }
+        let timer = Timer(timeInterval: 1, repeats: true) { _ in refresh() }
+        RunLoop.main.add(timer, forMode: .common)
+        stillsTimer = timer
+        refresh()
+    }
+
+    private func stopStills() {
+        stillsTimer?.invalidate()
+        stillsTimer = nil
+        stillsNotice.hide()
     }
 
     @objc private func closeTapped() {
@@ -484,6 +531,7 @@ final class PopupWindow: NSPanel {
             let zoomState = playerView.currentZoomState
             onWillClose?(zoomState.scale, zoomState.panOffset)
         }
+        stopStills()
         playerView.stop()
         orderOut(nil)
         onClose()
