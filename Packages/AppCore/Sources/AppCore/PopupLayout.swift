@@ -93,7 +93,7 @@ public enum PopupSizing {
     }
 }
 
-/// Where the popup stack sits (mirrors the app's `PopupPosition`).
+/// Where the popup stack sits (the app's `PopupPosition` uses only the two top anchors).
 public struct PopupAnchor: Equatable, Sendable {
     public enum Horizontal: Sendable { case leading, center, trailing }
     public enum Vertical: Sendable { case top, middle, bottom }
@@ -104,6 +104,17 @@ public struct PopupAnchor: Equatable, Sendable {
     public init(horizontal: Horizontal, vertical: Vertical) {
         self.horizontal = horizontal
         self.vertical = vertical
+    }
+}
+
+public extension PopupAnchor.Horizontal {
+    /// Stored `PopupPosition` value → side. Builds before the two-sided position had nine anchors:
+    /// `topLeft`, `middleLeft` and `bottomLeft` become left, every other (also unknown) value right.
+    static func side(fromPositionRawValue raw: String) -> PopupAnchor.Horizontal {
+        switch raw {
+        case "left", "topLeft", "middleLeft", "bottomLeft": return .leading
+        default: return .trailing
+        }
     }
 }
 
@@ -143,6 +154,63 @@ public enum PopupStackLayout {
         }
         guard let (columns, s) = best else { return [] }
         return place(columns: columns, sizes: sizes, scale: s, anchor: anchor, area: area, gap: gap)
+    }
+
+    public static let miniatureWidth: CGFloat = 200
+    public static let miniatureGap: CGFloat = 10
+    /// How far beyond the screen edge a sliding miniature starts and ends.
+    public static let offscreenDistance: CGFloat = 30
+
+    /// Layout "Miniatur": one column at `side`, starting at the top of the visible area minus
+    /// `margin`, `gap` apart. Every entry is `miniWidth` wide with the aspect of its full size,
+    /// except `expandedIndex`, which has its full size (fitted into the visible area minus the
+    /// margins, aspect kept) and stays anchored at the top outer corner. Entries that do not fit
+    /// run off below `visible.minY`: nothing shrinks and there is no second column.
+    public static func miniatureFrames(
+        fullSizes: [CGSize],
+        expandedIndex: Int?,
+        side: PopupAnchor.Horizontal,
+        visible: CGRect,
+        margin: CGFloat,
+        miniWidth: CGFloat = PopupStackLayout.miniatureWidth,
+        gap: CGFloat = PopupStackLayout.miniatureGap
+    ) -> [CGRect] {
+        let area = visible.insetBy(dx: min(margin, visible.width / 2), dy: min(margin, visible.height / 2))
+        var top = area.maxY
+        return fullSizes.enumerated().map { index, full in
+            let full = CGSize(width: max(full.width, 1), height: max(full.height, 1))
+            let size: CGSize
+            if index == expandedIndex {
+                let s = min(1, area.width / full.width, area.height / full.height)
+                size = CGSize(width: (full.width * s).rounded(.down), height: (full.height * s).rounded(.down))
+            } else {
+                size = CGSize(width: miniWidth, height: (miniWidth * full.height / full.width).rounded())
+            }
+            let x: CGFloat
+            switch side {
+            case .leading: x = area.minX
+            case .trailing: x = area.maxX - size.width
+            case .center: x = (area.midX - size.width / 2).rounded()
+            }
+            let frame = CGRect(x: x, y: top - size.height, width: size.width, height: size.height)
+            top -= size.height + gap
+            return frame
+        }
+    }
+
+    /// `frame` moved horizontally completely beyond the outer edge of `screenFrame`
+    /// (+ `offscreenDistance`): start of the slide-in and end of the slide-out.
+    public static func offscreenFrame(
+        for frame: CGRect,
+        side: PopupAnchor.Horizontal,
+        screenFrame: CGRect
+    ) -> CGRect {
+        var result = frame
+        switch side {
+        case .leading: result.origin.x = screenFrame.minX - frame.width - offscreenDistance
+        case .trailing, .center: result.origin.x = screenFrame.maxX + offscreenDistance
+        }
+        return result
     }
 
     /// Consecutive groups: the first `ceil(n / count)` popups in column 1, and so on.

@@ -19,6 +19,8 @@ enum TemplateIcon: String, CaseIterable {
     case megaphone
     /// `soundPlay` struck through: camera sound off in the popup.
     case speakerOff
+    /// Lucide „grip-vertical“ (filled dots): drag handle of sortable rows.
+    case gripVertical
 
     func image(size: CGFloat) -> some View {
         Image(rawValue)

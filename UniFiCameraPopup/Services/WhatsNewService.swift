@@ -22,6 +22,10 @@ struct WhatsNewInfo: Equatable {
 enum WhatsNewService {
     /// Newest version first.
     static let changelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "2.6.1", items: [
+            "Ansagen in Einstellungen › Ton haben links einen Griff zum Verschieben.",
+            "Das Ansagen-Menü im Popup ist so breit wie der längste Name – nichts bricht mehr um.",
+        ]),
         ChangelogEntry(version: "2.6.0", items: [
             "Ansagen lassen sich unter Einstellungen › Ton per Ziehen sortieren – das Ansagen-Menü im Popup folgt dieser Reihenfolge.",
             "Neue Text-Ansagen starten mit deiner meistgenutzten Stimme, sofern sie geladen ist – sonst mit einer bereits geladenen statt immer mit Thorsten.",

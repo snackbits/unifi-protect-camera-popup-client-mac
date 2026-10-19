@@ -1,0 +1,335 @@
+<title>Reiter Erscheinungsbild</title>
+<style>
+/* Layout: oben der Einstellungs-Fenster-Mock (760 pt, App-Tokens), darüber Vorschlagswahl A–D; darunter alle vier Grafikpaare im Raster. */
+:root {
+  --page: #DCDDE6; --win: #FBFBFD; --bar: #F3F3F7; --group: #FFFFFF; --fg: #1D1D1F; --muted: #55555F;
+  --accent: #4B3FD1; --acc-soft: #ECEAFB; --acc-text: #3528A8; --border: #DEDEE6; --field: #FFFFFF;
+  --seg: #E8E8EE; --seg-on: #FFFFFF; --tab-on: #E4E2F8; --toggle-off: #D1D1D8; --chip-border: #C9C9D6; --na: #7A7A86;
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --page: #121318; --win: #26262C; --bar: #2C2C33; --group: #2E2E35; --fg: #EDEDF2; --muted: #ABABB7;
+  --accent: #5B4FE0; --acc-soft: #312C5C; --acc-text: #C3BDFF; --border: #3B3B45; --field: #1C1C21;
+  --seg: #1C1C21; --seg-on: #3E3E48; --tab-on: #3A3566; --toggle-off: #4A4A55; --chip-border: #4A4A55; --na: #8A8A97; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --page: #121318; --win: #26262C; --bar: #2C2C33; --group: #2E2E35; --fg: #EDEDF2; --muted: #ABABB7;
+  --accent: #5B4FE0; --acc-soft: #312C5C; --acc-text: #C3BDFF; --border: #3B3B45; --field: #1C1C21;
+  --seg: #1C1C21; --seg-on: #3E3E48; --tab-on: #3A3566; --toggle-off: #4A4A55; --chip-border: #4A4A55; --na: #8A8A97; color-scheme: dark }
+
+* { box-sizing: border-box }
+body { background: var(--page); color: var(--fg); font-family: var(--font); font-size: 13px; line-height: 1.45 }
+.wrap { max-width: 1100px; margin: 0 auto; padding: 24px 20px 48px; display: grid; gap: 22px }
+h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: -.01em; text-wrap: balance }
+h2 { font-size: 15px; margin: 0 }
+.lead { margin: 0; color: var(--muted); max-width: 74ch }
+.seg { display: inline-flex; background: var(--seg); border-radius: 8px; padding: 2px; gap: 2px; flex-wrap: wrap }
+.seg button { border: 0; background: none; color: var(--muted); font: 500 12px var(--font); padding: 4px 11px; border-radius: 6px; cursor: pointer }
+.seg button[aria-pressed="true"] { background: var(--seg-on); color: var(--fg); box-shadow: 0 1px 2px rgba(0,0,0,.18) }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+.pick { display: flex; flex-wrap: wrap; gap: 12px; align-items: center }
+.pick .desc { color: var(--muted) }
+
+/* ---------- Fenster-Mock ---------- */
+.win { width: 760px; max-width: 100%; margin: 0 auto; background: var(--win); border-radius: 12px; overflow: hidden;
+  box-shadow: 0 0 0 1px var(--border), 0 22px 60px rgba(0,0,0,.25) }
+.titlebar { height: 34px; display: flex; align-items: center; padding: 0 12px; position: relative }
+.lights { display: flex; gap: 8px }
+.lights i { width: 12px; height: 12px; border-radius: 50%; display: block }
+.titlebar .t { position: absolute; left: 0; right: 0; text-align: center; font-weight: 600; font-size: 13px; pointer-events: none }
+.tabs { display: flex; justify-content: center; gap: 4px; padding: 2px 12px 10px; border-bottom: 1px solid var(--border); flex-wrap: wrap }
+.tab { display: grid; justify-items: center; gap: 2px; padding: 5px 10px 4px; border-radius: 7px; color: var(--muted); font-size: 11px; min-width: 70px }
+.tab svg { width: 20px; height: 20px }
+.tab.on { background: var(--tab-on); color: var(--acc-text) }
+.content { padding: 18px 24px 24px; display: grid; gap: 16px; background: var(--win) }
+.sec { display: grid; gap: 6px }
+.sl { font-size: 12px; font-weight: 600; color: var(--muted); padding-left: 2px }
+.card { background: var(--group); border-radius: 10px; box-shadow: 0 0 0 1px var(--border) }
+.crow { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 14px; flex-wrap: wrap }
+.crow + .crow { border-top: 1px solid var(--border) }
+.crow .sub { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; max-width: 52ch }
+.crow.dim > span:first-child { color: var(--na) }
+.pop-field { border: 1px solid var(--border); background: var(--field); border-radius: 6px; padding: 3px 8px 3px 10px; display: inline-flex; gap: 10px; align-items: center; font-size: 13px }
+.pop-field::after { content: "⌃⌄"; font-size: 8px; letter-spacing: -1px; color: var(--muted); writing-mode: vertical-lr }
+.slider { display: grid; grid-template-columns: 170px 1fr 48px; gap: 10px; align-items: center; width: 100% }
+.slider .tr { height: 4px; border-radius: 2px; background: var(--toggle-off); position: relative }
+.slider .tr i { position: absolute; inset: 0 auto 0 0; border-radius: 2px; background: var(--accent) }
+.slider .tr b { position: absolute; top: 50%; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.35) }
+.slider .v { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums }
+@media (max-width: 560px) { .slider { grid-template-columns: 1fr 48px } .slider > span:first-child { grid-column: 1 / -1 } }
+.tog { width: 32px; height: 19px; border-radius: 10px; background: var(--accent); position: relative; flex: none }
+.tog::after { content: ""; position: absolute; right: 2px; top: 2px; width: 15px; height: 15px; border-radius: 50%; background: #fff }
+.layout-card { padding: 14px }
+.hint { margin: 10px 2px 0; color: var(--muted); font-size: 11px }
+
+/* Grafikpaar */
+.pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px }
+.opt { border: 0; background: none; padding: 0; text-align: left; color: inherit; font: inherit; cursor: pointer; display: grid; gap: 8px; min-width: 0 }
+.opt .g { box-shadow: 0 0 0 1px var(--border); transition: box-shadow .15s }
+.opt[aria-pressed="true"] .g { box-shadow: 0 0 0 2.5px var(--accent) }
+.opt .lb { display: flex; gap: 8px; align-items: flex-start }
+.opt .rd { flex: none; width: 15px; height: 15px; border-radius: 50%; border: 1.5px solid var(--chip-border); margin-top: 1px }
+.opt[aria-pressed="true"] .rd { border: 4.5px solid var(--accent) }
+.opt .nm { font-weight: 600 }
+.opt .ds { display: block; color: var(--muted); font-size: 11px }
+
+/* ---------- Grafik-Grundgerüst (alle Maße in % der Kachel, cqw für Details) ---------- */
+.g { position: relative; aspect-ratio: 16 / 10; width: 100%; max-width: 100%; border-radius: 8px; overflow: hidden; container-type: inline-size;
+  --dur: 7s; --r: 3%; --mw: 17%; --mh: 15.3%; --ew: 42%; --eh: 37.8%; --t1: 11%; --t2: 29%; --t3: 47%; --t3e: 69.8%;
+  --fw: 42%; --fh: 37.8%; --f2t: 51.8%; --cx0: 52%; --cy0: 74%;
+  --sky: #56657A; --gnd: #343B47; --sil: #1F242D }
+.g .mb { position: absolute; inset: 0 0 auto 0; height: 6.5%; display: flex; align-items: center; gap: 1.3cqw; padding: 0 2cqw }
+.g .mb i { display: block; height: 1.5cqw; border-radius: 1cqw; width: 4cqw }
+.g .mb i:nth-child(1) { width: 1.6cqw } .g .mb i:nth-child(3) { width: 6cqw }
+.g .mb .sp { flex: 1; background: none !important }
+.g .bw { position: absolute; left: 12%; top: 15%; width: 50%; height: 62%; border-radius: 1.4cqw; overflow: hidden }
+.g .bw .tb { height: 14%; }
+.g .bw .ln { position: absolute; left: 14%; height: 2.2%; border-radius: 1cqw }
+.g .bw .tl { position: absolute; top: 55%; width: 21%; height: 30%; border-radius: 1cqw; display: grid; place-items: center }
+.g .bw .tl span { width: 50%; aspect-ratio: 1; display: block }
+.g .dk { position: absolute; left: 50%; bottom: 2.4%; transform: translateX(-50%); height: 9%; padding: 0 1.2cqw; display: flex; align-items: center; gap: .9cqw; border-radius: 2cqw }
+.g .dk i { width: 3.6cqw; height: 3.6cqw; border-radius: .9cqw; display: block }
+.g .p { position: absolute; right: var(--r); width: var(--mw); height: var(--mh); border-radius: 1.2cqw; overflow: hidden; transform-origin: top right }
+.g .sc { position: absolute; inset: 0; background: linear-gradient(180deg, var(--sky) 0 56%, var(--gnd) 56%) }
+.g .sc::before { content: ""; position: absolute; left: 15%; bottom: 44%; width: 36%; height: 30%; background: var(--sil); clip-path: polygon(0 40%, 50% 0, 100% 40%, 100% 100%, 0 100%) }
+.g .sc::after { content: ""; position: absolute; right: 16%; bottom: 43%; width: 15%; height: 34%; background: var(--sil); border-radius: 50% 50% 10% 10% }
+.g .ov { position: absolute; inset: 0 }
+.g .ov .chip { position: absolute; top: 7%; left: 50%; transform: translateX(-50%); width: 34%; height: 9%; border-radius: 2cqw; background: rgba(0,0,0,.6) }
+.g .ov .chip::before { content: ""; position: absolute; left: 9%; top: 34%; width: 1cqw; height: 1cqw; border-radius: 50%; background: #34C759 }
+.g .ov .tr, .g .ov .bc { position: absolute; display: flex; gap: 1cqw }
+.g .ov .tr { top: 6%; right: 4% }
+.g .ov .bc { bottom: 7%; left: 50%; transform: translateX(-50%) }
+.g .ov i { display: block; width: 2.6cqw; height: 2.6cqw; border-radius: 50%; background: rgba(0,0,0,.6) }
+.g .ov .bc i { width: 3.4cqw; height: 3.4cqw }
+.g .ov .bc i:last-child { width: 8cqw; border-radius: 2cqw }
+.g .cur { position: absolute; width: 2.6cqw; height: 3.6cqw; left: calc(100% - var(--r) - var(--mw) / 2); top: calc(var(--t2) + var(--mh) / 2); z-index: 3 }
+.g .cur svg { width: 100%; height: 100%; display: block; overflow: visible }
+/* Hover-Balken an der Innenseite der Miniatur: füllt sich in 500 ms von oben nach unten */
+.g .hb { position: absolute; left: calc(100% - var(--r) - var(--mw) - 1.7%); top: var(--t2); width: .8cqw; height: var(--mh); border-radius: .4cqw; background: rgba(255,255,255,.22); overflow: hidden; opacity: 0 }
+.g .hb::after { content: ""; position: absolute; left: 0; top: 0; width: 100%; height: 0; background: #FFD84D }
+
+/* Ruhezustand (auch für „Bewegung reduzieren“): Miniatur 2 vergrößert */
+.g.mini .m1 { top: var(--t1) }
+.g.mini .m2 { top: var(--t2); width: var(--ew); height: var(--eh); z-index: 2 }
+.g.mini .m3 { top: var(--t3e) }
+.g.full .f1 { top: var(--t1); width: var(--fw); height: var(--fh) }
+.g.full .f2 { top: var(--f2t); width: var(--fw); height: var(--fh) }
+
+@media (prefers-reduced-motion: no-preference) {
+  .g.mini .m1 { animation: m1 var(--dur) infinite }
+  .g.mini .m2 { animation: m2 var(--dur) infinite }
+  .g.mini .m3 { animation: m3 var(--dur) infinite }
+  .g.mini .m2 .ov { animation: ov var(--dur) infinite }
+  .g.mini .cur { animation: cur var(--dur) infinite }
+  .g.mini .hb { animation: hb var(--dur) infinite }
+  .g.mini .hb::after { animation: hbf var(--dur) infinite }
+  .g.full .f1 { animation: f1 var(--dur) infinite }
+  .g.full .f2 { animation: f2 var(--dur) infinite }
+}
+@keyframes m1 { 0% { transform: translateX(135%) } 7%, 82% { transform: none } 91%, 100% { transform: translateX(135%) } }
+@keyframes m2 {
+  0%, 9% { transform: translateX(135%); width: var(--mw); height: var(--mh) }
+  16%, 40% { transform: none; width: var(--mw); height: var(--mh) }
+  46%, 64% { transform: none; width: var(--ew); height: var(--eh) }
+  70%, 84% { transform: none; width: var(--mw); height: var(--mh) }
+  93%, 100% { transform: translateX(135%); width: var(--mw); height: var(--mh) } }
+@keyframes m3 {
+  0%, 16% { transform: translateX(135%); top: var(--t3) }
+  23%, 40% { transform: none; top: var(--t3) }
+  46%, 64% { transform: none; top: var(--t3e) }
+  70%, 86% { transform: none; top: var(--t3) }
+  95%, 100% { transform: translateX(135%); top: var(--t3) } }
+@keyframes ov { 0%, 47% { opacity: 0 } 51%, 62% { opacity: 1 } 64%, 100% { opacity: 0 } }
+@keyframes cur {
+  0%, 24% { left: var(--cx0); top: var(--cy0); opacity: 0 }
+  28% { left: var(--cx0); top: var(--cy0); opacity: 1 }
+  34%, 66% { left: calc(100% - var(--r) - var(--mw) / 2); top: calc(var(--t2) + var(--mh) / 2); opacity: 1 }
+  74% { left: var(--cx0); top: var(--cy0); opacity: 1 }
+  80%, 100% { left: var(--cx0); top: var(--cy0); opacity: 0 } }
+@keyframes hb { 0%, 33% { opacity: 0 } 34%, 40% { opacity: 1 } 41%, 100% { opacity: 0 } }
+@keyframes hbf { 0%, 34% { height: 0 } 40%, 100% { height: 100% } }
+@keyframes f1 { 0%, 5% { opacity: 0; transform: scale(.94) } 12%, 84% { opacity: 1; transform: none } 92%, 100% { opacity: 0; transform: scale(.94) } }
+@keyframes f2 { 0%, 28% { opacity: 0; transform: scale(.94) } 35%, 84% { opacity: 1; transform: none } 92%, 100% { opacity: 0; transform: scale(.94) } }
+
+/* ---------- A · Desktop-Szene (Stil der Vorlage) ---------- */
+.g.a { background: linear-gradient(170deg, #3553B0, #2C4598 55%, #3B5BB8) }
+.g.a .mb, .g.c .mb { background: rgba(20,30,80,.35) }
+.g.a .mb i, .g.c .mb i { background: #9DB4F5 }
+.g.a .bw, .g.c .bw { background: #263A7C } .g.a .bw .tb, .g.c .bw .tb { background: #1F3170 }
+.g.a .bw .ln, .g.c .bw .ln { background: #AFC2F7 } .g.a .bw .tl, .g.c .bw .tl { background: #1C2A5E }
+.g.a .dk, .g.c .dk { background: rgba(40,60,130,.75) }
+.g.a .p, .g.c .p { box-shadow: 0 0 0 1px rgba(255,255,255,.12), 0 .8cqw 2cqw rgba(0,0,0,.4) }
+
+/* ---------- B · Linie (App-Farben, folgt hell/dunkel) ---------- */
+.g.b { background: var(--seg); --sky: var(--accent); --gnd: var(--accent); --sil: transparent }
+.g.b .mb { border-bottom: 1px solid var(--border) }
+.g.b .mb i { background: var(--chip-border) }
+.g.b .bw { border: 1.5px dashed var(--chip-border) }
+.g.b .bw .tb { border-bottom: 1.5px dashed var(--chip-border) }
+.g.b .bw .ln { background: var(--chip-border) }
+.g.b .bw .tl { border: 1.5px dashed var(--chip-border) }
+.g.b .bw .tl span { display: none }
+.g.b .dk { border: 1.5px dashed var(--chip-border) }
+.g.b .dk i { background: var(--chip-border) !important }
+.g.b .p { background: var(--accent) }
+.g.b .p .sc { opacity: .55 }
+.g.b .m2 .sc, .g.b .f1 .sc, .g.b .f2 .sc { opacity: 1 }
+.g.b .ov .chip, .g.b .ov i { background: rgba(255,255,255,.55) }
+.g.b .ov .chip::before { background: #fff }
+
+/* ---------- C · Nahaufnahme rechter Rand ---------- */
+.g.c { background: linear-gradient(170deg, #3553B0, #2C4598 55%, #3B5BB8);
+  --r: 5%; --mw: 30%; --mh: 27%; --ew: 58%; --eh: 52.2%; --t1: 11%; --t2: 41%; --t3: 71%; --t3e: 96.2%;
+  --fw: 58%; --fh: 52.2%; --cx0: 30%; --cy0: 78% }
+.g.c .mb { height: 8% } .g.c .mb i { height: 2.2cqw }
+.g.c .bw { left: -30%; top: 18%; width: 60%; height: 90% }
+.g.c .dk { left: 18%; transform: none; height: 12%; bottom: -3% }
+.g.c .dk i { width: 5cqw; height: 5cqw }
+.g.c .f2 { display: none }
+.g.c .ov i { width: 3.6cqw; height: 3.6cqw }
+.g.c .ov .bc i { width: 4.6cqw; height: 4.6cqw }
+.g.c .ov .bc i:last-child { width: 11cqw }
+
+/* ---------- D · Nacht (Akzent-Hintergrund, Glas-Popups) ---------- */
+.g.d { background: radial-gradient(120% 90% at 85% 10%, #4A3FA8 0%, #231E52 45%, #121024 100%); --sky: #3C3A5A; --gnd: #26243C; --sil: #17162A }
+.g.d .mb { background: rgba(0,0,0,.25) } .g.d .mb i { background: rgba(255,255,255,.35) }
+.g.d .bw { display: none }
+.g.d .dk { background: rgba(255,255,255,.1); box-shadow: inset 0 0 0 1px rgba(255,255,255,.14) }
+.g.d .p { box-shadow: 0 0 0 1px rgba(255,255,255,.22), 0 1cqw 3cqw rgba(0,0,0,.5) }
+.g.d.mini .m2, .g.d .f1, .g.d .f2 { box-shadow: 0 0 0 1px rgba(195,189,255,.7), 0 0 4cqw rgba(120,105,255,.45) }
+
+/* ---------- Galerie ---------- */
+.gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr)); gap: 16px }
+.prop { background: var(--win); border-radius: 12px; box-shadow: 0 0 0 1px var(--border); padding: 16px; display: grid; gap: 12px; min-width: 0 }
+.prop header { display: flex; gap: 10px; align-items: baseline; justify-content: space-between; flex-wrap: wrap }
+.prop .tag { font: 600 11px ui-monospace, Menlo, monospace; color: var(--acc-text); background: var(--acc-soft); border-radius: 6px; padding: 2px 7px }
+.prop p { margin: 0; color: var(--muted) }
+.prop.cur { box-shadow: 0 0 0 2px var(--accent) }
+.notes { display: grid; gap: 8px; margin: 0; padding-left: 18px; color: var(--fg); max-width: 80ch }
+</style>
+
+<div class="wrap">
+  <div>
+    <h1>Einstellungen › Erscheinungsbild</h1>
+    <p class="lead">Mock des neuen Reiters im Stil der App. Die Layoutwahl oben zeigt den ausgewählten Grafikvorschlag. Darunter stehen alle vier Vorschläge nebeneinander, jeweils als animiertes Paar „Miniatur“ und „Voll“. Ein Klick auf eine Grafik wählt das Layout.</p>
+  </div>
+
+  <div class="pick">
+    <div class="seg" id="propSeg" role="group" aria-label="Grafikvorschlag">
+      <button type="button" data-p="a" aria-pressed="true">A · Desktop-Szene</button>
+      <button type="button" data-p="b" aria-pressed="false">B · Linie</button>
+      <button type="button" data-p="c" aria-pressed="false">C · Nahaufnahme</button>
+      <button type="button" data-p="d" aria-pressed="false">D · Nacht</button>
+    </div>
+  </div>
+
+  <div class="win" aria-label="Einstellungsfenster (Mock)">
+    <div class="titlebar"><div class="lights"><i style="background:#FF5F57"></i><i style="background:#FEBC2E"></i><i style="background:#28C840"></i></div><div class="t">Erscheinungsbild</div></div>
+    <nav class="tabs">
+      <div class="tab"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="2.6"/><path d="M10 2.5v2.2M10 15.3v2.2M2.5 10h2.2M15.3 10h2.2M4.7 4.7l1.6 1.6M13.7 13.7l1.6 1.6M4.7 15.3l1.6-1.6M13.7 6.3l1.6-1.6" stroke-linecap="round"/></svg>Allgemein</div>
+      <div class="tab on"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="4" width="15" height="11" rx="2"/><rect x="11" y="6.2" width="4.3" height="3" rx=".8" fill="currentColor" stroke="none"/><rect x="11" y="10.2" width="4.3" height="3" rx=".8" fill="currentColor" stroke="none" opacity=".5"/></svg>Erscheinungsbild</div>
+      <div class="tab"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2.5" y="5.5" width="11" height="9" rx="2"/><path d="M13.5 9l4-2.2v6.4l-4-2.2"/></svg>Kameras</div>
+      <div class="tab"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3.5 7.8h3l4-3.3v11l-4-3.3h-3z" fill="currentColor" stroke="none"/><path d="M13.5 7a4 4 0 0 1 0 6M15.6 5a7 7 0 0 1 0 10" stroke-linecap="round"/></svg>Ton</div>
+      <div class="tab"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="7"/><path d="M3 10h14M10 3c2.2 2 2.2 12 0 14M10 3c-2.2 2-2.2 12 0 14"/></svg>Unterwegs</div>
+    </nav>
+    <div class="content">
+      <div class="sec">
+        <div class="sl">Popup-Layout</div>
+        <div class="card layout-card"><div class="pair" id="mainPair"></div></div>
+      </div>
+      <div class="sec">
+        <div class="sl">Darstellung</div>
+        <div class="card">
+          <div class="crow"><span>Farbschema</span>
+            <div class="seg"><button type="button" aria-pressed="true">System</button><button type="button" aria-pressed="false">Hell</button><button type="button" aria-pressed="false">Dunkel</button></div></div>
+        </div>
+      </div>
+      <div class="sec">
+        <div class="sl">Popup</div>
+        <div class="card">
+          <div class="crow" id="posRow"><span>Popup-Position<span class="sub">Bildschirmseite für Miniaturen und volle Popups. Der Stapel beginnt oben.</span></span><span class="pop-field">Rechts</span></div>
+          <div class="crow"><span>Bildschirm</span><span class="pop-field">Hauptbildschirm</span></div>
+          <div class="crow"><div class="slider"><span>Randabstand</span><div class="tr"><i style="width:17%"></i><b style="left:17%"></b></div><span class="v">20 px</span></div></div>
+          <div class="crow"><div class="slider"><span>Automatisch schließen</span><div class="tr"><i style="width:7%"></i><b style="left:7%"></b></div><span class="v">20 s</span></div></div>
+          <div class="crow"><span>Alle aktiven Kameras zeigen<span class="sub">Jede auslösende Kamera bekommt ein eigenes Popup, untereinander gestapelt. Ohne diese Option ersetzt eine neue Kamera das aktuelle Popup.</span></span><span class="tog" aria-hidden="true"></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section style="display:grid;gap:12px">
+    <h2>Alle vier Vorschläge</h2>
+    <div class="gallery" id="gallery"></div>
+  </section>
+
+  <section style="display:grid;gap:8px">
+    <h2>Offene Punkte im Reiter</h2>
+    <ul class="notes">
+      <li>Das bisherige „Erscheinungsbild“ (System/Hell/Dunkel) heißt hier „Farbschema“, damit der Name nicht doppelt vorkommt.</li>
+      <li>„Popup-Position“ kennt nur noch Links und Rechts, Standard ist Rechts. Sie gilt für beide Layouts. Bisherige Werte werden übernommen: „Oben/Unten links“ wird zu Links, alles andere zu Rechts.</li>
+      <li>In der Grafik wird das Popup groß, weil die Maus darauf bleibt. Der gelbe Balken an der Innenseite zeigt die 500 ms, geklickt wird nicht.</li>
+      <li>Die Grafiken stehen bei „Bewegung reduzieren“ still und zeigen dann das vergrößerte Popup.</li>
+      <li>Konfiguration exportieren und importieren bleiben unter „Allgemein“.</li>
+    </ul>
+  </section>
+</div>
+
+<script>
+(() => {
+  const PROPS = {
+    a: { name: 'Desktop-Szene', text: 'Wie deine Vorlage: blauer Desktop mit Menüleiste, Fenster und Dock. Die Popups zeigen eine Kamera-Szene als Schattenbild.' },
+    b: { name: 'Linie', text: 'Reduzierte Strichzeichnung in den App-Farben, folgt hell und dunkel. Die Popups sind Akzentflächen, das aktive kräftiger.' },
+    c: { name: 'Nahaufnahme', text: 'Ausschnitt des rechten Bildschirmrands. Die Miniaturen sind größer zu erkennen und man sieht, wie die unterste unten aus dem Bild rutscht.' },
+    d: { name: 'Nacht', text: 'Dunkler Hintergrund im Violett der App, Popups wie Glas mit leichtem Leuchten am aktiven. Ohne Hintergrundfenster.' },
+  };
+  const LAYOUTS = {
+    mini: { name: 'Miniatur', text: 'Kleine Vorschau am rechten Rand, wird groß, wenn die Maus darauf bleibt.' },
+    full: { name: 'Voll', text: 'Popups öffnen sofort in ihrer vollen Größe.' },
+  };
+  let layout = 'mini', prop = 'a';
+
+  const dockColors = ['#4F8DF7','#F2B63C','#E9586A','#52C26B','#F5D54A','#F4F4F6','#76C6F2','#8A7CF0','#5B5F6B','#A9ACB4'];
+  const desk = () => `
+    <div class="mb"><i></i><i></i><i></i><i></i><i class="sp"></i><i style="width:1.6cqw"></i><i style="width:1.6cqw"></i><i style="width:5cqw"></i></div>
+    <div class="bw"><div class="tb"></div>
+      <div class="ln" style="top:24%;width:44%"></div><div class="ln" style="top:31%;width:36%;opacity:.8"></div>
+      <div class="ln" style="top:42%;width:30%;opacity:.55"></div><div class="ln" style="top:42%;left:52%;width:30%;opacity:.55"></div>
+      <div class="tl" style="left:14%"><span style="border-radius:50%;background:#8B7FF0"></span></div>
+      <div class="tl" style="left:40%"><span style="border-radius:20%;background:#7CC8F5"></span></div>
+      <div class="tl" style="left:66%"><span style="background:#F06A4A;clip-path:polygon(50% 5%,100% 95%,0 95%)"></span></div>
+    </div>
+    <div class="dk">${dockColors.map(c => `<i style="background:${c}"></i>`).join('')}</div>`;
+  const ov = '<div class="ov"><span class="chip"></span><span class="tr"><i></i><i></i><i></i></span><span class="bc"><i></i><i></i><i></i></span></div>';
+  const pop = (cls, withOv) => `<div class="p ${cls}"><div class="sc"></div>${withOv ? ov : ''}</div>`;
+  const cursor = '<div class="cur"><svg viewBox="0 0 22 30"><path d="M2 2 L2 24 L8 18.5 L12 27 L15.5 25.5 L11.6 17.2 L19.5 17.2 Z" fill="#111" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/></svg></div>';
+  const graphic = (p, l) => `<div class="g ${p} ${l}" aria-hidden="true">${desk()}${
+    l === 'mini' ? pop('m1') + pop('m2', true) + pop('m3') + '<div class="hb"></div>' + cursor : pop('f1', true) + pop('f2', true)}</div>`;
+  const pair = p => ['mini', 'full'].map(l => `
+    <button class="opt" type="button" data-l="${l}" aria-pressed="${l === layout}">
+      ${graphic(p, l)}
+      <span class="lb"><span class="rd"></span><span><span class="nm">${LAYOUTS[l].name}</span><span class="ds">${LAYOUTS[l].text}</span></span></span>
+    </button>`).join('');
+
+  const mainPair = document.getElementById('mainPair');
+  const gallery = document.getElementById('gallery');
+  function render() {
+    mainPair.innerHTML = pair(prop);
+    gallery.innerHTML = Object.entries(PROPS).map(([k, v]) => `
+      <article class="prop ${k === prop ? 'cur' : ''}">
+        <header><h2>${v.name}</h2><span class="tag">${k.toUpperCase()}</span></header>
+        <p>${v.text}</p>
+        <div class="pair">${pair(k)}</div>
+      </article>`).join('');
+    document.querySelectorAll('#propSeg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.p === prop));
+  }
+  // Auswahl ohne Neuaufbau, damit die Animationen nicht neu starten
+  function setLayout(l) {
+    layout = l;
+    document.querySelectorAll('.opt').forEach(o => o.setAttribute('aria-pressed', o.dataset.l === l));
+  }
+  document.addEventListener('click', e => {
+    const o = e.target.closest('.opt'); if (o) return setLayout(o.dataset.l);
+    const b = e.target.closest('#propSeg button'); if (b) { prop = b.dataset.p; render(); }
+  });
+  render();
+})();
+</script>
