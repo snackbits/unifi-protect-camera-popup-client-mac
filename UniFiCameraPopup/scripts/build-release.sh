@@ -178,6 +178,9 @@ else
   echo "         Auto-update will refuse it. Run scripts/update-keygen.swift first."
 fi
 
+# The update question in the app lists the „Was ist neu“ items of this version.
+NOTES_JSON="$(python3 -I "${SCRIPT_DIR}/changelog-notes.py" Services/WhatsNewService.swift "$SHORT_VERSION")"
+
 # ---------------------------------------------------------------------------
 # Write the version manifest (consumed by the server at GET /version).
 # ---------------------------------------------------------------------------
@@ -189,7 +192,7 @@ cat > "$SERVER_VERSION_FILE" <<EOF
   "url": "${DOWNLOAD_URL}",
   "sha256": "${SHA256}",
   "signature": "${SIGNATURE}",
-  "notes": ""
+  "notes": ${NOTES_JSON}
 }
 EOF
 echo "Wrote ${SERVER_VERSION_FILE}"
