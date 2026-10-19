@@ -45,57 +45,9 @@ enum SnapshotRenderer {
     /// Read by the Erscheinungsbild tab: freezes the layout illustrations at this point of the cycle.
     nonisolated(unsafe) static var layoutPreviewProgress: Double?
 
-    /// Debug-only: `--check-miniature-frames` places miniatures with the full overlay (chip, all
-    /// buttons, talk, sound) at the right and left edge margin and checks that each window keeps
-    /// exactly that frame. The hidden overlay is wider than a 200 pt miniature; once it enlarged the
-    /// window to the right and up past the margin. Exit code 0 = ok, 1 = a frame moved.
-    static let frameCheckArgument = "--check-miniature-frames"
-
-    @MainActor
-    private static func checkMiniatureFramesIfRequested() {
-        guard CommandLine.arguments.contains(frameCheckArgument) else { return }
-        NSApp.setActivationPolicy(.accessory)
-        let sample = seed()
-        let visible = (NSScreen.main ?? NSScreen.screens[0]).visibleFrame
-        let margin: CGFloat = 20
-        var failures = 0
-        for full in [CGSize(width: 560, height: 315), CGSize(width: 400, height: 300), CGSize(width: 900, height: 300)] {
-            for side in [PopupAnchor.Horizontal.trailing, .leading] {
-                let frame = PopupStackLayout.miniatureFrames(
-                    fullSizes: [full], expandedIndex: nil, side: side, visible: visible, margin: margin
-                )[0]
-                let window = PopupWindow(
-                    frame: NSRect(origin: .zero, size: full),
-                    streamURL: "", soundEnabled: false,
-                    thumbnailDataURI: placeholderDataURI(size: full),
-                    autoCloseSeconds: 20,
-                    actions: sample.door.actions,
-                    overlay: PopupOverlayContent(
-                        chip: { _ in "Klingel · Haustür · 10:41:07" }, cameraName: "Haustür",
-                        muteOptions: sample.settings.muteOptions, onMute: { _ in },
-                        talk: PopupTalkContent(entryId: sample.door.entryId),
-                        sound: PopupSoundContent(enabled: true) { _ in }
-                    ),
-                    miniature: true,
-                    onClose: {}
-                )
-                window.setFrame(frame, display: true)
-                window.orderFrontRegardless()
-                window.contentView?.layoutSubtreeIfNeeded()
-                RunLoop.main.run(until: Date().addingTimeInterval(0.1))
-                let ok = window.frame == frame
-                if !ok { failures += 1 }
-                print("\(ok ? "ok    " : "FAILED") \(side) \(Int(full.width))×\(Int(full.height)): soll \(frame), ist \(window.frame)")
-                window.finishClose()
-            }
-        }
-        exit(failures == 0 ? 0 : 1)
-    }
-
     /// Call first in `applicationDidFinishLaunching`; renders and terminates when requested.
     @MainActor
     static func runIfRequested() {
-        checkMiniatureFramesIfRequested()
         guard let directory = outputDirectory else { return }
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         NSApp.setActivationPolicy(.accessory)
@@ -114,6 +66,9 @@ enum SnapshotRenderer {
 
     @MainActor
     private static func seed() -> Sample {
+        // Writes sample data into SettingsStore/EventLog/SoundStore. Those use throwaway storage
+        // only in snapshot mode – anywhere else this would overwrite the user's real configuration.
+        precondition(isActive, "SnapshotRenderer.seed() outside --render-snapshots would overwrite real settings")
         let settings = SettingsStore.shared
         settings.protectHost = "192.168.1.1"
         settings.protectConsoleName = "UDM Pro"
