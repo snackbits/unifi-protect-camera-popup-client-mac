@@ -86,6 +86,7 @@ public struct SettingsExtensions: Codable, Equatable, Sendable {
     public var muteShort: MuteDuration?
     public var muteLong: MuteDuration?
     public var appearance: AppearanceMode?
+    public var popupLayoutMode: PopupLayoutMode?
     /// Mapping entry id → values.
     public var mappings: [String: Mapping]
     /// Action id → values.
@@ -99,6 +100,7 @@ public struct SettingsExtensions: Codable, Equatable, Sendable {
         muteShort: MuteDuration? = nil,
         muteLong: MuteDuration? = nil,
         appearance: AppearanceMode? = nil,
+        popupLayoutMode: PopupLayoutMode? = nil,
         mappings: [String: Mapping] = [:],
         actions: [String: Action] = [:]
     ) {
@@ -109,13 +111,14 @@ public struct SettingsExtensions: Codable, Equatable, Sendable {
         self.muteShort = muteShort
         self.muteLong = muteLong
         self.appearance = appearance
+        self.popupLayoutMode = popupLayoutMode
         self.mappings = mappings
         self.actions = actions
     }
 
     private enum CodingKeys: String, CodingKey {
         case protectHost, protectCertificateFingerprint, protectConsoleName
-        case muteSchedule, muteShort, muteLong, appearance, mappings, actions
+        case muteSchedule, muteShort, muteLong, appearance, popupLayoutMode, mappings, actions
     }
 
     /// Every field is decoded on its own: one broken value never discards the others.
@@ -128,6 +131,7 @@ public struct SettingsExtensions: Codable, Equatable, Sendable {
         muteShort = (try? c.decodeIfPresent(MuteDuration.self, forKey: .muteShort)) ?? nil
         muteLong = (try? c.decodeIfPresent(MuteDuration.self, forKey: .muteLong)) ?? nil
         appearance = (try? c.decodeIfPresent(AppearanceMode.self, forKey: .appearance)) ?? nil
+        popupLayoutMode = (try? c.decodeIfPresent(PopupLayoutMode.self, forKey: .popupLayoutMode)) ?? nil
         mappings = (try? c.decodeIfPresent([String: Mapping].self, forKey: .mappings)) ?? [:]
         actions = (try? c.decodeIfPresent([String: Action].self, forKey: .actions)) ?? [:]
     }

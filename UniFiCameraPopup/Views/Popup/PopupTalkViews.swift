@@ -235,11 +235,9 @@ final class SoundMenuRow: NSView {
 
         title.stringValue = name
         title.font = .systemFont(ofSize: 12)
-        // Long names wrap (max 2 lines) like the template; the tag stays on the first line.
-        title.lineBreakMode = .byWordWrapping
-        title.maximumNumberOfLines = 2
-        title.cell?.wraps = true
-        title.cell?.truncatesLastVisibleLine = true
+        // One line: the menu grows to the longest name (`naturalWidth`); only a popup too narrow truncates.
+        title.lineBreakMode = .byTruncatingTail
+        title.maximumNumberOfLines = 1
         title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         title.translatesAutoresizingMaskIntoConstraints = false
         addSubview(title)
@@ -255,14 +253,12 @@ final class SoundMenuRow: NSView {
             tagLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
             addSubview(tagLabel)
             tagLabel.sizeToFit()
-            title.preferredMaxLayoutWidth = 164 - 8 - tagLabel.frame.width
             constraints += [
                 tagLabel.leadingAnchor.constraint(greaterThanOrEqualTo: title.trailingAnchor, constant: 8),
                 tagLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
                 tagLabel.firstBaselineAnchor.constraint(equalTo: title.firstBaselineAnchor),
             ]
         } else {
-            title.preferredMaxLayoutWidth = 164
             constraints.append(title.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -8))
         }
         NSLayoutConstraint.activate(constraints)
@@ -273,6 +269,13 @@ final class SoundMenuRow: NSView {
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    /// Width without truncation: padding 8 + name (+ 8 + tag) + padding 8.
+    var naturalWidth: CGFloat {
+        let name = ceil(title.intrinsicContentSize.width)
+        let tag = tagLabel.stringValue.isEmpty ? 0 : 8 + ceil(tagLabel.intrinsicContentSize.width)
+        return 8 + name + tag + 8
+    }
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
@@ -311,12 +314,15 @@ final class SoundMenuRow: NSView {
     }
 }
 
-/// Sound menu above "Ansage abspielen": 180 + 2 × 5 wide, radius 9, `menu`, ring 1 `mainBorder`,
+/// Sound menu above "Ansage abspielen": as wide as the longest entry (rows 180…320) + 2 × 5, radius 9, `menu`, ring 1 `mainBorder`,
 /// shadow 0 10 24 rgba(0,0,0,.4); announcements, separator (1, margin 3/4), "MP3 hinzufügen …" `accText`.
 final class SoundMenuView: NSView {
     var onPick: ((Announcement) -> Void)?
     var onAdd: (() -> Void)?
     private let stack = NSStackView()
+    private var widthConstraint: NSLayoutConstraint?
+    static let minRowWidth: CGFloat = 180
+    static let maxRowWidth: CGFloat = 320
 
     init() {
         super.init(frame: .zero)
@@ -353,25 +359,35 @@ final class SoundMenuView: NSView {
     /// Rebuilt on every opening, so new announcements appear at once.
     func reload(_ announcements: [Announcement]) {
         stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        var rowWidth = Self.minRowWidth
         for announcement in announcements {
             let row = SoundMenuRow(name: announcement.name, tag: announcement.menuTag)
             row.onClick = { [weak self] in self?.onPick?(announcement) }
             add(row)
+            rowWidth = max(rowWidth, row.naturalWidth)
         }
         if !announcements.isEmpty {
             let separator = SeparatorView()
             stack.addArrangedSubview(separator)
             stack.setCustomSpacing(0, after: separator)
-            NSLayoutConstraint.activate([separator.widthAnchor.constraint(equalToConstant: 180)])
+            NSLayoutConstraint.activate([separator.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -10)])
         }
         let add = SoundMenuRow(name: "MP3 hinzufügen …", tag: nil, color: Tokens.accText)
         add.onClick = { [weak self] in self?.onAdd?() }
         self.add(add)
+        rowWidth = max(rowWidth, add.naturalWidth)
+
+        // Below the popup's edge constraints (`install`): a narrow popup truncates instead.
+        widthConstraint?.isActive = false
+        let width = widthAnchor.constraint(equalToConstant: min(rowWidth, Self.maxRowWidth) + 10)
+        width.priority = NSLayoutConstraint.Priority(740)
+        width.isActive = true
+        widthConstraint = width
     }
 
     private func add(_ row: NSView) {
         stack.addArrangedSubview(row)
-        row.widthAnchor.constraint(equalToConstant: 180).isActive = true
+        row.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -10).isActive = true
     }
 
     override func viewDidChangeEffectiveAppearance() {
@@ -537,6 +553,7 @@ final class PopupTalkControls {
         NSLayoutConstraint.activate([
             leading,
             soundMenu.leadingAnchor.constraint(greaterThanOrEqualTo: content.leadingAnchor, constant: 10),
+            soundMenu.trailingAnchor.constraint(lessThanOrEqualTo: content.trailingAnchor, constant: -10),
             soundMenu.bottomAnchor.constraint(equalTo: pill.topAnchor),
             notice.centerXAnchor.constraint(equalTo: content.centerXAnchor),
             notice.bottomAnchor.constraint(equalTo: pill.topAnchor, constant: -8),

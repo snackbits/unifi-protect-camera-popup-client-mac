@@ -110,6 +110,14 @@ struct SoundTab: View {
 
     private func row(_ sound: Announcement) -> some View {
         HStack(spacing: 10) {
+            // Drag handle: shows the list can be sorted (the whole row drags).
+            TemplateIcon.gripVertical.image(size: 14)
+                .foregroundStyle(Tokens.muted.color)
+                .frame(width: 10)
+                .help("Ziehen zum Sortieren")
+                .onHover { inside in
+                    if inside { NSCursor.openHand.push() } else { NSCursor.pop() }
+                }
             Button { togglePreview(sound) } label: {
                 ZStack {
                     Circle().fill(Tokens.accSoft.color).frame(width: 22, height: 22)
@@ -135,7 +143,8 @@ struct SoundTab: View {
                     .fill(sound.kind == .file ? Tokens.btn2.color : Tokens.accSoft.color))
         }
         .padding(.vertical, 6)
-        .padding(.horizontal, 12)
+        .padding(.leading, 8)
+        .padding(.trailing, 12)
         .background(sound.id == selectedId ? Tokens.accSoft.color : Color.clear)
         .contentShape(Rectangle())
         .onTapGesture { select(sound) }

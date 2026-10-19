@@ -11,6 +11,7 @@ final class SettingsExtensionsTests: XCTestCase {
             muteShort: MuteDuration(value: 5, unit: .minutes),
             muteLong: MuteDuration(value: 2, unit: .hours),
             appearance: .dark,
+            popupLayoutMode: .full,
             mappings: ["A": .init(protectCameraId: "cam", triggers: ["ring"], webhookTriggerEnabled: false, chimeOnOpen: true)],
             actions: ["X": .init(icon: "door", confirmBeforeRun: true)]
         )
@@ -35,6 +36,7 @@ final class SettingsExtensionsTests: XCTestCase {
         let decoded = try XCTUnwrap(SettingsExtensions.decode(Data(json.utf8)))
         XCTAssertNil(decoded.protectHost)
         XCTAssertEqual(decoded.appearance, .dark)
+        XCTAssertNil(decoded.popupLayoutMode, "missing → nil, the store falls back to .miniature")
         XCTAssertEqual(decoded.mappings["A"]?.protectCameraId, "cam")
         XCTAssertNil(decoded.mappings["A"]?.chimeOnOpen)
         XCTAssertTrue(decoded.actions.isEmpty)

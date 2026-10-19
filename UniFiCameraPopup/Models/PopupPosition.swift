@@ -1,57 +1,48 @@
 import AppCore
 import Foundation
 
+/// Screen side of the popup stack; the stack always starts at the top (top left / top right).
 enum PopupPosition: String, Codable, CaseIterable, Identifiable {
-    case topLeft
-    case topCenter
-    case topRight
-    case middleLeft
-    case center
-    case middleRight
-    case bottomLeft
-    case bottomCenter
-    case bottomRight
+    case left
+    case right
 
     var id: String { rawValue }
 
     var label: String {
         switch self {
-        case .topLeft: return "Oben links"
-        case .topCenter: return "Oben mitte"
-        case .topRight: return "Oben rechts"
-        case .middleLeft: return "Links mitte"
-        case .center: return "Bildschirmmitte"
-        case .middleRight: return "Rechts mitte"
-        case .bottomLeft: return "Unten links"
-        case .bottomCenter: return "Unten mitte"
-        case .bottomRight: return "Unten rechts"
+        case .left: return "Links"
+        case .right: return "Rechts"
         }
     }
 
-    /// When several popups are stacked, anchors at the bottom of the screen grow
-    /// upward so the stack never runs off the bottom edge.
-    var stacksUpward: Bool {
+    /// Side of the miniature stack (`PopupStackLayout.miniatureFrames`).
+    var side: PopupAnchor.Horizontal {
         switch self {
-        case .bottomLeft, .bottomCenter, .bottomRight:
-            return true
-        default:
-            return false
+        case .left: return .leading
+        case .right: return .trailing
         }
     }
 
-    /// Anchor of the popup stack (`PopupStackLayout`).
+    /// Anchor of the full-size stack (`PopupStackLayout.frames`).
     var anchor: PopupAnchor {
-        switch self {
-        case .topLeft: return PopupAnchor(horizontal: .leading, vertical: .top)
-        case .topCenter: return PopupAnchor(horizontal: .center, vertical: .top)
-        case .topRight: return PopupAnchor(horizontal: .trailing, vertical: .top)
-        case .middleLeft: return PopupAnchor(horizontal: .leading, vertical: .middle)
-        case .center: return PopupAnchor(horizontal: .center, vertical: .middle)
-        case .middleRight: return PopupAnchor(horizontal: .trailing, vertical: .middle)
-        case .bottomLeft: return PopupAnchor(horizontal: .leading, vertical: .bottom)
-        case .bottomCenter: return PopupAnchor(horizontal: .center, vertical: .bottom)
-        case .bottomRight: return PopupAnchor(horizontal: .trailing, vertical: .bottom)
-        }
+        PopupAnchor(horizontal: side, vertical: .top)
+    }
+
+    /// Old nine-anchor values and unknown ones map to a side (`PopupAnchor.Horizontal.side(fromPositionRawValue:)`).
+    static func migrated(rawValue: String) -> PopupPosition {
+        PopupAnchor.Horizontal.side(fromPositionRawValue: rawValue) == .leading ? .left : .right
+    }
+
+    init(from decoder: Decoder) throws {
+        let raw = (try? decoder.singleValueContainer().decode(String.self)) ?? ""
+        self = Self.migrated(rawValue: raw)
+    }
+
+    /// Written as the old top anchors, which every build decodes: an older installed build that
+    /// reads the shared settings would otherwise discard the whole settings file.
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(self == .left ? "topLeft" : "topRight")
     }
 }
 

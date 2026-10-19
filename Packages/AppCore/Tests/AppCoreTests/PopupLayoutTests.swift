@@ -156,4 +156,102 @@ final class PopupLayoutTests: XCTestCase {
     func testEmptyInput() {
         XCTAssertTrue(PopupStackLayout.frames(sizes: [], anchor: topRight, visible: visible, margin: 16).isEmpty)
     }
+
+    // MARK: Miniatur
+
+    /// 16:9 full size → 200 × 113 miniature.
+    private let wide = CGSize(width: 672, height: 378)
+
+    private func miniFrames(_ sizes: [CGSize], expanded: Int? = nil, side: PopupAnchor.Horizontal) -> [CGRect] {
+        PopupStackLayout.miniatureFrames(fullSizes: sizes, expandedIndex: expanded, side: side, visible: visible, margin: 16)
+    }
+
+    func testOneMiniatureRightAndLeft() {
+        XCTAssertEqual(miniFrames([wide], side: .trailing), [CGRect(x: 1224, y: 771, width: 200, height: 113)])
+        XCTAssertEqual(miniFrames([wide], side: .leading), [CGRect(x: 16, y: 771, width: 200, height: 113)])
+    }
+
+    func testMiniatureHeightFollowsAspectRatio() {
+        let portrait = CGSize(width: 300, height: 400)
+        XCTAssertEqual(miniFrames([portrait], side: .trailing)[0].size, CGSize(width: 200, height: 267))
+    }
+
+    func testThreeMiniaturesStackDownwardWithGap() {
+        let right = miniFrames([wide, wide, wide], side: .trailing)
+        XCTAssertEqual(right, [
+            CGRect(x: 1224, y: 771, width: 200, height: 113),
+            CGRect(x: 1224, y: 648, width: 200, height: 113),
+            CGRect(x: 1224, y: 525, width: 200, height: 113),
+        ])
+        let left = miniFrames([wide, wide, wide], side: .leading)
+        XCTAssertEqual(left.map(\.minX), [16, 16, 16])
+        XCTAssertEqual(left.map(\.minY), [771, 648, 525])
+    }
+
+    func testExpandedKeepsTopOuterCornerAndPushesFollowersDown() {
+        let right = miniFrames([wide, wide, wide], expanded: 1, side: .trailing)
+        XCTAssertEqual(right[0], CGRect(x: 1224, y: 771, width: 200, height: 113))
+        XCTAssertEqual(right[1], CGRect(x: 752, y: 383, width: 672, height: 378))
+        XCTAssertEqual(right[1].maxX, 1424, "top right corner stays where the miniature's was")
+        XCTAssertEqual(right[1].maxY, 761)
+        XCTAssertEqual(right[2], CGRect(x: 1224, y: 260, width: 200, height: 113))
+
+        let left = miniFrames([wide, wide], expanded: 0, side: .leading)
+        XCTAssertEqual(left[0], CGRect(x: 16, y: 506, width: 672, height: 378))
+        XCTAssertEqual(left[1], CGRect(x: 16, y: 383, width: 200, height: 113))
+    }
+
+    func testOverflowRunsBelowScreenWithoutSecondColumn() {
+        let frames = miniFrames(Array(repeating: wide, count: 10), side: .trailing)
+        XCTAssertEqual(Set(frames.map(\.minX)), [1224])
+        XCTAssertTrue(frames.allSatisfy { $0.size == CGSize(width: 200, height: 113) }, "nothing shrinks")
+        XCTAssertEqual(frames[7].minY, 771 - 7 * 123)
+        XCTAssertLessThan(frames[9].maxY, visible.minY)
+    }
+
+    func testOversizedExpandedFitsVisibleAreaKeepingAspect() {
+        let wideOne = miniFrames([CGSize(width: 3000, height: 1000)], expanded: 0, side: .trailing)[0]
+        XCTAssertEqual(wideOne, CGRect(x: 16, y: 415, width: 1408, height: 469))
+        let tall = miniFrames([CGSize(width: 500, height: 2000)], expanded: 0, side: .leading)[0]
+        XCTAssertEqual(tall, CGRect(x: 16, y: 16, width: 217, height: 868))
+    }
+
+    func testMiniatureEmptyInput() {
+        XCTAssertTrue(miniFrames([], side: .trailing).isEmpty)
+    }
+
+    func testOffscreenFrameBeyondOuterEdge() {
+        let screen = CGRect(x: 0, y: 0, width: 1440, height: 925)
+        let right = CGRect(x: 1224, y: 771, width: 200, height: 113)
+        XCTAssertEqual(PopupStackLayout.offscreenFrame(for: right, side: .trailing, screenFrame: screen),
+                       CGRect(x: 1470, y: 771, width: 200, height: 113))
+        let left = CGRect(x: 16, y: 771, width: 200, height: 113)
+        XCTAssertEqual(PopupStackLayout.offscreenFrame(for: left, side: .leading, screenFrame: screen),
+                       CGRect(x: -230, y: 771, width: 200, height: 113))
+        let second = CGRect(x: 1440, y: -200, width: 1920, height: 1080)
+        XCTAssertEqual(PopupStackLayout.offscreenFrame(for: left, side: .leading, screenFrame: second).minX, 1440 - 230)
+        XCTAssertEqual(PopupStackLayout.offscreenFrame(for: right, side: .trailing, screenFrame: second).minX, 3360 + 30)
+    }
+
+    // MARK: Position
+
+    func testLegacyPositionValuesMigrateToSides() {
+        for raw in ["topLeft", "middleLeft", "bottomLeft", "left"] {
+            XCTAssertEqual(PopupAnchor.Horizontal.side(fromPositionRawValue: raw), .leading, raw)
+        }
+        for raw in ["topRight", "middleRight", "bottomRight", "topCenter", "center", "bottomCenter", "right", "", "sideways"] {
+            XCTAssertEqual(PopupAnchor.Horizontal.side(fromPositionRawValue: raw), .trailing, raw)
+        }
+    }
+
+    // MARK: Layout-Modus
+
+    func testPopupLayoutModeLabelsAndFallback() throws {
+        XCTAssertEqual(PopupLayoutMode.allCases.map(\.label), ["Miniatur", "Voll"])
+        struct Box: Codable { let mode: PopupLayoutMode }
+        let unknown = try JSONDecoder().decode(Box.self, from: Data(#"{"mode":"grid"}"#.utf8))
+        XCTAssertEqual(unknown.mode, .miniature)
+        let roundTrip = try JSONDecoder().decode(Box.self, from: JSONEncoder().encode(Box(mode: .full)))
+        XCTAssertEqual(roundTrip.mode, .full)
+    }
 }
