@@ -4,7 +4,7 @@ import XCTest
 final class PiperVoiceCatalogTests: XCTestCase {
     func testEveryGermanVoiceIsListedOnce() {
         XCTAssertEqual(PiperVoiceCatalog.all.map(\.id), [
-            "de_DE-eva_k-x_low", "de_DE-karlsson-low", "de_DE-kerstin-low", "de_DE-mls-medium", "de_DE-pavoque-low",
+            "de_DE-eva_k-x_low", "de_DE-karlsson-low", "de_DE-kerstin-low", "de_DE-pavoque-low",
             "de_DE-ramona-low", "de_DE-thorsten-low", "de_DE-thorsten-medium", "de_DE-thorsten-high",
             "de_DE-thorsten_emotional-medium",
         ])
@@ -16,7 +16,7 @@ final class PiperVoiceCatalogTests: XCTestCase {
         XCTAssertFalse(PiperVoiceCatalog.offered.contains { $0.id == "de_DE-pavoque-low" })
         XCTAssertNil(PiperVoiceCatalog.voice(id: "de_DE-pavoque-low"))
         XCTAssertNil(PiperVoiceCatalog.voice(id: "en_US-lessac-medium"))
-        XCTAssertEqual(PiperVoiceCatalog.offered.count, 9)
+        XCTAssertEqual(PiperVoiceCatalog.offered.count, 8)
         XCTAssertTrue(PiperVoiceCatalog.offered.allSatisfy { $0.license.allowsRedistribution })
     }
 
@@ -52,12 +52,14 @@ final class PiperVoiceCatalogTests: XCTestCase {
         XCTAssertEqual(emotional.speakerLabel(4), "neutral")
         XCTAssertEqual(emotional.speakerLabel(7), "flüsternd")
         XCTAssertNil(emotional.speakerLabel(8))
-        let mls = try XCTUnwrap(PiperVoiceCatalog.voice(id: "de_DE-mls-medium"))
-        XCTAssertEqual(mls.speakerCount, 236)
-        XCTAssertEqual(mls.speakerLabel(0), "Sprecher 1")
-        XCTAssertEqual(mls.speakerLabel(235), "Sprecher 236")
         XCTAssertNil(PiperVoiceCatalog.defaultVoice.speakerLabel(0))
         XCTAssertFalse(PiperVoiceCatalog.defaultVoice.isMultiSpeaker)
+    }
+
+    func testMLSIsGone() {
+        // MLS (236 speakers) only produced gibberish: no longer listed, offered or found.
+        XCTAssertFalse(PiperVoiceCatalog.all.contains { $0.id.contains("mls") })
+        XCTAssertNil(PiperVoiceCatalog.voice(id: "de_DE-mls-medium"))
     }
 
     func testDownloadSizeIsModelPlusConfig() throws {

@@ -275,7 +275,10 @@ struct GeneralTab: View {
                     }
                 }
             }
-            relaySection
+            // Only needed while a camera is also triggered by webhook (Kameras › Erweitert).
+            if settings.mappings.contains(where: \.webhookTriggerEnabled) {
+                relaySection
+            }
             VStack(alignment: .leading, spacing: 6) {
                 SectionLabel(text: "Hilfe")
                 Card {

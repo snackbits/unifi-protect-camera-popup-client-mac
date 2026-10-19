@@ -16,7 +16,7 @@ final class VoiceSelectionTests: XCTestCase {
     func testLabels() {
         XCTAssertEqual(PiperVoiceRef.standard.label, "Thorsten · mittel")
         XCTAssertEqual(emotional.label, "Thorsten emotional · mittel · flüsternd")
-        XCTAssertEqual(PiperVoiceRef(voiceId: "de_DE-mls-medium", speaker: 11).label, "MLS · mittel · Sprecher 12")
+        XCTAssertEqual(PiperVoiceRef(voiceId: "de_DE-mls-medium", speaker: 11).label, "Unbekannte Stimme")
         XCTAssertEqual(PiperVoiceRef(voiceId: "de_DE-pavoque-low").label, "Unbekannte Stimme")
         // A speaker outside the range falls back to the voice's default.
         XCTAssertEqual(PiperVoiceRef(voiceId: "de_DE-thorsten_emotional-medium", speaker: 99).resolved?.speaker, 4)
@@ -68,8 +68,8 @@ final class VoiceSelectionTests: XCTestCase {
         XCTAssertFalse(AnnouncementVoice.canApply(entry, text: "Hallo.", selection: AnnouncementVoice.initialSelection(for: entry)))
         XCTAssertTrue(AnnouncementVoice.canApply(entry, text: "Hallo.", selection: emotional))
         // A text entry not rendered yet keeps its (clamped) voice too.
-        let fresh = Announcement(name: Announcement.newName, kind: .speech, voiceIdentifier: "piper:de_DE-mls-medium#500")
-        XCTAssertEqual(AnnouncementVoice.initialSelection(for: fresh), PiperVoiceRef(voiceId: "de_DE-mls-medium", speaker: 0))
+        let fresh = Announcement(name: Announcement.newName, kind: .speech, voiceIdentifier: "piper:de_DE-thorsten_emotional-medium#500")
+        XCTAssertEqual(AnnouncementVoice.initialSelection(for: fresh), neutral)
     }
 
     func testRemovedVoiceStillPlaysButAsksForRerendering() {
@@ -121,9 +121,9 @@ final class VoiceMenuTests: XCTestCase {
     func testMenuOrderStartsWithTheDefaultVoiceAndLeavesOutPavoque() {
         let ids = PiperVoice.menuOrder.map(\.id)
         XCTAssertEqual(ids.first, "de_DE-thorsten-medium")
-        XCTAssertEqual(ids.count, 9)
+        XCTAssertEqual(ids.count, 8)
         XCTAssertFalse(ids.contains("de_DE-pavoque-low"))
-        XCTAssertEqual(Set(ids).count, 9)
+        XCTAssertEqual(Set(ids).count, 8)
     }
 
     func testLicenseText() {

@@ -13,6 +13,8 @@ final class PopupWindow: NSPanel {
     private let cropActionBar = CropActionBarView()
     /// Stream not reachable on the current route (away, camera not in the tunnel).
     private let streamNotice = PopupNoticeView()
+    /// Centered while the stream starts; gone with the first frame or when the stream is unreachable.
+    private let loadingLabel = NSTextField(labelWithString: "Stream wird geladen …")
     private var autoCloseTimer: Timer?
     private var zoomSaveTimer: Timer?
     private var escapeMonitor: Any?
@@ -106,6 +108,7 @@ final class PopupWindow: NSPanel {
                 context.duration = 0.25
                 self.playerView.animator().alphaValue = 1
                 self.thumbnailView.animator().alphaValue = 0
+                self.loadingLabel.animator().alphaValue = 0
             }
         }
     }
@@ -196,13 +199,24 @@ final class PopupWindow: NSPanel {
 
         content.addSubview(thumbnailView)
         content.addSubview(playerView)
+        content.addSubview(loadingLabel)
         content.addSubview(clickCatcher)
         content.addSubview(cropSelectionView)
         content.addSubview(cropActionBar)
         content.addSubview(streamNotice)
-        playerView.onUnavailable = { [weak self] text in self?.streamNotice.show(text) }
+        playerView.onUnavailable = { [weak self] text in
+            self?.loadingLabel.isHidden = true
+            self?.streamNotice.show(text)
+        }
+
+        loadingLabel.translatesAutoresizingMaskIntoConstraints = false
+        loadingLabel.font = .systemFont(ofSize: 13, weight: .medium)
+        loadingLabel.textColor = NSColor.white.withAlphaComponent(0.75)
+        loadingLabel.alignment = .center
 
         NSLayoutConstraint.activate([
+            loadingLabel.centerXAnchor.constraint(equalTo: content.centerXAnchor),
+            loadingLabel.centerYAnchor.constraint(equalTo: content.centerYAnchor),
             streamNotice.centerXAnchor.constraint(equalTo: content.centerXAnchor),
             streamNotice.centerYAnchor.constraint(equalTo: content.centerYAnchor),
             streamNotice.widthAnchor.constraint(lessThanOrEqualTo: content.widthAnchor, constant: -20),

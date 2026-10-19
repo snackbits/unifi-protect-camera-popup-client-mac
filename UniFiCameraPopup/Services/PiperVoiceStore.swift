@@ -90,6 +90,12 @@ final class PiperVoiceStore: ObservableObject {
         for entry in entries where entry.hasSuffix(".partial") && tasks.isEmpty {
             try? FileManager.default.removeItem(at: folder.appendingPathComponent(entry))
         }
+        // A voice dropped from the catalog (MLS in 2.0.0) would otherwise keep its files for good.
+        let offeredIds = Set(PiperVoiceCatalog.offered.map(\.id))
+        for entry in entries where !entry.hasSuffix(".partial") && entry.hasPrefix("de_")
+            && !offeredIds.contains(entry) {
+            try? FileManager.default.removeItem(at: folder.appendingPathComponent(entry))
+        }
     }
 
     private func hasPinnedSizes(_ voice: PiperVoice) -> Bool {

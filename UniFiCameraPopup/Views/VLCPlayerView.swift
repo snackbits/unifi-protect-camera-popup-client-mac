@@ -278,7 +278,8 @@ final class VLCPlayerContainerView: NSView, VLCMediaPlayerDelegate {
         NSLog("VLC state: \(stateName)")
 
         switch player.state {
-        case .playing, .buffering:
+        case .playing where player.hasVideoOut:
+            // Not on `.buffering`: that comes before any picture, the popup would fade to black.
             notifyFirstFrameIfNeeded()
         case .error:
             NSLog("VLC playback error for stream")

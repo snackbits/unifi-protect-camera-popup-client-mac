@@ -656,9 +656,6 @@ Stimmen (rhasspy/piper-voices, Stand c10ece1aade47bb51c153c893d14e5bf8e5b7117, M
     WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
     IN ANY WAY OUT OF THE USE OF THIS SOFTWARE and/or DATA, EVEN IF ADVISED OF THE POSSIBILITY
     OF SUCH DAMAGE.
-  MLS (236 Sprecher) – Multilingual LibriSpeech (Pratap, Xu, Sriram, Synnaeve, Collobert 2020), CC BY 4.0;
-    das Sprachmodell wurde von rhasspy/piper-voices aus diesem Datensatz trainiert (Änderungen vorgenommen).
-    http://openslr.org/94/  https://creativecommons.org/licenses/by/4.0/
   Nicht angeboten: Pavoque (CC BY-NC-SA 4.0 – keine kommerzielle Nutzung).
 
 --- rhasspy/piper 2023.11.14-2 (MIT) ---

@@ -40,10 +40,6 @@ public struct VoiceLicense: Equatable, Sendable {
         name: "M-AILABS-Lizenz (BSD-artig, kommerziell erlaubt)", dataset: "M-AILABS Speech Dataset",
         url: "https://www.caito.de/2019/01/03/the-m-ailabs-speech-dataset/", allowsRedistribution: true,
         attribution: "Copyright (c) 2017-2019 by the original creators @ M-AILABS")
-    public static let mlsCCBY4 = VoiceLicense(
-        name: "CC BY 4.0", dataset: "Multilingual LibriSpeech (OpenSLR 94)",
-        url: "http://openslr.org/94/", allowsRedistribution: true,
-        attribution: "Multilingual LibriSpeech (MLS), Pratap et al. 2020, CC BY 4.0")
     public static let pavoqueNC = VoiceLicense(
         name: "CC BY-NC-SA 4.0", dataset: "PAVOQUE (MaryTTS)",
         url: "https://github.com/marytts/pavoque-data", allowsRedistribution: false, attribution: nil)
@@ -138,12 +134,6 @@ public enum PiperVoiceCatalog {
             model: .init(path: "de/de_DE/kerstin/low/de_DE-kerstin-low.onnx", size: 63104526, sha256: "d352a7641892cebf2903859af94e9ba81a141110215fe3943bcda7f7da401b7a"),
             config: .init(path: "de/de_DE/kerstin/low/de_DE-kerstin-low.onnx.json", size: 4158, sha256: "56e708556b7b9b7a53c4f8957e021421e69f11a600962bba554cffbe72cf2d47"),
             license: .kerstinCC0
-        ),
-        PiperVoice(
-            id: "de_DE-mls-medium", name: "MLS", quality: .medium, sampleRate: 22050,
-            model: .init(path: "de/de_DE/mls/medium/de_DE-mls-medium.onnx", size: 76961079, sha256: "69cd1d2aa5a35839a518966fcc4924b5f93e5f8c948ed0752b1a616ad53f65bf"),
-            config: .init(path: "de/de_DE/mls/medium/de_DE-mls-medium.onnx.json", size: 8948, sha256: "b0af1c89ddfdc72d32e015729b0e89b99eec13c2c8caa1db7488d98e9e570b40"),
-            license: .mlsCCBY4, speakerCount: 236
         ),
         PiperVoice(
             id: "de_DE-pavoque-low", name: "Pavoque", quality: .low, sampleRate: 16000,
