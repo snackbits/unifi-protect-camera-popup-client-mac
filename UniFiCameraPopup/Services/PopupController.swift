@@ -160,7 +160,8 @@ final class PopupController {
             onMute: { [weak self] duration in
                 self?.settings.mute(entryId: entryId, for: duration)
             },
-            talk: TalkbackService.shared.canTalk(mapping) ? PopupTalkContent(entryId: entryId) : nil
+            talk: TalkbackService.shared.canTalk(mapping) ? PopupTalkContent(entryId: entryId) : nil,
+            onOpenSettings: { AppActions.openCameraSettings(entryId) }
         )
         return PopupWindow(
             frame: NSRect(origin: .zero, size: size),

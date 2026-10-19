@@ -10,6 +10,8 @@ enum TemplateIcon: String, CaseIterable {
     case tabGeneral, tabCameras, tabSound, tabRemote
     case chevronUpDown, chevronRight, chevronDown
     case close, bellSlash, speakerMute, check, play, shieldCheck
+    /// Lucide „settings“ (same stroke style as the template icons): popup → camera settings.
+    case gear
     case actionDoor, actionBulb, actionHouse, actionBolt
     case fileDownload
     case mic, soundPlay

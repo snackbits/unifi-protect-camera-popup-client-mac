@@ -11,6 +11,8 @@ struct PopupOverlayContent {
     let onMute: (MuteDuration) -> Void
     /// "Ton abspielen" and the talk button; nil = camera without speaker.
     var talk: PopupTalkContent? = nil
+    /// Opens Einstellungen › Kameras at this camera.
+    var onOpenSettings: () -> Void = {}
 }
 
 extension NSView {

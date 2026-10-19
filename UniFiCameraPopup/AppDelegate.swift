@@ -78,6 +78,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #endif
         settings.pruneMutes()
         AppActions.openHelp = { [weak self] in self?.openHelp() }
+        AppActions.openCameraSettings = { [weak self] entryId in
+            guard let self else { return }
+            SettingsWindowController.shared.navigation.selectedEntry = entryId
+            SettingsWindowController.shared.show(webSocketClient: webSocketClient, protectEvents: protectEvents, tab: .cameras)
+        }
         settings.reconcileLaunchAtLogin()
         setupStatusItem()
         if !settings.isProtectConfigured && settings.mappings.isEmpty {

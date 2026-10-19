@@ -53,6 +53,8 @@ final class SettingsNavigation: ObservableObject {
 @MainActor
 enum AppActions {
     static var openHelp: () -> Void = {}
+    /// Einstellungen › Kameras with this entry selected (gear in the popup).
+    static var openCameraSettings: (UUID) -> Void = { _ in }
 }
 
 /// Fixed 760 × 540 window with transparent title bar; the tab bar is drawn below it.
