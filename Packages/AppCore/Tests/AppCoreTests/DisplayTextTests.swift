@@ -63,11 +63,11 @@ final class DisplayTextTests: XCTestCase {
 
 final class DisplayTextPhase5Tests: XCTestCase {
     func testVersionAndUpdateTexts() {
-        XCTAssertEqual(DisplayText.version(short: "1.2.0", build: 29), "Version 1.2.0 (29)")
-        XCTAssertEqual(DisplayText.updateButton(targetShort: "1.3.0", targetBuild: 31, currentShort: "1.2.0"), "Update auf 1.3.0 installieren")
-        XCTAssertEqual(DisplayText.updateButton(targetShort: "1.2.0", targetBuild: 30, currentShort: "1.2.0"), "Update auf 1.2.0 (30) installieren")
-        XCTAssertEqual(DisplayText.updateButton(targetShort: nil, targetBuild: 30, currentShort: "1.2.0"), "Update auf 1.2.0 (30) installieren")
-        XCTAssertEqual(DisplayText.updateButton(targetShort: " ", targetBuild: 30, currentShort: "1.2.0"), "Update auf 1.2.0 (30) installieren")
+        XCTAssertEqual(DisplayText.version(short: "1.2.0"), "Version 1.2.0")
+        XCTAssertEqual(DisplayText.updateButton(targetShort: "1.3.0", currentShort: "1.2.0"), "Update auf 1.3.0 installieren")
+        XCTAssertEqual(DisplayText.updateButton(targetShort: "1.2.0", currentShort: "1.2.0"), "Update installieren")
+        XCTAssertEqual(DisplayText.updateButton(targetShort: nil, currentShort: "1.2.0"), "Update installieren")
+        XCTAssertEqual(DisplayText.updateButton(targetShort: " ", currentShort: "1.2.0"), "Update installieren")
     }
 
     func testActionTarget() {

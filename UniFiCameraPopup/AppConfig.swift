@@ -14,7 +14,8 @@ enum AppConfig {
     /// Bearer token UniFi Protect sends with webhook requests (`WEBHOOK_TOKEN` on the server).
     static let webhookToken = "71gri3ctroc73qzo8tttv58t7h784tqtzr76ctr"
 
-    /// Display version shown in the menu bar; incremented by `scripts/build-release.sh`.
+    /// Internal release counter, incremented by `scripts/build-release.sh`. Not shown in the UI;
+    /// the update check compares it with `version.json` (installed versions rely on it).
     static let buildNumber = 39
 
     /// Semantic app version (`MARKETING_VERSION`), raised manually per release.

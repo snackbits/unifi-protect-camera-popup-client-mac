@@ -202,7 +202,7 @@ struct HelpView: View {
 
     private var aboutBody: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Camera Popup \(AppConfig.shortVersion) (Build \(AppConfig.buildNumber))")
+            Text("Camera Popup \(AppConfig.shortVersion)")
                 .font(.headline)
             Text("Der Tunnel für unterwegs verwendet freie Software: wireguard-go (MIT-Lizenz, © WireGuard LLC), "
                  + "gVisor (Apache-Lizenz 2.0, © The gVisor Authors) und die Go-Laufzeit samt golang.org/x-Bibliotheken "

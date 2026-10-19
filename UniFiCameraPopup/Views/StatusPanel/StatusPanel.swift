@@ -207,10 +207,10 @@ struct StatusPanelView: View {
 
     // MARK: Version und Update (Phase 5, not in the template)
 
-    /// „Version 1.2.0 (29)“ 11 `muted`; with an update a full-width button like the mute buttons.
+    /// „Version 1.2.0“ 11 `muted`; with an update a full-width button like the mute buttons.
     private var versionSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(DisplayText.version(short: AppConfig.shortVersion, build: AppConfig.buildNumber))
+            Text(DisplayText.version(short: AppConfig.shortVersion))
                 .font(.system(size: 11))
                 .foregroundStyle(Tokens.muted.color)
             if let title = updateButtonTitle {
@@ -229,7 +229,6 @@ struct StatusPanelView: View {
             guard let manifest = updates.availableManifest else { return nil }
             return DisplayText.updateButton(
                 targetShort: manifest.shortVersion,
-                targetBuild: manifest.buildNumber,
                 currentShort: AppConfig.shortVersion
             )
         }

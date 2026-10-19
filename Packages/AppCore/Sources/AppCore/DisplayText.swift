@@ -105,17 +105,17 @@ public enum DisplayText {
 // MARK: - Phase 5
 
 extension DisplayText {
-    /// Menu panel: "Version 1.2.0 (29)".
-    public static func version(short: String, build: Int) -> String {
-        "Version \(short) (\(build))"
+    /// Menu panel: "Version 1.2.0".
+    public static func version(short: String) -> String {
+        "Version \(short)"
     }
 
     /// Menu panel update button: "Update auf 1.3.0 installieren"; same marketing version
-    /// (newer build only) or none: "Update auf 1.2.0 (30) installieren".
-    public static func updateButton(targetShort: String?, targetBuild: Int, currentShort: String) -> String {
+    /// or none: "Update installieren".
+    public static func updateButton(targetShort: String?, currentShort: String) -> String {
         let short = (targetShort ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         if short.isEmpty || short == currentShort {
-            return "Update auf \(currentShort) (\(targetBuild)) installieren"
+            return "Update installieren"
         }
         return "Update auf \(short) installieren"
     }
