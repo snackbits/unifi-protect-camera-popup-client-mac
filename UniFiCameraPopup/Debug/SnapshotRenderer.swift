@@ -345,7 +345,7 @@ enum SnapshotRenderer {
                 autoCloseSeconds: 0,
                 actions: Array(sample.door.actions.prefix(2)),
                 overlay: PopupOverlayContent(
-                    chipText: nil, cameraName: "Haustür",
+                    chip: nil, cameraName: "Haustür",
                     muteOptions: sample.settings.muteOptions, onMute: { _ in }
                 ),
                 onClose: {}
@@ -360,7 +360,7 @@ enum SnapshotRenderer {
                     autoCloseSeconds: 0,
                     actions: Array(sample.door.actions.prefix(2)),
                     overlay: PopupOverlayContent(
-                        chipText: "Klingel · Haustür · 10:41", cameraName: "Haustür",
+                        chip: { _ in "Klingel · Haustür · 10:41:07" }, cameraName: "Haustür",
                         muteOptions: sample.settings.muteOptions, onMute: { _ in }
                     ),
                     onClose: {}
@@ -390,7 +390,7 @@ enum SnapshotRenderer {
                     autoCloseSeconds: 0,
                     actions: sample.door.actions,
                     overlay: PopupOverlayContent(
-                        chipText: "Klingel · Haustür · 10:41", cameraName: "Haustür",
+                        chip: { _ in "Klingel · Haustür · 10:41:07" }, cameraName: "Haustür",
                         muteOptions: sample.settings.muteOptions, onMute: { _ in },
                         talk: PopupTalkContent(entryId: doorId)
                     ),
@@ -420,7 +420,7 @@ enum SnapshotRenderer {
                 autoCloseSeconds: 0,
                 actions: sample.door.actions,
                 overlay: PopupOverlayContent(
-                    chipText: nil, cameraName: "Haustür",
+                    chip: nil, cameraName: "Haustür",
                     muteOptions: sample.settings.muteOptions, onMute: { _ in },
                     talk: PopupTalkContent(entryId: doorId)
                 ),

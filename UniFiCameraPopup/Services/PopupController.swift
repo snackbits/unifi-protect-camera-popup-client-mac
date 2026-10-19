@@ -150,8 +150,10 @@ final class PopupController {
         let entryId = mapping.entryId
         let cameraName = CamerasTab.displayName(mapping)
         let overlay = PopupOverlayContent(
-            chipText: mapping.showNameAndTime
-                ? DisplayText.popupChip(kind: Self.kindLabel(for: event, mapping: mapping), camera: cameraName, date: event.timestamp)
+            chip: mapping.showNameAndTime
+                ? { [kind = Self.kindLabel(for: event, mapping: mapping)] now in
+                    DisplayText.popupChip(kind: kind, camera: cameraName, date: now, seconds: true)
+                }
                 : nil,
             cameraName: cameraName,
             muteOptions: settings.muteOptions,

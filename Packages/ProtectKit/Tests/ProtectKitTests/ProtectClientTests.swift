@@ -192,4 +192,27 @@ final class ProtectClientTests: XCTestCase {
             XCTAssertEqual(error as? ProtectError, .unauthorized)
         }
     }
+
+    func testRTSPURLPicksTheWantedQuality() async throws {
+        StubProtocol.responses["GET \(base)/cameras/c1/rtsps-stream"] = (200, try fixture("rtsps-stream"))
+        let url = try await client().rtspURL(cameraId: "c1", order: ["medium", "high", "low"])
+        XCTAssertEqual(url, "rtsp://192.168.1.1:7447/MedAlias")
+        XCTAssertFalse(StubProtocol.requests.contains { $0.httpMethod == "POST" })
+    }
+
+    func testRTSPURLCreatesAMissingQualityOrFallsBackToTheNearest() async throws {
+        // "low" is null in the fixture: asked for once, the camera refuses → nearest existing.
+        StubProtocol.responses["GET \(base)/cameras/c1/rtsps-stream"] = (200, try fixture("rtsps-stream"))
+        StubProtocol.responses["POST \(base)/cameras/c1/rtsps-stream"] = (400, Data())
+        let url = try await client().rtspURL(cameraId: "c1", order: ["low", "medium", "high"])
+        XCTAssertEqual(url, "rtsp://192.168.1.1:7447/MedAlias")
+        XCTAssertTrue(StubProtocol.requests.contains { $0.httpMethod == "POST" })
+    }
+
+    func testRTSPURLUsesTheCreatedQuality() async throws {
+        StubProtocol.responses["GET \(base)/cameras/c1/rtsps-stream"] = (200, try fixture("rtsps-stream"))
+        StubProtocol.responses["POST \(base)/cameras/c1/rtsps-stream"] = (200, Data(#"{"low":"rtsps://192.168.1.1:7441/Low?enableSrtp"}"#.utf8))
+        let url = try await client().rtspURL(cameraId: "c1", order: ["low", "medium", "high"])
+        XCTAssertEqual(url, "rtsp://192.168.1.1:7447/Low")
+    }
 }

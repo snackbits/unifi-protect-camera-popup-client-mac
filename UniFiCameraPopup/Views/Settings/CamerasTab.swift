@@ -285,6 +285,24 @@ struct CameraDetail: View {
             CardToggleRow(title: "Zoom und Ausschnitt merken", isOn: $mapping.rememberZoom, vertical: 8, horizontal: 12)
             CardDivider()
             CardToggleRow(title: "Ton des Livebilds", isOn: $mapping.soundEnabled, vertical: 8, horizontal: 12)
+            CardDivider()
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Bildqualität")
+                    Text("Niedriger startet das Livebild schneller.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Tokens.muted.color)
+                }
+                Spacer(minLength: 12)
+                Picker("Bildqualität", selection: $mapping.streamQuality) {
+                    ForEach(StreamQuality.allCases, id: \.self) { Text($0.label).tag($0) }
+                }
+                .labelsHidden()
+                .pickerStyle(.segmented)
+                .fixedSize()
+            }
+            .padding(.vertical, 8)
+            .padding(.horizontal, 12)
         }
     }
 

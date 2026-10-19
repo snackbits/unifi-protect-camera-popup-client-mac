@@ -186,6 +186,9 @@ final class SettingsStore: ObservableObject {
     /// Phase-5 fields per camera/button. The installed 1.2.0 build knows `settingsExtensionsV2` and
     /// rewrites it without them on every launch; this key it has never seen (`SettingsExtensionsV3`).
     private let extensionsV3Key = "settingsExtensionsV3"
+    /// 2.1.0 turned „Name und Zeit einblenden“ on by default: set once, so cameras from 2.0.0
+    /// (where it started off) get it once and a later „aus“ stays.
+    private let chipDefaultOnKey = "chipOnByDefault-2.1.0"
     /// Where raw, undecodable settings are preserved instead of being overwritten.
     private static let backupKey = "unifi.camera.popup.settings.corrupted-backup"
 
@@ -252,6 +255,10 @@ final class SettingsStore: ObservableObject {
             protectCertificateFingerprint = ext?.protectCertificateFingerprint ?? saved.protectCertificateFingerprint
             let extV3 = SettingsExtensionsV3.decode(defaults.data(forKey: extensionsV3Key))
             mappings = Self.overlay(ext, extV3, onto: mappings)
+            if !defaults.bool(forKey: chipDefaultOnKey) {
+                mappings = mappings.map { var mapping = $0; mapping.showNameAndTime = true; return mapping }
+                defaults.set(true, forKey: chipDefaultOnKey)
+            }
             // After the overlay: the extension may carry rules the main blob lost.
             let rules = Self.loadRuleTokens(into: mappings)
             mappings = rules.mappings
@@ -294,6 +301,7 @@ final class SettingsStore: ObservableObject {
             // Only persist on a genuine first launch (no prior data). When prior
             // data existed but failed to decode, leave it untouched above.
             if existingData == nil {
+                defaults.set(true, forKey: chipDefaultOnKey)
                 persist()
             }
         }
@@ -471,6 +479,9 @@ final class SettingsStore: ObservableObject {
             )
             mapping.showNameAndTime = fields.showNameAndTime
             mapping.sizeOverride = fields.sizeOverride
+            if let quality = extV3?.mappings[mapping.entryId.uuidString]?.streamQuality {
+                mapping.streamQuality = quality
+            }
             mapping.eventRules = fields.eventRules
             mapping.actions = mapping.actions.map { action in
                 var action = action
@@ -492,7 +503,8 @@ final class SettingsStore: ObservableObject {
             mappingValues[mapping.entryId.uuidString] = .init(
                 showNameAndTime: mapping.showNameAndTime,
                 size: mapping.sizeOverride,
-                eventRules: EventRuleList(mapping.eventRules)
+                eventRules: EventRuleList(mapping.eventRules),
+                streamQuality: mapping.streamQuality
             )
             for action in mapping.actions {
                 actionValues[action.id.uuidString] = .init(soundId: action.soundId?.uuidString)

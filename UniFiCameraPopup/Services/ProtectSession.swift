@@ -93,10 +93,11 @@ final class ProtectSession: ObservableObject {
         let manual = mapping.rtspsURL.trimmingCharacters(in: .whitespacesAndNewlines)
         if !manual.isEmpty { return StreamURL.normalizedRTSP(manual) }
         guard let cameraId = mapping.protectCameraId, let client else { return nil }
-        if let cached = streamCache[cameraId] { return cached }
+        let cacheKey = "\(cameraId)#\(mapping.streamQuality.rawValue)"
+        if let cached = streamCache[cacheKey] { return cached }
         do {
-            let url = try await client.rtspURL(cameraId: cameraId)
-            if let url, client === self.client { streamCache[cameraId] = url }
+            let url = try await client.rtspURL(cameraId: cameraId, order: mapping.streamQuality.fallbackOrder)
+            if let url, client === self.client { streamCache[cacheKey] = url }
             return url
         } catch {
             if client === self.client { lastError = error.localizedDescription }

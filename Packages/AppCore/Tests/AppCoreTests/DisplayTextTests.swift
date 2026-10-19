@@ -77,3 +77,18 @@ final class DisplayTextPhase5Tests: XCTestCase {
         XCTAssertEqual(DisplayText.actionTarget(url: "", soundName: nil), "")
     }
 }
+
+final class PopupChipLiveTests: XCTestCase {
+    func testLiveClockShowsSeconds() {
+        let tz = TimeZone(identifier: "Europe/Berlin")!
+        var parts = DateComponents()
+        parts.year = 2026; parts.month = 10; parts.day = 19; parts.hour = 10; parts.minute = 41; parts.second = 7
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = tz
+        let at = calendar.date(from: parts)!
+        XCTAssertEqual(DisplayText.popupChip(kind: "Bewegung", camera: "Garten", date: at, seconds: true, timeZone: tz),
+                       "Bewegung · Garten · 10:41:07")
+        XCTAssertEqual(DisplayText.popupChip(kind: nil, camera: "", date: at, seconds: true, timeZone: tz), "Kamera · 10:41:07")
+        XCTAssertEqual(DisplayText.timeWithSeconds(at, timeZone: tz), "10:41:07")
+    }
+}

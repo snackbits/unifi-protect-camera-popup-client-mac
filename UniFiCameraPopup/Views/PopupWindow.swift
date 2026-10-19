@@ -280,12 +280,16 @@ final class PopupWindow: NSPanel {
             mute.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -40),
             mute.topAnchor.constraint(equalTo: content.topAnchor, constant: 10),
         ]
-        if let chipText = overlay.chipText {
+        if let chipText = overlay.chip {
             let chip = OverlayChipView(text: chipText)
             content.addSubview(chip)
+            // Centred; on a narrow popup it moves left (and truncates) before touching mute/close.
+            let centered = chip.centerXAnchor.constraint(equalTo: content.centerXAnchor)
+            centered.priority = .defaultHigh
             constraints += [
-                chip.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 10),
-                chip.topAnchor.constraint(equalTo: content.topAnchor, constant: 10),
+                centered,
+                chip.leadingAnchor.constraint(greaterThanOrEqualTo: content.leadingAnchor, constant: 10),
+                chip.centerYAnchor.constraint(equalTo: close.centerYAnchor),
                 chip.trailingAnchor.constraint(lessThanOrEqualTo: mute.leadingAnchor, constant: -8),
             ]
         }
