@@ -20,8 +20,8 @@ final class MiniatureStackTests: XCTestCase {
     func testNewPopupsLineUpBelowEachOther() {
         let s = stack(["a", "b", "c"])
         XCTAssertEqual(s.frame(of: "a"), CGRect(x: 1220, y: 767, width: 200, height: 113))
-        XCTAssertEqual(s.frame(of: "b"), CGRect(x: 1220, y: 639, width: 200, height: 113))
-        XCTAssertEqual(s.frame(of: "c"), CGRect(x: 1220, y: 511, width: 200, height: 113))
+        XCTAssertEqual(s.frame(of: "b"), CGRect(x: 1220, y: 634, width: 200, height: 113))
+        XCTAssertEqual(s.frame(of: "c"), CGRect(x: 1220, y: 501, width: 200, height: 113))
     }
 
     func testClosingPopupLeavesThenTheOthersCloseUp() {
@@ -29,10 +29,10 @@ final class MiniatureStackTests: XCTestCase {
         let before = s.frame(of: "a")
         XCTAssertTrue(s.beginLeaving("a"))
         XCTAssertEqual(s.frame(of: "a"), before, "the window stays, only its content slides out")
-        XCTAssertEqual(s.frame(of: "b")?.minY, 639, "the others wait for the slide-out")
+        XCTAssertEqual(s.frame(of: "b")?.minY, 634, "the others wait for the slide-out")
         let moved = s.remove("a")
         XCTAssertEqual(moved["b"]?.minY, 767)
-        XCTAssertEqual(moved["c"]?.minY, 639)
+        XCTAssertEqual(moved["c"]?.minY, 634)
     }
 
     // MARK: Stapel steht still während des Hoverns
@@ -55,8 +55,8 @@ final class MiniatureStackTests: XCTestCase {
         s.beginLeaving("a")
         _ = s.remove("a")
         let added = s.append("c", fullSize: wide)
-        XCTAssertEqual(added["c"], CGRect(x: 1220, y: 511, width: 200, height: 113), "below b, the gap stays open")
-        XCTAssertEqual(s.frame(of: "b")?.minY, 639)
+        XCTAssertEqual(added["c"], CGRect(x: 1220, y: 501, width: 200, height: 113), "below b, the gap stays open")
+        XCTAssertEqual(s.frame(of: "b")?.minY, 634)
     }
 
     func testDisarmCatchesUp() {
@@ -77,8 +77,8 @@ final class MiniatureStackTests: XCTestCase {
         s.beginLeaving("a")
         _ = s.remove("a")
         let grown = s.expand("b")
-        XCTAssertEqual(grown["b"], CGRect(x: 860, y: 437, width: 560, height: 315), "top right corner stays at 1420/757")
-        XCTAssertEqual(grown["c"], CGRect(x: 1220, y: 309, width: 200, height: 113), "the popup below moves down")
+        XCTAssertEqual(grown["b"], CGRect(x: 860, y: 432, width: 560, height: 315), "top right corner stays at 1420/747")
+        XCTAssertEqual(grown["c"], CGRect(x: 1220, y: 299, width: 200, height: 113), "the popup below moves down")
         XCTAssertTrue(s.isFrozen, "frozen until the grow animation finished")
     }
 
@@ -90,7 +90,7 @@ final class MiniatureStackTests: XCTestCase {
         _ = s.expand("b")
         let moved = s.finishGrowing("b")
         XCTAssertEqual(moved["b"], CGRect(x: 860, y: 565, width: 560, height: 315), "moves up into the gap")
-        XCTAssertEqual(moved["c"]?.minY, 437)
+        XCTAssertEqual(moved["c"]?.minY, 432)
         XCTAssertFalse(s.isFrozen)
     }
 
@@ -123,7 +123,7 @@ final class MiniatureStackTests: XCTestCase {
         _ = s.finishGrowing("a")
         let moved = s.collapse("a")
         XCTAssertEqual(moved["a"], CGRect(x: 1220, y: 767, width: 200, height: 113))
-        XCTAssertEqual(moved["b"]?.minY, 639)
+        XCTAssertEqual(moved["b"]?.minY, 634)
     }
 
     func testArmOnlyFromMini() {
@@ -164,7 +164,7 @@ final class MiniatureStackTests: XCTestCase {
         _ = s.expand("a")
         _ = s.finishGrowing("a")
         let targets = s.collapse("a")
-        XCTAssertEqual(targets["b"]?.minY, 639)
+        XCTAssertEqual(targets["b"]?.minY, 634)
 
         let midA = CGRect(x: 1040, y: 666, width: 380, height: 214)
         let midB = CGRect(x: 1220, y: 543, width: 200, height: 113)
@@ -180,8 +180,8 @@ final class MiniatureStackTests: XCTestCase {
         XCTAssertEqual(s.frame(of: "c"), midC)
 
         let caughtUp = s.disarm("b")
-        XCTAssertEqual(caughtUp["b"]?.minY, 639, "after the hover the column catches up")
-        XCTAssertEqual(caughtUp["c"]?.minY, 511)
+        XCTAssertEqual(caughtUp["b"]?.minY, 634, "after the hover the column catches up")
+        XCTAssertEqual(caughtUp["c"]?.minY, 501)
     }
 
     /// The pointer is no longer on b after stopping: b is not armed, the column moves on.
@@ -211,45 +211,45 @@ final class MiniatureStackTests: XCTestCase {
 
     func testExpandedThatFitsDoesNotMove() {
         let result = frames(Array(repeating: wide, count: 5), expanded: 4)
-        XCTAssertEqual(result[4], CGRect(x: 860, y: 53, width: 560, height: 315), "top outer corner stays")
-        XCTAssertEqual(result[3], CGRect(x: 1220, y: 383, width: 200, height: 113))
+        XCTAssertEqual(result[4], CGRect(x: 860, y: 33, width: 560, height: 315), "top outer corner stays")
+        XCTAssertEqual(result[3], CGRect(x: 1220, y: 368, width: 200, height: 113))
     }
 
     func testExpandedMovesUpAndCoveredMiniaturesLineUpBelow() {
-        let big = CGSize(width: 600, height: 600)
+        let big = CGSize(width: 600, height: 560)
         let result = frames([wide, wide, wide, wide, big, wide], expanded: 4)
-        XCTAssertEqual(result[4], CGRect(x: 820, y: 20, width: 600, height: 600), "bottom at the area's bottom")
+        XCTAssertEqual(result[4], CGRect(x: 820, y: 20, width: 600, height: 560), "bottom at the area's bottom")
         XCTAssertEqual(result[0], CGRect(x: 1220, y: 767, width: 200, height: 113), "fits above: stays")
-        XCTAssertEqual(result[1], CGRect(x: 1220, y: 639, width: 200, height: 113), "fits above: stays")
-        XCTAssertEqual(result[2], CGRect(x: 1220, y: -108, width: 200, height: 113), "would be covered: below it")
-        XCTAssertEqual(result[3], CGRect(x: 1220, y: -236, width: 200, height: 113))
-        XCTAssertEqual(result[5], CGRect(x: 1220, y: -364, width: 200, height: 113), "the ones after follow")
+        XCTAssertEqual(result[1], CGRect(x: 1220, y: 634, width: 200, height: 113), "fits above: stays")
+        XCTAssertEqual(result[2], CGRect(x: 1220, y: -113, width: 200, height: 113), "would be covered: below it")
+        XCTAssertEqual(result[3], CGRect(x: 1220, y: -246, width: 200, height: 113))
+        XCTAssertEqual(result[5], CGRect(x: 1220, y: -379, width: 200, height: 113), "the ones after follow")
     }
 
     func testExpandedLargerThanTheAreaFillsItFromTheTop() {
         let huge = CGSize(width: 2000, height: 2000)
         let result = frames([wide, huge], expanded: 1)
         XCTAssertEqual(result[1], CGRect(x: 560, y: 20, width: 860, height: 860))
-        XCTAssertEqual(result[0], CGRect(x: 1220, y: -108, width: 200, height: 113), "the miniature above goes below")
+        XCTAssertEqual(result[0], CGRect(x: 1220, y: -113, width: 200, height: 113), "the miniature above goes below")
     }
 
     /// Growing and moving up are one move; small again, the original order returns.
     func testGrowingMovesUpAtOnceAndCollapseRestoresTheOrder() {
         var s = stack(["a", "b", "c", "d"])
-        _ = s.append("e", fullSize: CGSize(width: 600, height: 600))
-        XCTAssertEqual(s.frame(of: "e")?.maxY, 368)
+        _ = s.append("e", fullSize: CGSize(width: 600, height: 560))
+        XCTAssertEqual(s.frame(of: "e"), CGRect(x: 1220, y: 161, width: 200, height: 187))
         s.arm("e")
         let grown = s.expand("e")
-        XCTAssertEqual(grown["e"], CGRect(x: 820, y: 20, width: 600, height: 600))
+        XCTAssertEqual(grown["e"], CGRect(x: 820, y: 20, width: 600, height: 560))
         XCTAssertNil(grown["a"])
         XCTAssertNil(grown["b"])
-        XCTAssertEqual(grown["c"]?.minY, -108)
-        XCTAssertEqual(grown["d"]?.minY, -236)
+        XCTAssertEqual(grown["c"]?.minY, -113)
+        XCTAssertEqual(grown["d"]?.minY, -246)
         XCTAssertTrue(s.finishGrowing("e").isEmpty, "nothing left to catch up")
         let small = s.collapse("e")
-        XCTAssertEqual(small["c"]?.minY, 511)
-        XCTAssertEqual(small["d"]?.minY, 383)
-        XCTAssertEqual(small["e"], CGRect(x: 1220, y: 168, width: 200, height: 200))
+        XCTAssertEqual(small["c"]?.minY, 501)
+        XCTAssertEqual(small["d"]?.minY, 368)
+        XCTAssertEqual(small["e"], CGRect(x: 1220, y: 161, width: 200, height: 187))
         XCTAssertEqual(s.items.map(\.id), ["a", "b", "c", "d", "e"])
     }
 

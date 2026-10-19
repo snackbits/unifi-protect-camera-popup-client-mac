@@ -180,32 +180,32 @@ final class PopupLayoutTests: XCTestCase {
         let right = miniFrames([wide, wide, wide], side: .trailing)
         XCTAssertEqual(right, [
             CGRect(x: 1224, y: 771, width: 200, height: 113),
-            CGRect(x: 1224, y: 643, width: 200, height: 113),
-            CGRect(x: 1224, y: 515, width: 200, height: 113),
+            CGRect(x: 1224, y: 638, width: 200, height: 113),
+            CGRect(x: 1224, y: 505, width: 200, height: 113),
         ])
         let left = miniFrames([wide, wide, wide], side: .leading)
         XCTAssertEqual(left.map(\.minX), [16, 16, 16])
-        XCTAssertEqual(left.map(\.minY), [771, 643, 515])
+        XCTAssertEqual(left.map(\.minY), [771, 638, 505])
     }
 
     func testExpandedKeepsTopOuterCornerAndPushesFollowersDown() {
         let right = miniFrames([wide, wide, wide], expanded: 1, side: .trailing)
         XCTAssertEqual(right[0], CGRect(x: 1224, y: 771, width: 200, height: 113))
-        XCTAssertEqual(right[1], CGRect(x: 752, y: 378, width: 672, height: 378))
+        XCTAssertEqual(right[1], CGRect(x: 752, y: 373, width: 672, height: 378))
         XCTAssertEqual(right[1].maxX, 1424, "top right corner stays where the miniature's was")
-        XCTAssertEqual(right[1].maxY, 756)
-        XCTAssertEqual(right[2], CGRect(x: 1224, y: 250, width: 200, height: 113))
+        XCTAssertEqual(right[1].maxY, 751)
+        XCTAssertEqual(right[2], CGRect(x: 1224, y: 240, width: 200, height: 113))
 
         let left = miniFrames([wide, wide], expanded: 0, side: .leading)
         XCTAssertEqual(left[0], CGRect(x: 16, y: 506, width: 672, height: 378))
-        XCTAssertEqual(left[1], CGRect(x: 16, y: 378, width: 200, height: 113))
+        XCTAssertEqual(left[1], CGRect(x: 16, y: 373, width: 200, height: 113))
     }
 
     func testOverflowRunsBelowScreenWithoutSecondColumn() {
         let frames = miniFrames(Array(repeating: wide, count: 10), side: .trailing)
         XCTAssertEqual(Set(frames.map(\.minX)), [1224])
         XCTAssertTrue(frames.allSatisfy { $0.size == CGSize(width: 200, height: 113) }, "nothing shrinks")
-        XCTAssertEqual(frames[7].minY, 771 - 7 * 128)
+        XCTAssertEqual(frames[7].minY, 771 - 7 * 133)
         XCTAssertLessThan(frames[9].maxY, visible.minY)
     }
 

@@ -158,7 +158,7 @@ public enum PopupStackLayout {
 
     public static let miniatureWidth: CGFloat = 200
     /// Room between two entries of the column (the remaining-time line sits inside it).
-    public static let miniatureGap: CGFloat = 15
+    public static let miniatureGap: CGFloat = 20
 
     /// Layout "Miniatur": one column at `side`, starting at the top of the visible area minus
     /// `margin`, `gap` apart. Every entry is `miniWidth` wide with the aspect of its full size,
