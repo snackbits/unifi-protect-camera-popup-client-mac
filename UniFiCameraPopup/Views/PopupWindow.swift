@@ -265,6 +265,10 @@ final class PopupWindow: NSPanel {
                                     fill: Tokens.overlay, tint: Tokens.white, label: "Diese Kamera stummschalten")
         mute.target = self
         mute.action = #selector(muteTapped)
+        let settingsButton = CircleIconButton(icon: .gear, iconSize: 13, diameter: 24,
+                                              fill: Tokens.overlay, tint: Tokens.white, label: "Einstellungen dieser Kamera")
+        settingsButton.target = self
+        settingsButton.action = #selector(settingsTapped)
         let menu = PopupMuteMenuView(cameraName: overlay.cameraName, options: overlay.muteOptions)
         menu.isHidden = true
         menu.onPick = { [weak self] duration in
@@ -274,23 +278,26 @@ final class PopupWindow: NSPanel {
 
         content.addSubview(close)
         content.addSubview(mute)
+        content.addSubview(settingsButton)
         var constraints = [
             close.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -10),
             close.topAnchor.constraint(equalTo: content.topAnchor, constant: 10),
             mute.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -40),
             mute.topAnchor.constraint(equalTo: content.topAnchor, constant: 10),
+            settingsButton.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -70),
+            settingsButton.topAnchor.constraint(equalTo: content.topAnchor, constant: 10),
         ]
         if let chipText = overlay.chip {
             let chip = OverlayChipView(text: chipText)
             content.addSubview(chip)
-            // Centred; on a narrow popup it moves left (and truncates) before touching mute/close.
+            // Centred; on a narrow popup it moves left (and truncates) before touching the buttons.
             let centered = chip.centerXAnchor.constraint(equalTo: content.centerXAnchor)
             centered.priority = .defaultHigh
             constraints += [
                 centered,
                 chip.leadingAnchor.constraint(greaterThanOrEqualTo: content.leadingAnchor, constant: 10),
                 chip.centerYAnchor.constraint(equalTo: close.centerYAnchor),
-                chip.trailingAnchor.constraint(lessThanOrEqualTo: mute.leadingAnchor, constant: -8),
+                chip.trailingAnchor.constraint(lessThanOrEqualTo: settingsButton.leadingAnchor, constant: -8),
             ]
         }
         var leading: [NSView] = []
@@ -335,6 +342,11 @@ final class PopupWindow: NSPanel {
 
     @objc private func closeTapped() {
         closePopup()
+    }
+
+    @objc private func settingsTapped() {
+        muteMenu?.isHidden = true
+        overlay?.onOpenSettings()
     }
 
     @objc private func muteTapped() {

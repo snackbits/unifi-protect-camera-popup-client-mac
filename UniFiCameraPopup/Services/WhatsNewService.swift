@@ -22,6 +22,9 @@ struct WhatsNewInfo: Equatable {
 enum WhatsNewService {
     /// Newest version first.
     static let changelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "2.4.0", items: [
+            "Zahnrad im Popup (links neben der Glocke): öffnet direkt die Einstellungen dieser Kamera.",
+        ]),
         ChangelogEntry(version: "2.3.0", items: [
             "Bei den Auslösern einer Kamera steht nur noch, was in Protect für sie eingeschaltet ist – Empfindlichkeit und Zonen stellst du weiter in Protect ein.",
             "Linienüberquerungen getrennt wählbar: „Person“, „Fahrzeug“ oder „Tier“ überquert Linie. Bisherige Auswahl bleibt erhalten.",
