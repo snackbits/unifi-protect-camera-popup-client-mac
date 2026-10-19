@@ -157,7 +157,7 @@ struct HelpView: View {
                 + "für die Kamera, wie der Schalter „Ton des Livebilds“ unter Einstellungen › Kameras. "
                 + "Halte „Sprechen“ mit der Maus gedrückt und sprich; Loslassen beendet – auch wenn der Zeiger dabei das Popup verlässt. "
                 + "Die App gleicht dein Mikrofon automatisch an die Lautstärke der Ansagen an. Unter Einstellungen › Ton wählst du das Mikrofon, "
-                + "regelst „Lautstärke Sprechen“ und „Lautstärke Ansagen“ getrennt und verwaltest "
+                + "regelst „Lautstärke Sprechen“ und „Lautstärke Ansagen“ getrennt und verwaltest (Reihenfolge per Ziehen) "
                 + "die Ansagen (MP3 oder Text, gesprochen von einer Piper-Stimme und erzeugt auf diesem Mac, höchstens 1000 Zeichen). "
                 + "Die Stimmen – Standard ist „Thorsten · mittel“, dazu acht weitere deutsche – lädt die App beim ersten Anhören "
                 + "oder Übernehmen einmalig aus dem Internet (Größe steht in der Auswahl, „Jetzt laden“ lädt sofort); danach geht es ohne Internet, "
