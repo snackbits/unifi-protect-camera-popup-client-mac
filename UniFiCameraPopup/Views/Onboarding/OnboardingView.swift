@@ -27,9 +27,17 @@ final class OnboardingModel: ObservableObject {
     private var confirmedFingerprint: String?
     private var confirmedHost: String?
     @Published var pendingFingerprint: String?
-    /// Why the trust alert is shown: the known console's certificate changed, or the address
-    /// points at another console than the one whose certificate is pinned.
-    @Published var pendingIsDifferentConsole = false
+    /// Why the trust alert is shown.
+    enum TrustReason {
+        /// The known console's certificate changed.
+        case certificateChanged
+        /// The address points at another console than the one whose certificate is pinned.
+        case differentConsole
+        /// No pin yet, but a tunnel is configured: the app may be away, where a foreign device
+        /// can answer on the same address. No trust on first use there.
+        case firstContactWithTunnel
+    }
+    @Published var pendingTrustReason: TrustReason = .certificateChanged
     @Published var probing = false
     /// Bumped by every `checkKey()`/probe so a late answer for an earlier attempt is dropped.
     private var generation = 0
@@ -46,12 +54,12 @@ final class OnboardingModel: ObservableObject {
         confirmedFingerprint = nil
         confirmedHost = nil
         pendingFingerprint = nil
-        pendingIsDifferentConsole = false
+        pendingTrustReason = .certificateChanged
         certificateChanged = false
     }
 
     /// Phase 1 of re-trust: read the presented fingerprint without sending the API key.
-    func probeNewCertificate(differentConsole: Bool = false) {
+    func probeNewCertificate(reason: TrustReason = .certificateChanged) {
         generation += 1
         let attempt = generation
         let probeHost = canonicalHost
@@ -73,7 +81,7 @@ final class OnboardingModel: ObservableObject {
             guard canonicalHost == probeHost else { return }
             switch result {
             case .success(let fingerprint):
-                pendingIsDifferentConsole = differentConsole
+                pendingTrustReason = reason
                 pendingFingerprint = fingerprint
             case .failure(let error):
                 keyError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
@@ -105,11 +113,16 @@ final class OnboardingModel: ObservableObject {
         let requestHost = canonicalHost
         let confirmed = confirmedHost != nil && confirmedHost == requestHost ? confirmedFingerprint : nil
         let samePinnedHost = requestHost != nil && requestHost == ProtectClient.canonicalHost(settings.protectHost)
-        // While any console is pinned, a different address is never trusted on first use:
-        // confirm the other console's fingerprint first (same alert as a certificate change).
-        if confirmed == nil, settings.protectCertificateFingerprint != nil, !samePinnedHost, requestHost != nil {
+        // While any console is pinned, a different address is never trusted on first use; with a
+        // tunnel configured and nothing pinned, no address is (a direct answer may come from a
+        // foreign device away from home). Confirm the fingerprint first, then send the key pinned.
+        let pinned = settings.protectCertificateFingerprint
+        if requestHost != nil, RouteDecision.requiresFingerprintConfirmation(
+            hasTunnel: TunnelStore.shared.hasConfiguration, isConfiguredHost: samePinnedHost,
+            pinned: pinned, confirmed: confirmed != nil
+        ) {
             certificateChanged = false
-            probeNewCertificate(differentConsole: true)
+            probeNewCertificate(reason: pinned?.isEmpty == false ? .differentConsole : .firstContactWithTunnel)
             return
         }
         generation += 1
@@ -251,9 +264,12 @@ struct OnboardingView: View {
             Button("Vertrauen") { model.confirmPendingFingerprint() }
             Button("Abbrechen", role: .cancel) { model.pendingFingerprint = nil }
         } message: {
-            if model.pendingIsDifferentConsole {
+            switch model.pendingTrustReason {
+            case .differentConsole:
                 Text("„\(model.canonicalHost ?? model.host)“ ist eine andere Konsole als die bisher eingerichtete. Bestätige nur, wenn das wirklich deine Konsole ist – erst dann wird dein API-Schlüssel dorthin gesendet. Fingerabdruck der neuen Konsole:\n\n\(model.pendingFingerprint ?? "")")
-            } else {
+            case .firstContactWithTunnel:
+                Text("Bestätige das Zertifikat von „\(model.canonicalHost ?? model.host)“. Weil ein Tunnel eingerichtet ist, könntest du gerade unterwegs sein – dort kann ein fremdes Gerät unter derselben Adresse antworten. Bestätige nur, wenn das wirklich deine Konsole ist – erst dann wird dein API-Schlüssel dorthin gesendet. Fingerabdruck:\n\n\(model.pendingFingerprint ?? "")")
+            case .certificateChanged:
                 Text("Das Zertifikat deiner Konsole hat sich geändert. Bestätige nur, wenn du es selbst geändert hast (z. B. nach einem Konsolen-Update). Neuer Fingerabdruck:\n\n\(model.pendingFingerprint ?? "")")
             }
         }

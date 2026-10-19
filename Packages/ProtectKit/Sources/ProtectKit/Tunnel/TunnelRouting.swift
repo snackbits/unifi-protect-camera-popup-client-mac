@@ -71,4 +71,17 @@ public enum RouteDecision {
         case .automatic: return answered ? .direct : .tunnel
         }
     }
+
+    /// Whether the set-up must show a console's fingerprint for explicit confirmation before the
+    /// API key is sent there. A direct answer alone does not prove "at home": away, a foreign
+    /// router can answer on the same address (192.168.1.1 in a hotel).
+    /// - A pin exists: only for another address than the configured console (unchanged rule).
+    /// - No pin, tunnel configured: always – the app may be away, no trust on first use.
+    /// - No pin, no tunnel: trust on first use, as in a first set-up at home.
+    public static func requiresFingerprintConfirmation(hasTunnel: Bool, isConfiguredHost: Bool,
+                                                       pinned: String?, confirmed: Bool) -> Bool {
+        if confirmed { return false }
+        if let pinned, !pinned.isEmpty { return !isConfiguredHost }
+        return hasTunnel
+    }
 }

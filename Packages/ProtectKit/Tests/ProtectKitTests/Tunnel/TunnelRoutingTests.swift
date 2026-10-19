@@ -74,6 +74,38 @@ final class TunnelRoutingTests: XCTestCase {
                                                      current: .direct, answered: false), .direct)
     }
 
+    func testNoPinWithTunnelRequiresConfirmation() {
+        // Hotel router on the home address: a direct answer is no proof of being at home.
+        XCTAssertTrue(RouteDecision.requiresFingerprintConfirmation(hasTunnel: true, isConfiguredHost: false,
+                                                                    pinned: nil, confirmed: false))
+        XCTAssertTrue(RouteDecision.requiresFingerprintConfirmation(hasTunnel: true, isConfiguredHost: true,
+                                                                    pinned: nil, confirmed: false))
+        XCTAssertTrue(RouteDecision.requiresFingerprintConfirmation(hasTunnel: true, isConfiguredHost: false,
+                                                                    pinned: "", confirmed: false))
+        XCTAssertFalse(RouteDecision.requiresFingerprintConfirmation(hasTunnel: true, isConfiguredHost: false,
+                                                                     pinned: nil, confirmed: true))
+    }
+
+    func testNoPinWithoutTunnelTrustsOnFirstUse() {
+        for configured in [true, false] {
+            XCTAssertFalse(RouteDecision.requiresFingerprintConfirmation(hasTunnel: false, isConfiguredHost: configured,
+                                                                         pinned: nil, confirmed: false))
+        }
+    }
+
+    func testPinKeepsExistingRules() {
+        for hasTunnel in [true, false] {
+            // Another console while one is pinned: confirm first.
+            XCTAssertTrue(RouteDecision.requiresFingerprintConfirmation(hasTunnel: hasTunnel, isConfiguredHost: false,
+                                                                        pinned: "AA", confirmed: false))
+            // The pinned console itself: connects pinned, no alert.
+            XCTAssertFalse(RouteDecision.requiresFingerprintConfirmation(hasTunnel: hasTunnel, isConfiguredHost: true,
+                                                                         pinned: "AA", confirmed: false))
+            XCTAssertFalse(RouteDecision.requiresFingerprintConfirmation(hasTunnel: hasTunnel, isConfiguredHost: false,
+                                                                         pinned: "AA", confirmed: true))
+        }
+    }
+
     func testModeLabels() {
         XCTAssertEqual(TunnelMode.allCases.map(\.label), ["Automatisch", "Immer", "Nie"])
     }
