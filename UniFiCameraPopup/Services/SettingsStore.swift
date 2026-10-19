@@ -332,6 +332,13 @@ final class SettingsStore: ObservableObject {
         mappings.first { $0.entryId == id }
     }
 
+    /// Camera sound of the live picture, switched in the popup (same switch as Kameras › „Ton des Livebilds“).
+    func setSoundEnabled(_ enabled: Bool, for entryId: UUID) {
+        guard let index = mappings.firstIndex(where: { $0.entryId == entryId }),
+              mappings[index].soundEnabled != enabled else { return }
+        mappings[index].soundEnabled = enabled
+    }
+
     func saveZoom(for entryId: UUID, scale: CGFloat, panOffset: CGPoint) {
         guard let index = mappings.firstIndex(where: { $0.entryId == entryId }) else { return }
         guard mappings[index].rememberZoom else { return }

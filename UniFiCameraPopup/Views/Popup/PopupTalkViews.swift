@@ -5,6 +5,10 @@ import Combine
 /// Popup of a camera that can talk (Protect camera with speaker).
 struct PopupTalkContent {
     let entryId: UUID
+    /// Camera sound in the live picture at popup start (`WebhookMapping.soundEnabled`).
+    var soundEnabled = true
+    /// Sound switched in the popup: plays/mutes the stream and stores it for the camera.
+    var onSoundToggle: (Bool) -> Void = { _ in }
 }
 
 /// Talk button (Phase 5, two lines): capsule 40 high, padding 0/18, radius 20, `accent`, mic 16 + 6 +
@@ -271,7 +275,7 @@ final class SoundMenuRow: NSView {
     }
 }
 
-/// Sound menu above "Ton abspielen": 180 + 2 × 5 wide, radius 9, `menu`, ring 1 `mainBorder`,
+/// Sound menu above "Ansage abspielen": 180 + 2 × 5 wide, radius 9, `menu`, ring 1 `mainBorder`,
 /// shadow 0 10 24 rgba(0,0,0,.4); announcements, separator (1, margin 3/4), "MP3 hinzufügen …" `accText`.
 final class SoundMenuView: NSView {
     var onPick: ((Announcement) -> Void)?
@@ -304,7 +308,7 @@ final class SoundMenuView: NSView {
         ])
         setAccessibilityElement(true)
         setAccessibilityRole(.menu)
-        setAccessibilityLabel("Ton abspielen")
+        setAccessibilityLabel("Ansage abspielen")
         applyColors()
     }
 
@@ -431,11 +435,15 @@ final class PopupNoticeView: NSView {
     }
 }
 
-/// "Ton abspielen" + talk button of one popup, wired to `TalkbackService`.
+/// "Ansage abspielen" + talk button + camera sound switch of one popup, wired to `TalkbackService`.
 @MainActor
 final class PopupTalkControls {
     let soundButton: CircleIconButton
     let talkButton: TalkButtonView
+    /// Right of the talk button: camera sound on (speaker) or off (struck through).
+    let listenButton: CircleIconButton
+    private var listening: Bool
+    private let onSoundToggle: (Bool) -> Void
     private let soundMenu = SoundMenuView()
     private let notice = PopupNoticeView()
     private let entryId: UUID
@@ -446,16 +454,29 @@ final class PopupTalkControls {
 
     init(content talk: PopupTalkContent) {
         entryId = talk.entryId
+        listening = talk.soundEnabled
+        onSoundToggle = talk.onSoundToggle
         soundButton = CircleIconButton(
+            icon: .megaphone,
+            iconSize: 16,
+            diameter: 34,
+            fill: Tokens.pillBtn,
+            tint: Tokens.pillFg,
+            label: "Ansage abspielen"
+        )
+        talkButton = TalkButtonView()
+        listenButton = CircleIconButton(
             icon: .soundPlay,
             iconSize: 16,
             diameter: 34,
             fill: Tokens.pillBtn,
             tint: Tokens.pillFg,
-            label: "Ton abspielen"
+            label: "Kameraton"
         )
-        talkButton = TalkButtonView()
         soundMenu.isHidden = true
+        renderListening()
+        listenButton.target = self
+        listenButton.action = #selector(listenTapped)
 
         soundButton.target = self
         soundButton.action = #selector(soundTapped)
@@ -541,6 +562,19 @@ final class PopupTalkControls {
         if !soundMenu.isHidden { onMenuOpened?() }
     }
 
+    @objc private func listenTapped() {
+        listening.toggle()
+        renderListening()
+        onSoundToggle(listening)
+    }
+
+    private func renderListening() {
+        listenButton.image = (listening ? TemplateIcon.soundPlay : .speakerOff).nsImage(size: 16)
+        let text = listening ? "Kameraton ausschalten" : "Kameraton einschalten"
+        listenButton.toolTip = text
+        listenButton.setAccessibilityLabel(text)
+    }
+
     private func addMP3() {
         guard let url = SoundFilePicker.chooseMP3() else { return }
         do {
@@ -572,6 +606,6 @@ final class PopupTalkControls {
     /// Playing: `accent` fill, white symbol (template has no playing state).
     private func setSoundActive(_ active: Bool) {
         soundButton.isAccented = active
-        soundButton.toolTip = active ? "Ansage stoppen" : "Ton abspielen"
+        soundButton.toolTip = active ? "Ansage stoppen" : "Ansage abspielen"
     }
 }

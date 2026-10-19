@@ -2,7 +2,7 @@
 
 Kopf wie Allgemein, Titel „Ton & Sprechen“, Reiter „Ton“ aktiv.
 Inhalt Innenabstand 14/40, Abstand 10, Schrift 13. Scrollt, wenn der Inhalt höher als das Fenster ist.
-1. Abschnitt Abstand 5: „Ansagen für „Ton abspielen““ 11/600 `muted`. Karte Radius 10, `group`, Rand 1 `border`:
+1. Abschnitt Abstand 5: „Ansagen für „Ansage abspielen““ 11/600 `muted`. Karte Radius 10, `group`, Rand 1 `border`:
    Zeilen Abstand 10, Innenabstand 6/12, Trennlinie 1 `border` unter jeder Ansage:
    Play-Knopf 22 rund `accSoft`, Dreieck 9 (gefüllt) `accText` („Probehören“ am Mac, zweiter Klick stoppt) ·
    Name 500, füllt, einzeilig · Länge 11 `muted` tabellarisch („0:03“, auf Sekunden gerundet) ·

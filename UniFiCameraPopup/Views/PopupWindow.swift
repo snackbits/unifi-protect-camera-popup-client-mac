@@ -322,12 +322,18 @@ final class PopupWindow: NSPanel {
         }
         var leading: [NSView] = []
         if let talk = overlay.talk {
+            var talk = talk
+            let store = talk.onSoundToggle
+            talk.onSoundToggle = { [weak self] enabled in
+                self?.playerView.setSoundEnabled(enabled)
+                store(enabled)
+            }
             let controls = PopupTalkControls(content: talk)
-            leading = [controls.soundButton, controls.talkButton]
+            leading = [controls.soundButton, controls.talkButton, controls.listenButton]
             controls.onMenuOpened = { [weak self] in self?.muteMenu?.isHidden = true }
             talkControls = controls
             // The stack resizes popups (also animated): the talk button follows the width.
-            let circles = 1 + min(actions.count, WebhookMapping.maxActions)
+            let circles = 2 + min(actions.count, WebhookMapping.maxActions)
             controls.fit(popupWidth: frame.width, circles: circles)
             resizeObserver = NotificationCenter.default.addObserver(
                 forName: NSWindow.didResizeNotification, object: self, queue: .main

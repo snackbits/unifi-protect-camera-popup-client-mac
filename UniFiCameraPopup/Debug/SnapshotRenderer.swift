@@ -398,7 +398,7 @@ enum SnapshotRenderer {
                 )
                 if state.openMenu, let content = popup.contentView {
                     func find(_ view: NSView) -> CircleIconButton? {
-                        if let button = view as? CircleIconButton, button.toolTip == "Ton abspielen" { return button }
+                        if let button = view as? CircleIconButton, button.toolTip == "Ansage abspielen" { return button }
                         for sub in view.subviews { if let hit = find(sub) { return hit } }
                         return nil
                     }
