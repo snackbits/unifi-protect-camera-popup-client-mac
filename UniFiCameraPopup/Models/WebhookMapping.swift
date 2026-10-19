@@ -1,4 +1,6 @@
+import AppCore
 import Foundation
+import ProtectKit
 
 struct SavedCameraZoom: Codable, Equatable {
     var scale: Double
@@ -26,7 +28,36 @@ extension CodingUserInfoKey {
     static let plaintextActionTokenIDs = CodingUserInfoKey(rawValue: "plaintextActionTokenIDs")!
 }
 
-/// A user-defined button shown in the popup that calls a webhook (e.g. "Tür öffnen").
+/// Symbol of a popup button (template sheet: door, bulb, house, bolt).
+enum ActionIcon: String, Codable, CaseIterable, Identifiable {
+    case door
+    case bulb
+    case house
+    case bolt
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .door: return "Tür"
+        case .bulb: return "Licht"
+        case .house: return "Haus"
+        case .bolt: return "Blitz"
+        }
+    }
+
+    var templateIcon: TemplateIcon {
+        switch self {
+        case .door: return .actionDoor
+        case .bulb: return .actionBulb
+        case .house: return .actionHouse
+        case .bolt: return .actionBolt
+        }
+    }
+}
+
+/// A user-defined button shown in the popup: calls a webhook (e.g. "Tür öffnen"), plays an
+/// announcement at the camera, or both at once (Phase 5).
 struct CameraAction: Codable, Identifiable, Equatable {
     enum Method: String, Codable, CaseIterable, Identifiable {
         case get = "GET"
@@ -41,6 +72,12 @@ struct CameraAction: Codable, Identifiable, Equatable {
     var method: Method
     /// Sent as `Authorization: Bearer <token>` when not empty.
     var bearerToken: String
+    /// Symbol in the popup's button pill.
+    var icon: ActionIcon
+    /// Ask before calling the webhook (e.g. opening a door).
+    var confirmBeforeRun: Bool
+    /// Announcement (Einstellungen › Ton) played at the popup's camera; nil = „Kein Ton“.
+    var soundId: UUID?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -48,6 +85,9 @@ struct CameraAction: Codable, Identifiable, Equatable {
         case url
         case method
         case bearerToken
+        case icon
+        case confirmBeforeRun
+        case soundId
     }
 
     init(
@@ -55,13 +95,19 @@ struct CameraAction: Codable, Identifiable, Equatable {
         title: String = "",
         url: String = "",
         method: Method = .post,
-        bearerToken: String = ""
+        bearerToken: String = "",
+        icon: ActionIcon = .bolt,
+        confirmBeforeRun: Bool = false,
+        soundId: UUID? = nil
     ) {
         self.id = id
         self.title = title
         self.url = url
         self.method = method
         self.bearerToken = bearerToken
+        self.icon = icon
+        self.confirmBeforeRun = confirmBeforeRun
+        self.soundId = soundId
     }
 
     init(from decoder: Decoder) throws {
@@ -71,6 +117,9 @@ struct CameraAction: Codable, Identifiable, Equatable {
         url = (try? container.decodeIfPresent(String.self, forKey: .url)) ?? ""
         method = (try? container.decodeIfPresent(Method.self, forKey: .method)) ?? .post
         bearerToken = (try? container.decodeIfPresent(String.self, forKey: .bearerToken)) ?? ""
+        icon = (try? container.decodeIfPresent(ActionIcon.self, forKey: .icon)) ?? .bolt
+        confirmBeforeRun = (try? container.decodeIfPresent(Bool.self, forKey: .confirmBeforeRun)) ?? false
+        soundId = (try? container.decodeIfPresent(UUID.self, forKey: .soundId)) ?? nil
     }
 
     /// The bearer token is only encoded when explicitly requested (export or
@@ -81,6 +130,9 @@ struct CameraAction: Codable, Identifiable, Equatable {
         try container.encode(title, forKey: .title)
         try container.encode(url, forKey: .url)
         try container.encode(method, forKey: .method)
+        try container.encode(icon, forKey: .icon)
+        try container.encode(confirmBeforeRun, forKey: .confirmBeforeRun)
+        try container.encodeIfPresent(soundId, forKey: .soundId)
 
         let includeAll = encoder.userInfo[.includeActionTokens] as? Bool == true
         let plaintextIDs = encoder.userInfo[.plaintextActionTokenIDs] as? Set<UUID> ?? []
@@ -103,9 +155,9 @@ struct CameraAction: Codable, Identifiable, Equatable {
         return parsed
     }
 
-    /// Only fully configured actions are shown in the popup.
+    /// Title plus webhook and/or sound; a typed address must be valid (see `ActionAvailability`).
     var isConfigured: Bool {
-        !trimmedTitle.isEmpty && requestURL != nil
+        ActionAvailability.isConfigured(title: title, address: url, hasValidURL: requestURL != nil, hasSound: soundId != nil)
     }
 }
 
@@ -128,6 +180,21 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
     var hotkey: CameraHotkey?
     var crop: CameraCrop?
     var actions: [CameraAction]
+    /// Protect camera id (Integration API). nil = legacy webhook/RTSP-only entry.
+    var protectCameraId: String?
+    /// Protect events that open this camera's popup.
+    var triggers: Set<TriggerKind>
+    /// Hidden option: also open the popup when the relay server receives `webhookId`.
+    var webhookTriggerEnabled: Bool
+    /// "Hinweiston beim Öffnen": system sound when a triggered popup opens.
+    var chimeOnOpen: Bool
+    /// „Name und Zeit einblenden“: the app's own chip (camera OSD shows the same). Default off.
+    var showNameAndTime: Bool
+    /// Kameras › Ereignisse (Phase 5). Tokens only in memory/keychain, never encoded.
+    var eventRules: [EventRule]
+    /// „Größe“ (Phase 5): empty = automatic (42 % of the screen height). `width`/`height` stay the
+    /// last concrete size (crop, older builds) and give the aspect ratio of a crop.
+    var sizeOverride: PopupSizeOverride
 
     enum CodingKeys: String, CodingKey {
         case entryId
@@ -143,6 +210,13 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
         case hotkey
         case crop
         case actions
+        case protectCameraId
+        case triggers
+        case webhookTriggerEnabled
+        case chimeOnOpen
+        case showNameAndTime
+        case sizeOverride
+        case eventRules
         case widthOverride
         case heightOverride
     }
@@ -160,7 +234,14 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
         savedZoom: SavedCameraZoom? = nil,
         hotkey: CameraHotkey? = nil,
         crop: CameraCrop? = nil,
-        actions: [CameraAction] = []
+        actions: [CameraAction] = [],
+        protectCameraId: String? = nil,
+        triggers: Set<TriggerKind> = [.ring, .person],
+        webhookTriggerEnabled: Bool = false,
+        chimeOnOpen: Bool = false,
+        showNameAndTime: Bool = false,
+        sizeOverride: PopupSizeOverride = .automatic,
+        eventRules: [EventRule] = []
     ) {
         self.entryId = entryId
         self.webhookId = webhookId
@@ -175,6 +256,13 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
         self.hotkey = hotkey
         self.crop = crop
         self.actions = actions
+        self.protectCameraId = protectCameraId
+        self.triggers = triggers
+        self.webhookTriggerEnabled = webhookTriggerEnabled
+        self.chimeOnOpen = chimeOnOpen
+        self.showNameAndTime = showNameAndTime
+        self.sizeOverride = sizeOverride
+        self.eventRules = eventRules
     }
 
     init(from decoder: Decoder) throws {
@@ -201,6 +289,18 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
         hotkey = (try? container.decodeIfPresent(CameraHotkey.self, forKey: .hotkey)) ?? nil
         crop = (try? container.decodeIfPresent(CameraCrop.self, forKey: .crop)) ?? nil
         actions = (try? container.decodeIfPresent([CameraAction].self, forKey: .actions)) ?? []
+        protectCameraId = (try? container.decodeIfPresent(String.self, forKey: .protectCameraId)) ?? nil
+        triggers = Set((try? container.decodeIfPresent([TriggerKind].self, forKey: .triggers)) ?? [.ring, .person])
+        // Legacy entries were webhook-driven: keep them working.
+        webhookTriggerEnabled = (try? container.decodeIfPresent(Bool.self, forKey: .webhookTriggerEnabled))
+            ?? !webhookId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        chimeOnOpen = (try? container.decodeIfPresent(Bool.self, forKey: .chimeOnOpen)) ?? false
+        // Phase 5: existing cameras start without the chip, too.
+        showNameAndTime = (try? container.decodeIfPresent(Bool.self, forKey: .showNameAndTime)) ?? false
+        // Written before Phase 5: the old default 480 × 270 becomes automatic, other sizes stay.
+        sizeOverride = ((try? container.decodeIfPresent(PopupSizeOverride.self, forKey: .sizeOverride)) ?? nil)
+            ?? .migrated(width: width, height: height)
+        eventRules = ((try? container.decodeIfPresent(EventRuleList.self, forKey: .eventRules)) ?? nil)?.rules ?? []
     }
 
     func encode(to encoder: Encoder) throws {
@@ -218,6 +318,21 @@ struct WebhookMapping: Codable, Identifiable, Equatable {
         try container.encodeIfPresent(hotkey, forKey: .hotkey)
         try container.encodeIfPresent(crop, forKey: .crop)
         try container.encode(actions, forKey: .actions)
+        try container.encodeIfPresent(protectCameraId, forKey: .protectCameraId)
+        try container.encode(TriggerKind.ordered.filter(triggers.contains), forKey: .triggers)
+        try container.encode(webhookTriggerEnabled, forKey: .webhookTriggerEnabled)
+        try container.encode(chimeOnOpen, forKey: .chimeOnOpen)
+        try container.encode(showNameAndTime, forKey: .showNameAndTime)
+        try container.encode(sizeOverride, forKey: .sizeOverride)
+        // Part of the configuration export, without tokens (EventRule never encodes them).
+        try container.encode(EventRuleList(eventRules), forKey: .eventRules)
+    }
+}
+
+extension WebhookMapping {
+    /// A popup can open: a manual RTSP URL is set or a Protect camera is linked.
+    var hasStreamSource: Bool {
+        !rtspsURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || protectCameraId != nil
     }
 }
 
@@ -226,4 +341,7 @@ struct TriggerEvent: Equatable {
     let thumbnail: String?
     let alarmName: String?
     let timestamp: Date
+    /// Set for Protect events: the mapping entry to show.
+    var mappingId: UUID? = nil
+    var kinds: Set<TriggerKind> = []
 }

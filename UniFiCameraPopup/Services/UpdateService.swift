@@ -117,6 +117,14 @@ final class UpdateService: NSObject, ObservableObject {
         }
     }
 
+    #if DEBUG
+    /// Snapshot renderer only: shows the panel with an available update.
+    func debugApply(state: UpdateState, manifest: UpdateManifest?) {
+        self.state = state
+        availableManifest = manifest
+    }
+    #endif
+
     func dismissError() {
         if case .failed = state {
             state = availableManifest == nil ? .idle : .available(

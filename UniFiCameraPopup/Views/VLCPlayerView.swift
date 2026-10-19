@@ -12,6 +12,14 @@ final class VLCPlayerContainerView: NSView, VLCMediaPlayerDelegate {
     private var onFirstFrame: (() -> Void)?
     private var hasNotifiedFirstFrame = false
     private var pendingURL: String?
+    /// URL as handed in (direct console address); mapped per playback start, so a
+    /// route change or a tunnel reset can replay the same stream on the new path.
+    private var originalURL: String?
+    private var routeObservers: [NSObjectProtocol] = []
+    /// Bumped per playback start and by `stop()`: a late URL mapping is dropped.
+    private var playbackGeneration = 0
+    /// Called when the stream cannot be reached on the current route (away, not in the tunnel).
+    var onUnavailable: ((String) -> Void)?
 
     private static let minZoom: CGFloat = 1.0
     private static let maxZoom: CGFloat = 5.0
@@ -48,6 +56,22 @@ final class VLCPlayerContainerView: NSView, VLCMediaPlayerDelegate {
         // scale and offset it for zoom/pan. The parent clips the overflow.
         videoView.fillScreen = true
         addSubview(videoView)
+        for name in [ConnectionRouter.routeDidChangeNotification, TunnelController.connectionsResetNotification] {
+            routeObservers.append(NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                Task { @MainActor in self?.replay() }
+            })
+        }
+    }
+
+    deinit {
+        routeObservers.forEach(NotificationCenter.default.removeObserver)
+    }
+
+    /// Restarts the current stream (new route, or relayed connections were reset).
+    private func replay() {
+        guard let originalURL, window != nil else { return }
+        NSLog("VLC: Stream neu verbinden")
+        beginPlayback(urlString: originalURL)
     }
 
     override func layout() {
@@ -186,6 +210,7 @@ final class VLCPlayerContainerView: NSView, VLCMediaPlayerDelegate {
     func play(urlString: String, soundEnabled: Bool = true, onFirstFrame: @escaping () -> Void) {
         self.onFirstFrame = onFirstFrame
         hasNotifiedFirstFrame = false
+        originalURL = urlString
         pendingURL = urlString
         self.soundEnabled = soundEnabled
 
@@ -197,7 +222,24 @@ final class VLCPlayerContainerView: NSView, VLCMediaPlayerDelegate {
 
     private var soundEnabled = true
 
+    /// Maps the URL onto the current route first. Away and not reachable through the tunnel:
+    /// no fallback to the direct address – `onUnavailable` reports it instead.
     private func beginPlayback(urlString: String) {
+        playbackGeneration += 1
+        let attempt = playbackGeneration
+        Task { @MainActor [weak self] in
+            let mapped = await ConnectionRouter.shared.playableStreamURL(urlString)
+            guard let self, attempt == self.playbackGeneration else { return }
+            guard let mapped else {
+                self.player.stop()
+                self.onUnavailable?(TunnelRouteError.streamUnreachable.errorDescription ?? "")
+                return
+            }
+            self.startMedia(urlString: mapped)
+        }
+    }
+
+    private func startMedia(urlString: String) {
         guard let url = URL(string: urlString) else {
             NSLog("VLC: invalid stream URL")
             return
@@ -220,6 +262,8 @@ final class VLCPlayerContainerView: NSView, VLCMediaPlayerDelegate {
 
     func stop() {
         pendingURL = nil
+        originalURL = nil
+        playbackGeneration += 1
         player.stop()
         player.media = nil
         onFirstFrame = nil
@@ -234,7 +278,8 @@ final class VLCPlayerContainerView: NSView, VLCMediaPlayerDelegate {
         NSLog("VLC state: \(stateName)")
 
         switch player.state {
-        case .playing, .buffering:
+        case .playing where player.hasVideoOut:
+            // Not on `.buffering`: that comes before any picture, the popup would fade to black.
             notifyFirstFrameIfNeeded()
         case .error:
             NSLog("VLC playback error for stream")

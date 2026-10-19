@@ -1,3 +1,4 @@
+import AppCore
 import AppKit
 
 final class PopupWindow: NSPanel {
@@ -6,12 +7,18 @@ final class PopupWindow: NSPanel {
     private let thumbnailView = NSImageView()
     private let playerView = VLCPlayerContainerView()
     private let clickCatcher = ClickCatchingView()
-    private let muteBar = MuteBarView()
+    private var muteMenu: PopupMuteMenuView?
+    private var talkControls: PopupTalkControls?
     private let cropSelectionView = CropSelectionView()
     private let cropActionBar = CropActionBarView()
+    /// Stream not reachable on the current route (away, camera not in the tunnel).
+    private let streamNotice = PopupNoticeView()
+    /// Centered while the stream starts; gone with the first frame or when the stream is unreachable.
+    private let loadingLabel = NSTextField(labelWithString: "Stream wird geladen …")
     private var autoCloseTimer: Timer?
     private var zoomSaveTimer: Timer?
     private var escapeMonitor: Any?
+    private var resizeObserver: NSObjectProtocol?
     private var autoCloseSeconds: Double = 0
     private var autoCloseDeadline: Date?
     private var mouseInside = false
@@ -22,6 +29,7 @@ final class PopupWindow: NSPanel {
     private let cropRegion: CameraCrop?
     private let cropSelectionMode: Bool
     private let actions: [CameraAction]
+    private let overlay: PopupOverlayContent?
     private let onWillClose: ((CGFloat, CGPoint) -> Void)?
     private let onCropSave: ((CameraCrop, CGSize) -> Void)?
     private let onCropCancel: (() -> Void)?
@@ -38,6 +46,7 @@ final class PopupWindow: NSPanel {
         autoCloseSeconds: Double,
         cropSelectionMode: Bool = false,
         actions: [CameraAction] = [],
+        overlay: PopupOverlayContent? = nil,
         onWillClose: ((CGFloat, CGPoint) -> Void)? = nil,
         onCropSave: ((CameraCrop, CGSize) -> Void)? = nil,
         onCropCancel: (() -> Void)? = nil,
@@ -51,6 +60,7 @@ final class PopupWindow: NSPanel {
         self.cropRegion = cropRegion
         self.cropSelectionMode = cropSelectionMode
         self.actions = cropSelectionMode ? [] : actions
+        self.overlay = cropSelectionMode ? nil : overlay
         self.onWillClose = onWillClose
         self.onCropSave = onCropSave
         self.onCropCancel = onCropCancel
@@ -98,6 +108,7 @@ final class PopupWindow: NSPanel {
                 context.duration = 0.25
                 self.playerView.animator().alphaValue = 1
                 self.thumbnailView.animator().alphaValue = 0
+                self.loadingLabel.animator().alphaValue = 0
             }
         }
     }
@@ -131,6 +142,14 @@ final class PopupWindow: NSPanel {
             // While zoomed, a click is reserved for panning, so it must not close.
             clickCatcher.onClick = { [weak self] in
                 guard let self else { return }
+                if self.talkControls?.closeMenu() == true {
+                    return
+                }
+                // An open mute menu takes the first click away from the video.
+                if self.muteMenu?.isHidden == false {
+                    self.muteMenu?.isHidden = true
+                    return
+                }
                 if !self.playerView.isZoomedIn {
                     self.closePopup()
                 }
@@ -156,31 +175,9 @@ final class PopupWindow: NSPanel {
             }
             clickCatcher.onMouseEnter = { [weak self] in
                 self?.pauseAutoClose()
-                self?.muteBar.setHovering(true)
             }
             clickCatcher.onMouseExit = { [weak self] in
                 self?.resumeAutoClose()
-                self?.muteBar.setHovering(false)
-            }
-        }
-
-        muteBar.translatesAutoresizingMaskIntoConstraints = false
-        muteBar.isHidden = cropSelectionMode
-        muteBar.onMute = { [weak self] duration in
-            SettingsStore.shared.mute(for: duration)
-            self?.closePopup()
-        }
-        muteBar.setActions(actions)
-        // Action buttons call their webhook but leave the popup open.
-        muteBar.onAction = { action, completion in
-            Task {
-                do {
-                    try await CameraActionService.trigger(action)
-                    completion(nil)
-                } catch {
-                    NSLog("Camera action \"\(action.trimmedTitle)\" failed: \(error.localizedDescription)")
-                    completion(error.localizedDescription)
-                }
             }
         }
 
@@ -202,12 +199,28 @@ final class PopupWindow: NSPanel {
 
         content.addSubview(thumbnailView)
         content.addSubview(playerView)
+        content.addSubview(loadingLabel)
         content.addSubview(clickCatcher)
-        content.addSubview(muteBar)
         content.addSubview(cropSelectionView)
         content.addSubview(cropActionBar)
+        content.addSubview(streamNotice)
+        playerView.onUnavailable = { [weak self] text in
+            self?.loadingLabel.isHidden = true
+            self?.streamNotice.show(text)
+        }
+
+        loadingLabel.translatesAutoresizingMaskIntoConstraints = false
+        loadingLabel.font = .systemFont(ofSize: 13, weight: .medium)
+        loadingLabel.textColor = NSColor.white.withAlphaComponent(0.75)
+        loadingLabel.alignment = .center
 
         NSLayoutConstraint.activate([
+            loadingLabel.centerXAnchor.constraint(equalTo: content.centerXAnchor),
+            loadingLabel.centerYAnchor.constraint(equalTo: content.centerYAnchor),
+            streamNotice.centerXAnchor.constraint(equalTo: content.centerXAnchor),
+            streamNotice.centerYAnchor.constraint(equalTo: content.centerYAnchor),
+            streamNotice.widthAnchor.constraint(lessThanOrEqualTo: content.widthAnchor, constant: -20),
+
             thumbnailView.leadingAnchor.constraint(equalTo: content.leadingAnchor),
             thumbnailView.trailingAnchor.constraint(equalTo: content.trailingAnchor),
             thumbnailView.topAnchor.constraint(equalTo: content.topAnchor),
@@ -223,9 +236,6 @@ final class PopupWindow: NSPanel {
             clickCatcher.topAnchor.constraint(equalTo: content.topAnchor),
             clickCatcher.bottomAnchor.constraint(equalTo: content.bottomAnchor),
 
-            muteBar.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -8),
-            muteBar.topAnchor.constraint(equalTo: content.topAnchor, constant: 8),
-
             cropSelectionView.leadingAnchor.constraint(equalTo: content.leadingAnchor),
             cropSelectionView.trailingAnchor.constraint(equalTo: content.trailingAnchor),
             cropSelectionView.topAnchor.constraint(equalTo: content.topAnchor),
@@ -237,6 +247,138 @@ final class PopupWindow: NSPanel {
 
         if let thumbnailDataURI, let image = imageFromDataURI(thumbnailDataURI) {
             thumbnailView.image = image
+        }
+        setupOverlay(in: content)
+    }
+
+    /// Template B chrome (docs/design/popup.md): event chip, mute + close, mute menu, button pill.
+    private func setupOverlay(in content: NSView) {
+        content.layer?.borderWidth = 1
+        content.layer?.borderColor = Tokens.popupRing.light.nsColor.cgColor
+        guard let overlay else { return }
+
+        let close = CircleIconButton(icon: .close, iconSize: 11, diameter: 24,
+                                     fill: Tokens.overlay, tint: Tokens.white, label: "Schließen")
+        close.target = self
+        close.action = #selector(closeTapped)
+        let mute = CircleIconButton(icon: .bellSlash, iconSize: 13, diameter: 24,
+                                    fill: Tokens.overlay, tint: Tokens.white, label: "Diese Kamera stummschalten")
+        mute.target = self
+        mute.action = #selector(muteTapped)
+        let menu = PopupMuteMenuView(cameraName: overlay.cameraName, options: overlay.muteOptions)
+        menu.isHidden = true
+        menu.onPick = { [weak self] duration in
+            overlay.onMute(duration)
+            self?.closePopup()
+        }
+
+        content.addSubview(close)
+        content.addSubview(mute)
+        var constraints = [
+            close.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -10),
+            close.topAnchor.constraint(equalTo: content.topAnchor, constant: 10),
+            mute.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -40),
+            mute.topAnchor.constraint(equalTo: content.topAnchor, constant: 10),
+        ]
+        if let chipText = overlay.chipText {
+            let chip = OverlayChipView(text: chipText)
+            content.addSubview(chip)
+            constraints += [
+                chip.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 10),
+                chip.topAnchor.constraint(equalTo: content.topAnchor, constant: 10),
+                chip.trailingAnchor.constraint(lessThanOrEqualTo: mute.leadingAnchor, constant: -8),
+            ]
+        }
+        var leading: [NSView] = []
+        if let talk = overlay.talk {
+            let controls = PopupTalkControls(content: talk)
+            leading = [controls.soundButton, controls.talkButton]
+            controls.onMenuOpened = { [weak self] in self?.muteMenu?.isHidden = true }
+            talkControls = controls
+            // The stack resizes popups (also animated): the talk button follows the width.
+            let circles = 1 + min(actions.count, WebhookMapping.maxActions)
+            controls.fit(popupWidth: frame.width, circles: circles)
+            resizeObserver = NotificationCenter.default.addObserver(
+                forName: NSWindow.didResizeNotification, object: self, queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    self.talkControls?.fit(popupWidth: self.frame.width, circles: circles)
+                }
+            }
+        }
+        if !actions.isEmpty || !leading.isEmpty {
+            let pill = ActionPillView(actions: actions, leadingViews: leading)
+            pill.onAction = { [weak self] action, button in
+                self?.run(action, from: button)
+            }
+            content.addSubview(pill)
+            constraints += [
+                pill.centerXAnchor.constraint(equalTo: content.centerXAnchor),
+                pill.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -12),
+            ]
+            talkControls?.install(in: content, above: pill)
+        }
+        // Last, so the open menu lies above the pill and the chip.
+        content.addSubview(menu)
+        constraints += [
+            menu.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -10),
+            menu.topAnchor.constraint(equalTo: content.topAnchor, constant: 40),
+        ]
+        NSLayoutConstraint.activate(constraints)
+        muteMenu = menu
+    }
+
+    @objc private func closeTapped() {
+        closePopup()
+    }
+
+    @objc private func muteTapped() {
+        muteMenu?.isHidden.toggle()
+        if muteMenu?.isHidden == false { _ = talkControls?.closeMenu() }
+    }
+
+    /// Calls the button's webhook and/or plays its sound at this camera, both at once; the popup
+    /// stays open. Optional confirmation first.
+    private func run(_ action: CameraAction, from button: CircleIconButton) {
+        if action.confirmBeforeRun {
+            let alert = NSAlert()
+            alert.messageText = "„\(action.trimmedTitle)“ ausführen?"
+            alert.addButton(withTitle: "Ausführen")
+            alert.addButton(withTitle: "Abbrechen")
+            NSApp.activate(ignoringOtherApps: true)
+            guard alert.runModal() == .alertFirstButtonReturn else { return }
+        }
+        // Sound only where this popup can talk (camera with speaker); errors show as the popup notice.
+        var soundStart: PlayStart?
+        if let entryId = overlay?.talk?.entryId,
+           let announcement = action.soundId.flatMap(SoundStore.shared.settings.announcement(id:)) {
+            soundStart = TalkbackService.shared.play(announcement, entryId: entryId)
+        }
+        guard action.requestURL != nil else {
+            // Sound only: the tick only when the announcement really started.
+            button.showResult(error: Self.soundError(soundStart))
+            return
+        }
+        button.showRunning()
+        Task {
+            do {
+                try await CameraActionService.trigger(action)
+                button.showResult(error: nil)
+            } catch {
+                NSLog("Camera action \"\(action.trimmedTitle)\" failed: \(error.localizedDescription)")
+                button.showResult(error: error.localizedDescription)
+            }
+        }
+    }
+
+    /// nil = started; otherwise the reason for the button's tooltip (orange instead of the tick).
+    private static func soundError(_ start: PlayStart?) -> String? {
+        switch start {
+        case .started?: return nil
+        case .busy?: return "Es wird gerade gesprochen."
+        case .fileMissing?: return "Die Datei der Ansage fehlt."
+        case .noCamera?, nil: return "Ton nicht verfügbar."
         }
     }
 
@@ -265,7 +407,7 @@ final class PopupWindow: NSPanel {
         guard seconds > 0, !mouseInside else { return }
 
         autoCloseTimer = Timer.scheduledTimer(withTimeInterval: seconds, repeats: false) { [weak self] _ in
-            self?.closePopup()
+            self?.autoCloseFired()
         }
     }
 
@@ -283,13 +425,25 @@ final class PopupWindow: NSPanel {
 
         let remaining = deadline.timeIntervalSinceNow
         guard remaining > 0 else {
-            closePopup()
+            autoCloseFired()
             return
         }
 
         autoCloseTimer = Timer.scheduledTimer(withTimeInterval: remaining, repeats: false) { [weak self] _ in
-            self?.closePopup()
+            self?.autoCloseFired()
         }
+    }
+
+    /// This popup is talking or sending an announcement (never replaced or auto-closed then).
+    var isBusy: Bool { talkControls?.isBusy == true }
+
+    /// Auto-close waits while this popup talks or sends an announcement.
+    private func autoCloseFired() {
+        if talkControls?.isBusy == true {
+            scheduleAutoClose(after: 5)
+            return
+        }
+        closePopup()
     }
 
     func extendAutoClose(seconds: Double) {
@@ -298,6 +452,11 @@ final class PopupWindow: NSPanel {
     }
 
     func closePopup() {
+        if let resizeObserver {
+            NotificationCenter.default.removeObserver(resizeObserver)
+            self.resizeObserver = nil
+        }
+        talkControls?.popupClosed()
         autoCloseTimer?.invalidate()
         zoomSaveTimer?.invalidate()
         zoomSaveTimer = nil
@@ -442,173 +601,6 @@ private final class ClickCatchingView: NSView {
     }
 }
 
-/// Icon buttons (top-right of the popup): two that mute all popups for a fixed
-/// duration, followed by the camera's optional action buttons. Visible always,
-/// but emphasised while the mouse hovers.
-private final class MuteBarView: NSView {
-    /// Called with the mute duration in seconds.
-    var onMute: ((TimeInterval) -> Void)?
-    /// Called when an action button is clicked. The handler must call the
-    /// completion with `nil` on success or an error message on failure.
-    var onAction: ((CameraAction, @escaping (String?) -> Void) -> Void)?
-
-    private static let actionIcon = "bolt.fill"
-    private static let feedbackDuration: TimeInterval = 1.5
-
-    private let stack = NSStackView()
-    private var actionButtons: [(button: NSButton, action: CameraAction)] = []
-
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        setup()
-    }
-
-    required init?(coder: NSCoder) {
-        super.init(coder: coder)
-        setup()
-    }
-
-    private func setup() {
-        let oneHour = makeButton(title: "1h", duration: 60 * 60)
-        oneHour.toolTip = "Alle Popups für 1 Stunde stummschalten"
-        let fifteen = makeButton(title: "15m", duration: 15 * 60)
-        fifteen.toolTip = "Alle Popups für 15 Minuten stummschalten"
-
-        stack.orientation = .horizontal
-        stack.spacing = 6
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        stack.addArrangedSubview(oneHour)
-        stack.addArrangedSubview(fifteen)
-        addSubview(stack)
-
-        NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: trailingAnchor),
-            stack.topAnchor.constraint(equalTo: topAnchor),
-            stack.bottomAnchor.constraint(equalTo: bottomAnchor),
-        ])
-
-        alphaValue = 0.55
-    }
-
-    /// Appends one button per action to the right of the mute buttons.
-    func setActions(_ actions: [CameraAction]) {
-        actionButtons.forEach { $0.button.removeFromSuperview() }
-        actionButtons = actions.prefix(WebhookMapping.maxActions).map { action in
-            let button = makeStyledButton(title: action.trimmedTitle, symbolName: Self.actionIcon)
-            button.toolTip = action.trimmedTitle
-            button.lineBreakMode = .byTruncatingTail
-            button.widthAnchor.constraint(lessThanOrEqualToConstant: 140).isActive = true
-            button.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-            button.target = self
-            button.action = #selector(actionTapped(_:))
-            stack.addArrangedSubview(button)
-            return (button, action)
-        }
-    }
-
-    private func makeButton(title: String, duration: TimeInterval) -> NSButton {
-        let button = makeStyledButton(title: title, symbolName: "bell.slash.fill")
-        button.target = self
-        button.action = #selector(muteTapped(_:))
-        button.tag = Int(duration)
-        return button
-    }
-
-    private func makeStyledButton(title: String, symbolName: String) -> NSButton {
-        let button = FirstMouseButton()
-        button.bezelStyle = .regularSquare
-        button.isBordered = false
-        button.wantsLayer = true
-        button.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.55).cgColor
-        button.layer?.cornerRadius = 6
-        button.contentTintColor = .white
-        button.image = iconImage(symbolName: symbolName, leadingPadding: 6)
-        button.imagePosition = .imageLeading
-        button.imageScaling = .scaleProportionallyDown
-        button.title = title
-        button.font = .systemFont(ofSize: 11, weight: .semibold)
-        button.attributedTitle = NSAttributedString(
-            string: title,
-            attributes: [
-                .foregroundColor: NSColor.white,
-                .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
-            ]
-        )
-        button.translatesAutoresizingMaskIntoConstraints = false
-        button.widthAnchor.constraint(greaterThanOrEqualToConstant: 52).isActive = true
-        button.heightAnchor.constraint(equalToConstant: 24).isActive = true
-        return button
-    }
-
-    private func iconImage(symbolName: String, leadingPadding: CGFloat) -> NSImage? {
-        guard let symbol = NSImage(
-            systemSymbolName: symbolName,
-            accessibilityDescription: nil
-        ) else { return nil }
-
-        let configured = symbol.withSymbolConfiguration(
-            NSImage.SymbolConfiguration(pointSize: 12, weight: .semibold)
-        ) ?? symbol
-        let iconSize = configured.size
-        let canvasSize = NSSize(
-            width: iconSize.width + leadingPadding,
-            height: iconSize.height
-        )
-
-        let image = NSImage(size: canvasSize, flipped: false) { rect in
-            let drawRect = NSRect(
-                x: leadingPadding,
-                y: (rect.height - iconSize.height) / 2,
-                width: iconSize.width,
-                height: iconSize.height
-            )
-            configured.draw(in: drawRect)
-            return true
-        }
-        image.isTemplate = true
-        return image
-    }
-
-    @objc private func muteTapped(_ sender: NSButton) {
-        onMute?(TimeInterval(sender.tag))
-    }
-
-    @objc private func actionTapped(_ sender: NSButton) {
-        guard let entry = actionButtons.first(where: { $0.button === sender }) else { return }
-        let action = entry.action
-
-        // Disabled while the request runs, so repeated clicks are ignored.
-        sender.isEnabled = false
-        sender.image = iconImage(symbolName: "hourglass", leadingPadding: 6)
-
-        onAction?(action) { [weak self, weak sender] errorMessage in
-            guard let self, let sender else { return }
-            let succeeded = errorMessage == nil
-            sender.image = self.iconImage(
-                symbolName: succeeded ? "checkmark.circle.fill" : "exclamationmark.triangle.fill",
-                leadingPadding: 6
-            )
-            sender.contentTintColor = succeeded ? .systemGreen : .systemOrange
-            sender.toolTip = errorMessage.map { "\(action.trimmedTitle): \($0)" } ?? action.trimmedTitle
-
-            DispatchQueue.main.asyncAfter(deadline: .now() + Self.feedbackDuration) { [weak self, weak sender] in
-                guard let self, let sender else { return }
-                sender.image = self.iconImage(symbolName: Self.actionIcon, leadingPadding: 6)
-                sender.contentTintColor = .white
-                sender.isEnabled = true
-            }
-        }
-    }
-
-    func setHovering(_ hovering: Bool) {
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.15
-            animator().alphaValue = hovering ? 1.0 : 0.55
-        }
-    }
-}
-
 /// Cancel / Save buttons shown during crop selection (top-right of the popup).
 private final class CropActionBarView: NSView {
     var onCancel: (() -> Void)?
@@ -691,7 +683,7 @@ private final class CropActionBarView: NSView {
 
 /// An `NSButton` that fires on the first click even when its window is not key,
 /// which is required inside the non-activating popup panel.
-private final class FirstMouseButton: NSButton {
+class FirstMouseButton: NSButton {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
         true
     }

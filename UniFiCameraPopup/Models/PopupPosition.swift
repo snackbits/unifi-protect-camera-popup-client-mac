@@ -1,3 +1,4 @@
+import AppCore
 import Foundation
 
 enum PopupPosition: String, Codable, CaseIterable, Identifiable {
@@ -35,6 +36,21 @@ enum PopupPosition: String, Codable, CaseIterable, Identifiable {
             return true
         default:
             return false
+        }
+    }
+
+    /// Anchor of the popup stack (`PopupStackLayout`).
+    var anchor: PopupAnchor {
+        switch self {
+        case .topLeft: return PopupAnchor(horizontal: .leading, vertical: .top)
+        case .topCenter: return PopupAnchor(horizontal: .center, vertical: .top)
+        case .topRight: return PopupAnchor(horizontal: .trailing, vertical: .top)
+        case .middleLeft: return PopupAnchor(horizontal: .leading, vertical: .middle)
+        case .center: return PopupAnchor(horizontal: .center, vertical: .middle)
+        case .middleRight: return PopupAnchor(horizontal: .trailing, vertical: .middle)
+        case .bottomLeft: return PopupAnchor(horizontal: .leading, vertical: .bottom)
+        case .bottomCenter: return PopupAnchor(horizontal: .center, vertical: .bottom)
+        case .bottomRight: return PopupAnchor(horizontal: .trailing, vertical: .bottom)
         }
     }
 }

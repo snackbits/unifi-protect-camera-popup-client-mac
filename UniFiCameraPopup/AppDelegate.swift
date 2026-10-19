@@ -1,3 +1,4 @@
+import AppCore
 import AppKit
 import Combine
 import SwiftUI
@@ -5,22 +6,65 @@ import SwiftUI
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
-    private var settingsWindow: NSWindow?
     private var helpWindow: NSWindow?
     private var whatsNewWindow: NSWindow?
     private let settings = SettingsStore.shared
     private let webSocketClient = WebSocketClient()
+    private let protectEvents = ProtectEventService()
+    /// The relay WebSocket only runs while at least one entry uses webhook triggers.
+    private var isRelayRunning = false
     private let updateService = UpdateService()
     private var statusMenuItem: NSMenuItem?
     private var versionMenuItem: NSMenuItem?
     private var updateMenuItem: NSMenuItem?
     private var unmuteMenuItem: NSMenuItem?
     private var camerasMenuItem: NSMenuItem?
+    /// The former status menu; shown on right-click / ⌃-click.
+    private var classicMenu: NSMenu?
+    private lazy var statusPanel: StatusPanelController = StatusPanelController { [unowned self] clock in
+        AnyView(StatusPanelView(
+            settings: settings,
+            events: EventLog.shared,
+            protectEvents: protectEvents,
+            relay: webSocketClient,
+            protect: ProtectSession.shared,
+            clock: clock,
+            updates: updateService,
+            actions: StatusPanelActions(
+                openSettings: { [weak self] in
+                    self?.statusPanel.close()
+                    self?.openSettings()
+                },
+                openHelp: { [weak self] in
+                    self?.statusPanel.close()
+                    self?.openHelp()
+                },
+                quit: { NSApp.terminate(nil) },
+                openCamera: { [weak self] id in
+                    self?.statusPanel.close()
+                    self?.openCamera(entryId: id)
+                },
+                installUpdate: { [weak self] in
+                    self?.statusPanel.close()
+                    self?.installUpdate()
+                },
+                close: { [weak self] in self?.statusPanel.close() },
+                resize: { [weak self] size in self?.statusPanel.resize(to: size) }
+            )
+        ))
+    }
     private var updateCheckTimer: Timer?
     private var muteExpiryTimer: Timer?
+    private var wakeObserver: NSObjectProtocol?
+    private var clockObserver: NSObjectProtocol?
     private var dndCheckTimer: Timer?
     private var focusMonitor: FocusMonitor?
     private var connectionStatus: ConnectionStatus = .disconnected
+    private var protectStatus: ConnectionStatus = .disconnected
+    /// Mirrors `ProtectSession.shared.client != nil`; webhook-only setups show no Protect status.
+    private var isProtectConfigured = false
+    /// Mirrors `ConnectionRouter.shared.route == .tunnel` for the status line.
+    private var isViaTunnel = false
     /// Prevents retry loops when an automatic install fails.
     private var autoInstallAttemptedVersionId: String?
 
@@ -28,17 +72,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let updateCheckInterval: TimeInterval = 6 * 60 * 60
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        #if DEBUG
+        SnapshotRenderer.runIfRequested()
+        #endif
+        settings.pruneMutes()
+        AppActions.openHelp = { [weak self] in self?.openHelp() }
         settings.reconcileLaunchAtLogin()
         setupStatusItem()
+        if !settings.isProtectConfigured && settings.mappings.isEmpty {
+            OnboardingWindow.show()
+        }
         setupWebSocket()
         setupHotkeys()
-        webSocketClient.start()
+        syncRelayConnection(mappings: settings.mappings)
         startUpdateChecks()
         showWhatsNewIfNeeded()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         webSocketClient.stop()
+        protectEvents.stop()
         GlobalHotkeyManager.shared.stop()
         updateCheckTimer?.invalidate()
         muteExpiryTimer?.invalidate()
@@ -51,6 +104,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         webSocketClient.onTrigger = { event in
             PopupController.shared.show(event: event)
         }
+        protectEvents.onTrigger = { event in
+            PopupController.shared.show(event: event)
+        }
+        // Route first: it decides whether ProtectSession talks to the console directly or via the tunnel.
+        ConnectionRouter.shared.start()
+        ProtectSession.shared.reconnect()
+        protectEvents.start()
+    }
+
+    /// Starts or stops the relay WebSocket when entries gain or lose webhook triggers.
+    private func syncRelayConnection(mappings: [WebhookMapping]) {
+        let needed = mappings.contains(where: \.webhookTriggerEnabled)
+        if needed, !isRelayRunning {
+            isRelayRunning = true
+            webSocketClient.start()
+        } else if !needed, isRelayRunning {
+            isRelayRunning = false
+            webSocketClient.stop()
+        }
+        updateStatusMenu()
     }
 
     private func setupHotkeys() {
@@ -72,6 +145,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func observeHotkeyMappings() async {
         for await mappings in settings.$mappings.values {
             GlobalHotkeyManager.shared.sync(mappings: mappings)
+            syncRelayConnection(mappings: mappings)
+            EventLog.shared.removeEntries(notIn: Set(mappings.map(\.entryId)))
         }
     }
 
@@ -134,6 +209,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(camerasMenuItem)
         self.camerasMenuItem = camerasMenuItem
 
+        let setupItem = NSMenuItem(title: "Einrichtung …", action: #selector(openOnboarding), keyEquivalent: "")
+        setupItem.target = self
+        menu.addItem(setupItem)
+
         let settingsItem = NSMenuItem(title: "Einstellungen…", action: #selector(openSettings), keyEquivalent: "")
         settingsItem.target = self
         menu.addItem(settingsItem)
@@ -152,10 +231,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         quitItem.target = self
         menu.addItem(quitItem)
 
-        statusItem?.menu = menu
+        classicMenu = menu
+        if let button = statusItem?.button {
+            button.target = self
+            button.action = #selector(statusItemClicked(_:))
+            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+        }
 
         Task {
             await observeConnectionStatus()
+        }
+        Task {
+            await observeProtectStatus()
+        }
+        Task {
+            await observeProtectClient()
+        }
+        Task {
+            await observeRoute()
         }
         Task {
             await observeUpdateState()
@@ -165,11 +258,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         startDNDPolling()
         scheduleMuteExpiryRefresh()
+        observeClockJumps()
+    }
+
+    /// Timers do not fire reliably across sleep or a clock change: re-prune and re-arm.
+    private func observeClockJumps() {
+        let refresh: (Notification) -> Void = { [weak self] _ in
+            Task { @MainActor in
+                self?.settings.pruneMutes()
+                self?.scheduleMuteExpiryRefresh()
+            }
+        }
+        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification, object: nil, queue: .main, using: refresh)
+        clockObserver = NotificationCenter.default.addObserver(
+            forName: .NSSystemClockDidChange, object: nil, queue: .main, using: refresh)
     }
 
     private func observeConnectionStatus() async {
         for await status in webSocketClient.$status.values {
-            updateStatusMenu(status)
+            connectionStatus = status
+            updateStatusMenu()
             // The server dropped us for being outdated → a newer build exists.
             if status == .outdated {
                 Task { await updateService.checkForUpdates() }
@@ -183,10 +292,61 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func updateStatusMenu(_ status: ConnectionStatus) {
-        connectionStatus = status
-        statusMenuItem?.title = "Status: \(status.menuLabel)"
+    private func observeProtectStatus() async {
+        for await status in protectEvents.$status.values {
+            protectStatus = status
+            // Tunnel liveness is judged only while the events socket (pings every 30 s) is open.
+            TunnelController.shared.eventsSocketChanged(open: status == .connected)
+            updateStatusMenu()
+        }
+    }
+
+    private func observeRoute() async {
+        // `@Published` emits in `willSet`: use the emitted value, not the property.
+        for await route in ConnectionRouter.shared.$route.values {
+            isViaTunnel = route == .tunnel
+            updateStatusMenu()
+        }
+    }
+
+    private func observeProtectClient() async {
+        // `@Published` emits in `willSet`: use the emitted value, not the property.
+        for await client in ProtectSession.shared.$client.values {
+            isProtectConfigured = client != nil
+            updateStatusMenu()
+        }
+    }
+
+    private func updateStatusMenu() {
+        var parts: [String] = []
+        if isProtectConfigured {
+            parts.append(protectStatusLabel)
+        }
+        if isRelayRunning {
+            parts.append("Status: \(connectionStatus.menuLabel)")
+        }
+        statusMenuItem?.title = parts.isEmpty ? "Nicht eingerichtet" : parts.joined(separator: " · ")
         updateStatusBarIcon()
+    }
+
+    private var protectStatusLabel: String {
+        let base = switch protectStatus {
+        case .connected: "Protect: verbunden"
+        case .connecting: "Protect: verbinde …"
+        case .disconnected, .outdated: "Protect: getrennt"
+        }
+        return isViaTunnel ? "\(base) · unterwegs" : base
+    }
+
+    /// The icon shows the worst of the connections in use (Protect once configured,
+    /// the relay while webhook triggers exist).
+    private var iconStatus: ConnectionStatus {
+        var statuses: [ConnectionStatus] = []
+        if ProtectSession.shared.client != nil { statuses.append(protectStatus) }
+        if isRelayRunning { statuses.append(connectionStatus) }
+        if let failed = statuses.first(where: { $0 == .disconnected || $0 == .outdated }) { return failed }
+        if statuses.contains(.connecting) { return .connecting }
+        return statuses.isEmpty ? .disconnected : .connected
     }
 
     private var showPopupSuppressedBadge: Bool {
@@ -197,7 +357,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func updateStatusBarIcon() {
         statusItem?.button?.image = makeStatusBarIcon(
-            tintedWith: statusColor(for: connectionStatus),
+            tintedWith: statusColor(for: iconStatus),
             showSuppressedBadge: showPopupSuppressedBadge
         )
     }
@@ -205,9 +365,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func observePopupSuppressionState() async {
         await withTaskGroup(of: Void.self) { group in
             group.addTask { @MainActor in
-                for await _ in self.settings.$muteUntil.values {
-                    self.updateStatusBarIcon()
-                    self.scheduleMuteExpiryRefresh()
+                for await schedule in self.settings.$muteSchedule.values {
+                    self.scheduleMuteExpiryRefresh(schedule)
                 }
             }
             group.addTask { @MainActor in
@@ -215,27 +374,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     self.updateStatusBarIcon()
                 }
             }
+            group.addTask { @MainActor in
+                for await mode in self.settings.$appearance.values {
+                    NSApp.appearance = mode.appearanceName.flatMap { NSAppearance(named: $0) }
+                }
+            }
         }
     }
 
-    private func scheduleMuteExpiryRefresh() {
+    /// Refreshes the icon now and again when the next mute ends; then prunes ended mutes.
+    private func scheduleMuteExpiryRefresh(_ schedule: MuteSchedule? = nil) {
         muteExpiryTimer?.invalidate()
         muteExpiryTimer = nil
+        updateStatusBarIcon()
 
-        guard settings.isMuted, let muteUntil = settings.muteUntil else {
-            updateStatusBarIcon()
-            return
-        }
-
-        let interval = muteUntil.timeIntervalSinceNow
-        guard interval > 0 else {
-            updateStatusBarIcon()
-            return
-        }
-
-        let timer = Timer(timeInterval: interval, repeats: false) { [weak self] _ in
+        guard let next = (schedule ?? settings.muteSchedule).nextExpiry(after: Date()) else { return }
+        let timer = Timer(timeInterval: max(next.timeIntervalSinceNow, 0.5), repeats: false) { [weak self] _ in
             Task { @MainActor in
-                self?.updateStatusBarIcon()
+                self?.settings.pruneMutes()
+                self?.scheduleMuteExpiryRefresh()
             }
         }
         RunLoop.main.add(timer, forMode: .common)
@@ -391,26 +548,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task { await updateService.installUpdate() }
     }
 
-    @objc private func openSettings() {
-        if settingsWindow == nil {
-            let view = SettingsView()
-                .environmentObject(settings)
-                .environmentObject(webSocketClient)
+    @objc private func openOnboarding() { OnboardingWindow.show() }
 
-            settingsWindow = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 720, height: 560),
-                styleMask: [.titled, .closable, .resizable],
-                backing: .buffered,
-                defer: false
-            )
-            settingsWindow?.title = "UniFi Camera Popup"
-            settingsWindow?.center()
-            settingsWindow?.contentView = NSHostingView(rootView: view)
-            settingsWindow?.isReleasedWhenClosed = false
+    /// Left click: template panel. Right click or ⌃-click: the former menu (version, update, cameras …).
+    @objc private func statusItemClicked(_ sender: NSStatusBarButton) {
+        let event = NSApp.currentEvent
+        let wantsClassicMenu = event?.type == .rightMouseUp || event?.modifierFlags.contains(.control) == true
+        if wantsClassicMenu {
+            statusPanel.close()
+            statusItem?.menu = classicMenu
+            sender.performClick(nil)
+            statusItem?.menu = nil
+        } else {
+            // Like the former menu: every opening looks for a newer build in the background.
+            if !statusPanel.isShown { Task { await updateService.checkForUpdates() } }
+            statusPanel.toggle(from: sender)
         }
+    }
 
-        settingsWindow?.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
+    private func openCamera(entryId: UUID) {
+        guard let mapping = settings.mappings.first(where: { $0.entryId == entryId }) else { return }
+        PopupController.shared.showHotkeyPopup(for: mapping)
+    }
+
+    @objc private func openSettings() {
+        SettingsWindowController.shared.show(webSocketClient: webSocketClient, protectEvents: protectEvents)
     }
 
     private var currentVersionLabel: String {
@@ -523,23 +685,26 @@ extension AppDelegate: NSMenuDelegate {
     }
 
     private func canOpenCameraPopup(_ mapping: WebhookMapping) -> Bool {
-        !mapping.webhookId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && !mapping.rtspsURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        mapping.hasStreamSource
     }
 
     private func updateMuteMenuItem() {
         guard let unmuteMenuItem else { return }
 
-        guard settings.isMuted, let muteUntil = settings.muteUntil else {
+        let now = Date()
+        let schedule = settings.muteSchedule
+        let cameraCount = schedule.activeCameraMutes(at: now).count
+        if let globalEnd = schedule.globalEnd(at: now) {
+            let minutes = max(1, Int((globalEnd.timeIntervalSince(now) / 60).rounded(.up)))
+            unmuteMenuItem.title = "Stummschaltung aufheben (noch \(minutes) Min.)"
+        } else if cameraCount > 0 {
+            unmuteMenuItem.title = cameraCount == 1
+                ? "Stummschaltung aufheben (1 Kamera)"
+                : "Stummschaltung aufheben (\(cameraCount) Kameras)"
+        } else {
             unmuteMenuItem.isHidden = true
             return
         }
-
-        let remaining = max(0, Int(muteUntil.timeIntervalSinceNow.rounded(.up)))
-        let minutes = (remaining + 59) / 60
-        unmuteMenuItem.title = minutes > 0
-            ? "Stummschaltung aufheben (noch \(minutes) Min.)"
-            : "Stummschaltung aufheben"
         unmuteMenuItem.isHidden = false
     }
 }

@@ -1,0 +1,197 @@
+import AppCore
+import AppKit
+import SwiftUI
+
+/// „Testen“ of a webhook (button and event rule sheets).
+enum WebhookTestState: Equatable {
+    case idle
+    case running
+    case succeeded(Int)
+    case failed(String)
+}
+
+/// Result line under a webhook test (template S4 item 4); nothing while idle or running.
+struct WebhookTestResult: View {
+    let state: WebhookTestState
+
+    var body: some View {
+        switch state {
+        case .idle, .running:
+            EmptyView()
+        case .succeeded(let status):
+            box(icon: true, text: "Test erfolgreich · HTTP \(status)", foreground: Tokens.ok.color, background: Tokens.okBg.color)
+        case .failed(let message):
+            box(icon: false, text: message, foreground: Color(nsColor: .systemOrange),
+                background: Color(nsColor: .systemOrange).opacity(0.12))
+        }
+    }
+
+    private func box(icon: Bool, text: String, foreground: Color, background: Color) -> some View {
+        HStack(spacing: 6) {
+            if icon { TemplateIcon.check.image(size: 13) }
+            Text(text).fixedSize(horizontal: false, vertical: true)
+        }
+        .font(.system(size: 12))
+        .foregroundStyle(foreground)
+        .padding(.vertical, 7)
+        .padding(.horizontal, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 7).fill(background))
+    }
+}
+
+/// Edits one popup button (template "Button bearbeiten (Sheet)").
+struct ActionEditorSheet: View {
+    @State private var draft: CameraAction
+    private let originalTitle: String
+    private let onSave: (CameraAction) -> Void
+    private let onDelete: (() -> Void)?
+    /// Announcements for „Ton“; the line only shows on a camera with speaker.
+    private let sounds: [Announcement]
+    private let canPlaySound: Bool
+    @State private var test: WebhookTestState = .idle
+    @Environment(\.dismiss) private var dismiss
+
+    init(
+        action: CameraAction,
+        isNew: Bool,
+        sounds: [Announcement] = [],
+        canPlaySound: Bool = false,
+        onSave: @escaping (CameraAction) -> Void,
+        onDelete: (() -> Void)?
+    ) {
+        _draft = State(initialValue: action)
+        originalTitle = isNew ? "" : action.trimmedTitle
+        self.sounds = sounds
+        self.canPlaySound = canPlaySound
+        self.onSave = onSave
+        self.onDelete = onDelete
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 11) {
+            Text(originalTitle.isEmpty ? "Neuer Button" : "Button „\(originalTitle)“")
+                .font(.system(size: 15, weight: .bold))
+            FormLine(label: "Beschriftung") {
+                TokenTextField(placeholder: "z. B. Tür öffnen", text: $draft.title,
+                               fontSize: 13, vertical: 5, horizontal: 8, radius: 6)
+            }
+            FormLine(label: "Symbol") {
+                HStack(spacing: 6) {
+                    ForEach(ActionIcon.allCases) { icon in
+                        let isOn = draft.icon == icon
+                        Button { draft.icon = icon } label: {
+                            icon.templateIcon.image(size: 16)
+                                .foregroundStyle(isOn ? Color.white : Tokens.fg.color)
+                                .frame(width: 30, height: 30)
+                                .background(RoundedRectangle(cornerRadius: 7)
+                                    .fill(isOn ? Tokens.accent.color : Tokens.btn2.color))
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(icon.label)
+                        .accessibilityAddTraits(isOn ? [.isButton, .isSelected] : .isButton)
+                    }
+                }
+            }
+            FormLine(label: "Methode") {
+                TokenSegmented(
+                    selection: $draft.method,
+                    options: CameraAction.Method.allCases.map { (value: $0, title: $0.rawValue) },
+                    width: 120
+                )
+            }
+            FormLine(label: "Adresse") {
+                TokenTextField(placeholder: draft.soundId == nil ? "https://…" : "https://… (optional)", text: $draft.url,
+                               fontSize: 12, vertical: 5, horizontal: 8, radius: 6)
+            }
+            FormLine(label: "Token") {
+                TokenTextField(placeholder: "", text: $draft.bearerToken,
+                               fontSize: 12, vertical: 5, horizontal: 8, radius: 6, secure: true)
+            }
+            FormLine(label: "") {
+                Text("Bearer-Token, liegt im Schlüsselbund. Optional.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Tokens.muted.color)
+            }
+            if canPlaySound {
+                FormLine(label: "Ton") {
+                    PopUpField(selection: $draft.soundId, options: soundOptions)
+                }
+                FormLine(label: "") {
+                    Text("Spielt die Ansage an der Kamera ab. Mit Adresse laufen Ton und Webhook gleichzeitig.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Tokens.muted.color)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            if let urlWarning {
+                FormLine(label: "") {
+                    Text(urlWarning).font(.system(size: 11)).foregroundStyle(Color(nsColor: .systemOrange))
+                }
+            }
+            HStack(spacing: 10) {
+                Text("Vor dem Ausführen nachfragen").frame(maxWidth: .infinity, alignment: .leading)
+                TokenSwitch(isOn: $draft.confirmBeforeRun, label: "Vor dem Ausführen nachfragen")
+            }
+            WebhookTestResult(state: test)
+            HStack(spacing: 8) {
+                Button(test == .running ? "Teste …" : "Testen", action: runTest)
+                    .buttonStyle(FieldButtonStyle(fontSize: 13, vertical: 5, horizontal: 12))
+                    .disabled(draft.requestURL == nil || test == .running)
+                if let onDelete {
+                    Button("Entfernen") {
+                        onDelete()
+                        dismiss()
+                    }
+                    .buttonStyle(LinkButtonStyle(color: Tokens.muted))
+                }
+                Spacer()
+                Button("Abbrechen") { dismiss() }
+                    .buttonStyle(FieldButtonStyle(fontSize: 13, vertical: 5, horizontal: 12))
+                    .keyboardShortcut(.cancelAction)
+                Button("Sichern") {
+                    onSave(draft)
+                    dismiss()
+                }
+                .buttonStyle(AccentButtonStyle(fontSize: 13, vertical: 5, horizontal: 14))
+                .keyboardShortcut(.defaultAction)
+                .disabled(!draft.isConfigured)
+            }
+        }
+        .padding(.vertical, 18)
+        .padding(.horizontal, 20)
+        .frame(width: 480)
+        .background(Tokens.win.color)
+        .foregroundStyle(Tokens.fg.color)
+        .font(.system(size: 13))
+    }
+
+    /// „Kein Ton“ + the announcements; a deleted one stays listed as such until changed.
+    private var soundOptions: [(value: UUID?, title: String)] {
+        var options: [(value: UUID?, title: String)] = [(value: nil, title: "Kein Ton")]
+        options += sounds.map { (value: Optional($0.id), title: $0.name) }
+        if let id = draft.soundId, !sounds.contains(where: { $0.id == id }) {
+            options.append((value: id, title: "Gelöschte Ansage"))
+        }
+        return options
+    }
+
+    private var urlWarning: String? {
+        let trimmed = draft.url.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, draft.requestURL == nil else { return nil }
+        return "Bitte eine gültige http:// oder https:// Adresse eintragen."
+    }
+
+    private func runTest() {
+        let snapshot = draft
+        test = .running
+        Task {
+            do {
+                test = .succeeded(try await CameraActionService.trigger(snapshot))
+            } catch {
+                test = .failed(error.localizedDescription)
+            }
+        }
+    }
+}

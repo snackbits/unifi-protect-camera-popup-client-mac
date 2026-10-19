@@ -1,3 +1,4 @@
+import AppCore
 import AppKit
 import SwiftUI
 
@@ -21,74 +22,65 @@ struct HotkeyRecorderView: View {
         hotkey?.isSequence == true && !hasAccessibilityAccess
     }
 
+    private var keyText: String {
+        if isRecording {
+            if let recordedFirstStep { return "\(stepLabel(recordedFirstStep)), …" }
+            return "Taste drücken…"
+        }
+        return hotkey?.displayString ?? "Kein Shortcut"
+    }
+
+    /// Template row: "Tastenkürzel" left, key chip right (12 pt, padding 2/8, radius 5).
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            LabeledContent("Tastenkürzel") {
-                HStack(spacing: 8) {
-                    Button(action: toggleRecording) {
-                        Group {
-                            if isRecording {
-                                if let recordedFirstStep {
-                                    Text("\(stepLabel(recordedFirstStep)), …")
-                                        .font(.system(.body, design: .monospaced))
-                                        .foregroundStyle(.secondary)
-                                } else {
-                                    Text("Taste drücken…")
-                                        .foregroundStyle(.secondary)
-                                }
-                            } else if let hotkey {
-                                Text(hotkey.displayString)
-                                    .font(.system(.body, design: .monospaced))
-                            } else {
-                                Text("Kein Shortcut")
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(
-                            RoundedRectangle(cornerRadius: 6)
-                                .stroke(isRecording ? Color.accentColor : Color.secondary.opacity(0.35), lineWidth: 1)
-                        )
-                    }
-                    .buttonStyle(.plain)
-
-                    if hotkey != nil, !isRecording {
-                        Button("Entfernen") {
-                            hotkey = nil
-                        }
-                        .controlSize(.small)
-                    }
-                }
-            }
-
-            if let conflictMessage {
-                Label(conflictMessage, systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption)
-                    .foregroundStyle(.orange)
-            } else if needsAccessibilityWarning {
-                VStack(alignment: .leading, spacing: 6) {
-                    Label(
-                        "Sequenz-Shortcuts brauchen „Bedienungshilfen“, um im Hintergrund zu funktionieren.",
-                        systemImage: "exclamationmark.triangle.fill"
-                    )
-                    .font(.caption)
-                    .foregroundStyle(.orange)
-                    Button("Bedienungshilfen öffnen") {
-                        AccessibilityHelper.openSettings()
-                    }
-                    .controlSize(.small)
-                }
-            } else if isRecording {
-                Text(recordingHint)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
+            keyRow
+            messages
         }
         .onAppear { refreshAccessibilityAccess() }
-        .onDisappear {
-            stopRecording()
+        .onDisappear { stopRecording() }
+    }
+
+    private var keyRow: some View {
+        HStack(spacing: 10) {
+            Text("Tastenkürzel").frame(maxWidth: .infinity, alignment: .leading)
+            Button(action: toggleRecording) {
+                Text(keyText)
+                    .font(.system(size: 12))
+                    .foregroundStyle(isRecording || hotkey == nil ? Tokens.muted.color : Tokens.fg.color)
+                    .padding(.vertical, 2)
+                    .padding(.horizontal, 8)
+                    .background(RoundedRectangle(cornerRadius: 5).fill(Tokens.field.color))
+                    .overlay(RoundedRectangle(cornerRadius: 5)
+                        .strokeBorder(isRecording ? Tokens.accent.color : Tokens.chipBorder.color, lineWidth: 1))
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Tastenkürzel")
+            .accessibilityValue(hotkey?.displayString ?? "keins")
+        }
+    }
+
+    @ViewBuilder
+    private var messages: some View {
+        if let conflictMessage {
+            Label(conflictMessage, systemImage: "exclamationmark.triangle.fill")
+                .font(.caption)
+                .foregroundStyle(.orange)
+        } else if needsAccessibilityWarning {
+            VStack(alignment: .leading, spacing: 6) {
+                Label(
+                    "Sequenz-Shortcuts brauchen „Bedienungshilfen“, um im Hintergrund zu funktionieren.",
+                    systemImage: "exclamationmark.triangle.fill"
+                )
+                .font(.caption)
+                .foregroundStyle(.orange)
+                Button("Bedienungshilfen öffnen") { AccessibilityHelper.openSettings() }
+                    .controlSize(.small)
+            }
+        } else if isRecording {
+            Text(recordingHint)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
         }
     }
 

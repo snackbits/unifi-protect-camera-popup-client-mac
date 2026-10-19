@@ -12,3 +12,12 @@ UniFiCameraPopup/dist/
 
 # graphify knowledge graph (local artifact)
 graphify-out/
+.superpowers/
+
+# WireGuard tunnel: pinned Go toolchain, module cache and the built archive.
+wgtunnel/.toolchain/
+wgtunnel/build/
+
+# Piper (Phase 6): pinned downloads (CMake, sources, onnxruntime, Thorsten) and the build.
+piper/.cache/
+piper/build/

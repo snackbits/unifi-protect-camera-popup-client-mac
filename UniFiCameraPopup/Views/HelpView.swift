@@ -5,6 +5,7 @@ struct HelpView: View {
         case setup = "Setup"
         case tips = "Tipps"
         case troubleshooting = "Problemlösung"
+        case about = "Über"
 
         var id: String { rawValue }
 
@@ -13,6 +14,7 @@ struct HelpView: View {
             case .setup: return "wrench.and.screwdriver"
             case .tips: return "lightbulb"
             case .troubleshooting: return "stethoscope"
+            case .about: return "info.circle"
             }
         }
     }
@@ -43,6 +45,7 @@ struct HelpView: View {
                         case .setup: setupBody
                         case .tips: tipsBody
                         case .troubleshooting: troubleshootingBody
+                        case .about: aboutBody
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -62,6 +65,8 @@ struct HelpView: View {
             header("Tipps", subtitle: "Kleine Kniffe für den Alltag.")
         case .troubleshooting:
             header("Problemlösung", subtitle: "Wenn das App-Symbol rot ist.")
+        case .about:
+            header("Über", subtitle: "Version und Lizenzen.")
         }
     }
 
@@ -136,7 +141,38 @@ struct HelpView: View {
                 + "einen Bearer-Token ein. Die Buttons erscheinen im Popup oben rechts neben den Stummschalt-Buttons. "
                 + "Ein Klick ruft die URL auf (z. B. einen Home-Assistant-Webhook oder ein Shelly-Relais), "
                 + "das Popup bleibt dabei geöffnet. Ein Häkchen bestätigt den Erfolg, ein Warndreieck zeigt einen Fehler – "
-                + "die Details siehst du im Tooltip. Mit „Testen“ in den Einstellungen prüfst du die URL vorab.")
+                + "die Details siehst du im Tooltip. Mit „Testen“ in den Einstellungen prüfst du die URL vorab. "
+                + "Bei Kameras mit Lautsprecher kann ein Button zusätzlich (oder statt des Webhooks) eine Ansage aus dem Reiter Ton an der Kamera abspielen – "
+                + "ist ein Ton gewählt, ist die Adresse optional.")
+
+            tip("Ereignisse", "bell.badge",
+                "Unter Einstellungen › Kameras › Ereignisse legst du pro Kamera Regeln an: Bei Klingeln, Bewegung, Person, Fahrzeug, Tier oder Paket "
+                + "ruft die App einen Webhook auf und/oder spielt eine Ansage an der Kamera ab – auf Wunsch mit Verzögerung (bis 600 Sekunden). "
+                + "Regeln laufen auch ohne Popup und während einer Stummschaltung; dieselbe Regel löst höchstens alle 30 Sekunden aus. "
+                + "Ausgeführte Regeln erscheinen im Menü unter den letzten Ereignissen.")
+
+            tip("Sprechen und Ansagen", "mic",
+                "Bei Kameras mit Lautsprecher zeigt das Popup unten „Ton abspielen“ und „Sprechen“. "
+                + "Halte „Sprechen“ mit der Maus gedrückt und sprich; Loslassen beendet – auch wenn der Zeiger dabei das Popup verlässt. "
+                + "Die App gleicht dein Mikrofon automatisch an die Lautstärke der Ansagen an. Unter Einstellungen › Ton wählst du das Mikrofon, "
+                + "regelst „Lautstärke Sprechen“ und „Lautstärke Ansagen“ getrennt und verwaltest "
+                + "die Ansagen (MP3 oder Text, gesprochen von einer Piper-Stimme und erzeugt auf diesem Mac, höchstens 1000 Zeichen). "
+                + "Die Stimmen – Standard ist „Thorsten · mittel“, dazu acht weitere deutsche – lädt die App beim ersten Anhören "
+                + "oder Übernehmen einmalig aus dem Internet (Größe steht in der Auswahl, „Jetzt laden“ lädt sofort); danach geht es ohne Internet, "
+                + "und du entfernst sie unter „Geladene Stimmen“ wieder. Die mitgelieferten Ansagen "
+                + "„Bin gleich da“ und „Paket bitte abstellen“ wurden mit Piper und der Stimme „Thorsten“ erzeugt "
+                + "(Datensatz CC0, gemeinfrei). Klappt etwas nicht, steht der Ablauf in "
+                + "~/Library/Logs/UniFi Camera Popup/talkback.log.")
+
+            tip("Unterwegs", "shield",
+                "Mit der WireGuard-Datei deines Gateways erreicht die App die Konsole auch außer Haus. "
+                + "Webhook-Buttons mit „http“ funktionieren dann nur, wenn ihre Ziel-IP im Tunnel liegt; "
+                + "Buttons mit „https“ gehen direkt. Namen auf „.local“ lassen sich unterwegs nicht auflösen. "
+                + "Steht in der Datei ein DynDNS-Name als Endpoint und ändert sich die IP zu Hause, "
+                + "löst die App den Namen nach etwa drei Minuten ohne Antwort neu auf und verbindet sich wieder. "
+                + "Solange der Tunnel läuft, können andere Programme auf diesem Mac alles erreichen, was die App weiterleitet: "
+                + "die Konsole (meist Port 443), die Kamera-Streams und die Webhook-Ziele im Heimnetz. "
+                + "Die Protect-API bleibt durch Zertifikats-Pin und API-Schlüssel geschützt.")
         }
     }
 
@@ -161,6 +197,53 @@ struct HelpView: View {
                 + "die Verbindung stellt sich danach von selbst wieder her.")
         }
     }
+
+    // MARK: - Über
+
+    private var aboutBody: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Camera Popup \(AppConfig.shortVersion) (Build \(AppConfig.buildNumber))")
+                .font(.headline)
+            Text("Der Tunnel für unterwegs verwendet freie Software: wireguard-go (MIT-Lizenz, © WireGuard LLC), "
+                 + "gVisor (Apache-Lizenz 2.0, © The gVisor Authors) und die Go-Laufzeit samt golang.org/x-Bibliotheken "
+                 + "(BSD-3-Clause, © The Go Authors) sowie google/btree (Apache-Lizenz 2.0). "
+                 + "„WireGuard“ ist eine eingetragene Marke von Jason A. Donenfeld.")
+                .fixedSize(horizontal: false, vertical: true)
+            Text("Die mitgelieferten Ansagen „Bin gleich da“ und „Paket bitte abstellen“ wurden mit Piper und der "
+                 + "Stimme „Thorsten“ erzeugt (Datensatz CC0, gemeinfrei).")
+                .fixedSize(horizontal: false, vertical: true)
+            Text("Ansagen aus Text spricht Piper 2023.11.14-2 (MIT-Lizenz, © Michael Hansen) mit espeak-ng "
+                 + "(GPL-3.0-or-later), piper-phonemize (MIT), onnxruntime 1.14.1 (MIT, © Microsoft), fmt und spdlog (MIT). "
+                 + "Piper liegt samt seinen Bibliotheken (espeak-ng, piper-phonemize, onnxruntime) als eigenständiges "
+                 + "Programm im App-Paket und läuft als eigener Prozess – die App selbst steht nicht unter der GPL. "
+                 + "Den Quellcode der GPL-Teile samt Build-Skripten gibt es neben der App-Datei auf dem Update-Server. "
+                 + "Die genauen Upstream-Adressen, die Lizenzen jeder Stimme und alle Lizenztexte stehen unten.")
+                .fixedSize(horizontal: false, vertical: true)
+            if let mirror = URL(string: "https://unifi-protect-camera-popup-server.snackbits.dev/piper-source/2023.11.14-2/") {
+                Link("Quellcode-Spiegel öffnen …", destination: mirror)
+            }
+            Button("Hinweise zu onnxruntime öffnen …") {
+                if let url = Bundle.main.url(forResource: "ThirdPartyNotices-onnxruntime", withExtension: "txt", subdirectory: "piper") {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+            .buttonStyle(.link)
+            Text(Self.thirdPartyNotices)
+                .font(.system(.caption, design: .monospaced))
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    /// Full license texts, generated by `wgtunnel/scripts/collect-notices.sh` (incl. piper/NOTICES.txt).
+    private static let thirdPartyNotices: String = {
+        guard let url = Bundle.main.url(forResource: "ThirdPartyNotices", withExtension: "txt"),
+              let text = try? String(contentsOf: url, encoding: .utf8) else {
+            return "Lizenztexte fehlen im App-Paket."
+        }
+        return text
+    }()
 
     // MARK: - Building blocks
 

@@ -22,6 +22,20 @@ struct WhatsNewInfo: Equatable {
 enum WhatsNewService {
     /// Newest version first.
     static let changelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "2.0.0", items: [
+            "Einrichtung in wenigen Schritten: Die Konsole wird im Netzwerk gefunden, ein API-Schlüssel genügt.",
+            "Popups bei Klingel, Person, Tier, Fahrzeug, Sprache und mehr – direkt aus Protect.",
+            "Stream-Adressen holt die App selbst. Webhooks gibt es weiterhin unter „Erweitert“.",
+            "Neue Einstellungen mit den Reitern Allgemein, Kameras, Ton und Unterwegs – hell, dunkel oder wie das System.",
+            "Stummschalten pro Kamera direkt im Popup und für alle Kameras im Menü; die Dauern legst du selbst fest, und eine Stummschaltung bleibt auch nach einem Neustart bestehen.",
+            "Deine Buttons im Popup (z. B. „Tür öffnen“) haben Symbole und können auch eine Ansage an der Kamera abspielen. Name und Uhrzeit blendet das Popup nur noch auf Wunsch ein (Kameras › Erweitert) – die Kamera zeigt beides ohnehin.",
+            "Sprechen und Ansagen: Bei Kameras mit Lautsprecher hältst du im Popup den Button „Sprechen“ gedrückt und sprichst über die Kamera; Loslassen beendet. Fertige Ansagen spielst du als MP3 oder aus eigenem Text ab – gesprochen von Piper-Stimmen direkt auf dem Mac: acht deutsche Stimmen (Standard „Thorsten“) lädt die App beim ersten Gebrauch einmalig herunter. Sprechen und Ansagen kommen etwa gleich laut an, die Lautstärke regelst du für beides getrennt im Reiter Ton.",
+            "Popups passen sich dem Bildschirm an: Zwei Kameras passen untereinander. Öffnen sich mehr, werden alle gleichmäßig kleiner und wachsen danach wieder auf ihre Größe.",
+            "Ereignisse: Pro Kamera lösen Klingeln, Bewegung, Person, Fahrzeug, Tier oder Paket auf Wunsch einen Webhook und/oder eine Ansage aus – auch ohne Popup, während einer Stummschaltung und mit Verzögerung.",
+            "Im Menü siehst du jetzt die Version und installierst ein Update direkt von dort.",
+            "Unterwegs: Mit der WireGuard-Datei deines Gateways erreicht die App deine Kameras auch außer Haus – "
+                + "über einen eigenen Tunnel nur für die App, ganz ohne VPN in den Systemeinstellungen.",
+        ]),
         ChangelogEntry(version: "1.1.1", items: [
             "Mehr Sicherheit: Die Bearer-Tokens der Aktions-Buttons werden jetzt im macOS-Schlüsselbund "
                 + "gespeichert statt im Klartext in den Einstellungen. Bereits eingetragene Tokens werden automatisch übernommen.",

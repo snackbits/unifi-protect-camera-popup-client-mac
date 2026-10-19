@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Camera Popup – Einstellungen</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:#4B3FD1}a:hover{color:#3528A8}
+</style>
+</helmet>
+<div style="width: 2540px; height: 1330px; box-sizing: border-box; padding: 64px; background: {{t.page}}; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif; color: {{t.fg}}; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 56px;">
+
+<!-- S1 Allgemein -->
+<div style="display: flex; flex-direction: column; gap: 12px;">
+<div style="font-size: 13px; font-weight: 600; color: {{t.muted}};">Allgemein</div>
+<div style="width: 760px; height: 540px; border-radius: 12px; background: {{t.win}}; box-shadow: {{t.shadow}}; overflow: hidden; display: flex; flex-direction: column;">
+<div style="display: flex; flex-direction: column; background: {{t.bar}}; border-bottom: 1px solid {{t.border}};">
+<div style="height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 12px;"><span style="width: 12px; height: 12px; border-radius: 6px; background: #FF5F57;"></span><span style="width: 12px; height: 12px; border-radius: 6px; background: #FEBC2E;"></span><span style="width: 12px; height: 12px; border-radius: 6px; background: #28C840;"></span><span style="flex-grow: 1; text-align: center; font-size: 13px; font-weight: 600; margin-right: 52px;">Allgemein</span></div>
+<div role="tablist" style="display: flex; justify-content: center; gap: 4px; padding: 2px 0 8px;">
+<sc-for list="{{tb1}}" as="b" hint-placeholder-count="4"><button role="tab" aria-selected="{{b.sel}}" style="font: inherit; width: 78px; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 5px 0; border-radius: 7px; border: 0; background: {{b.bg}}; color: {{b.fg}}; font-size: 11px;"><sc-if value="{{b.gen}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg></sc-if><sc-if value="{{b.cam}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="13" height="10" rx="2"/><path d="M16 11l5-3v8l-5-3"/></svg></sc-if><sc-if value="{{b.snd}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></svg></sc-if><sc-if value="{{b.vpn}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/></svg></sc-if>{{b.label}}</button></sc-for>
+</div>
+</div>
+<div style="flex-grow: 1; padding: 22px 40px; display: flex; flex-direction: column; gap: 16px; font-size: 13px;">
+<div style="display: flex; flex-direction: column; border-radius: 10px; background: {{t.group}}; border: 1px solid {{t.border}};">
+<div style="display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-bottom: 1px solid {{t.border}};"><span style="flex-grow: 1;">Konsole</span><span style="display: flex; align-items: center; gap: 6px; color: {{t.muted}};"><span style="width: 8px; height: 8px; border-radius: 4px; background: #34C759;"></span>UDM Pro · 192.168.1.1</span><button style="font: inherit; font-size: 12px; padding: 3px 10px; border-radius: 6px; border: 1px solid {{t.chipBorder}}; background: {{t.field}}; color: {{t.fg}};">Ändern …</button></div>
+<div style="display: flex; align-items: center; gap: 10px; padding: 11px 14px;"><span style="flex-grow: 1;">API-Schlüssel</span><span style="color: {{t.muted}};">im Schlüsselbund</span><button style="font: inherit; font-size: 12px; padding: 3px 10px; border-radius: 6px; border: 1px solid {{t.chipBorder}}; background: {{t.field}}; color: {{t.fg}};">Ersetzen …</button></div>
+</div>
+<div style="display: flex; flex-direction: column; border-radius: 10px; background: {{t.group}}; border: 1px solid {{t.border}};">
+<div style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid {{t.border}};"><span style="flex-grow: 1;">Erscheinungsbild</span><div style="display: flex; padding: 2px; border-radius: 7px; background: {{t.segBg}}; font-size: 12px;"><span style="padding: 3px 12px; border-radius: 5px; background: {{t.segOn}}; box-shadow: {{t.segShadow}}; font-weight: 600;">System</span><span style="padding: 3px 12px; color: {{t.muted}};">Hell</span><span style="padding: 3px 12px; color: {{t.muted}};">Dunkel</span></div></div>
+<div style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid {{t.border}};"><span style="flex-grow: 1;">Popup-Position</span><span style="display: flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 6px; border: 1px solid {{t.chipBorder}}; background: {{t.field}}; font-size: 12px;">Oben rechts<svg aria-hidden="true" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 9l5-5 5 5M7 15l5 5 5-5"/></svg></span></div>
+<div style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid {{t.border}};"><span style="flex-grow: 1;">Im Fokus-Modus keine Popups</span><span style="width: 32px; height: 19px; border-radius: 10px; background: {{t.accent}}; position: relative;"><span style="position: absolute; right: 2px; top: 2px; width: 15px; height: 15px; border-radius: 8px; background: #FFFFFF;"></span></span></div>
+<div style="display: flex; align-items: center; gap: 10px; padding: 10px 14px;"><span style="flex-grow: 1;">Bei Anmeldung starten</span><span style="width: 32px; height: 19px; border-radius: 10px; background: {{t.accent}}; position: relative;"><span style="position: absolute; right: 2px; top: 2px; width: 15px; height: 15px; border-radius: 8px; background: #FFFFFF;"></span></span></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px;"><span style="font-size: 11px; font-weight: 600; color: {{t.muted}};">Stummschalten (Menüleiste)</span>
+<div style="display: flex; flex-direction: column; border-radius: 10px; background: {{t.group}}; border: 1px solid {{t.border}};">
+<label style="display: flex; align-items: center; gap: 10px; padding: 9px 14px; border-bottom: 1px solid {{t.border}};"><span style="flex-grow: 1;">Kurz</span><span style="display: flex; align-items: center; border-radius: 6px; border: 1px solid {{t.chipBorder}}; background: {{t.field}}; font-size: 12px;"><input value="15" aria-label="Kurze Dauer" style="font: inherit; width: 34px; padding: 3px 6px; border: 0; background: transparent; color: {{t.fg}}; text-align: right; font-variant-numeric: tabular-nums;"></input><span style="display: flex; align-items: center; gap: 5px; padding: 3px 8px; border-left: 1px solid {{t.chipBorder}};">Minuten<svg aria-hidden="true" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 9l5-5 5 5M7 15l5 5 5-5"/></svg></span></span></label>
+<label style="display: flex; align-items: center; gap: 10px; padding: 9px 14px;"><span style="flex-grow: 1;">Lang</span><span style="display: flex; align-items: center; border-radius: 6px; border: 1px solid {{t.chipBorder}}; background: {{t.field}}; font-size: 12px;"><input value="1" aria-label="Lange Dauer" style="font: inherit; width: 34px; padding: 3px 6px; border: 0; background: transparent; color: {{t.fg}}; text-align: right; font-variant-numeric: tabular-nums;"></input><span style="display: flex; align-items: center; gap: 5px; padding: 3px 8px; border-left: 1px solid {{t.chipBorder}};">Stunden<svg aria-hidden="true" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 9l5-5 5 5M7 15l5 5 5-5"/></svg></span></span></label>
+</div></div>
+<div style="display: flex; gap: 8px; justify-content: flex-end;"><button style="font: inherit; font-size: 12px; padding: 4px 12px; border-radius: 6px; border: 1px solid {{t.chipBorder}}; background: {{t.field}}; color: {{t.fg}};">Konfiguration exportieren …</button><button style="font: inherit; font-size: 12px; padding: 4px 12px; border-radius: 6px; border: 1px solid {{t.chipBorder}}; background: {{t.field}}; color: {{t.fg}};">Importieren …</button></div>
+</div>
+</div>
+</div>
+
+<!-- S2 Kameras -->
+<div style="display: flex; flex-direction: column; gap: 12px;">
+<div style="font-size: 13px; font-weight: 600; color: {{t.muted}};">Kameras · Haustür</div>
+<div style="width: 760px; height: 540px; border-radius: 12px; background: {{t.win}}; box-shadow: {{t.shadow}}; overflow: hidden; display: flex; flex-direction: column;">
+<div style="display: flex; flex-direction: column; background: {{t.bar}}; border-bottom: 1px solid {{t.border}};">
+<div style="height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 12px;"><span style="width: 12px; height: 12px; border-radius: 6px; background: #FF5F57;"></span><span style="width: 12px; height: 12px; border-radius: 6px; background: #FEBC2E;"></span><span style="width: 12px; height: 12px; border-radius: 6px; background: #28C840;"></span><span style="flex-grow: 1; text-align: center; font-size: 13px; font-weight: 600; margin-right: 52px;">Kameras</span></div>
+<div role="tablist" style="display: flex; justify-content: center; gap: 4px; padding: 2px 0 8px;">
+<sc-for list="{{tb2}}" as="b" hint-placeholder-count="4"><button role="tab" aria-selected="{{b.sel}}" style="font: inherit; width: 78px; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 5px 0; border-radius: 7px; border: 0; background: {{b.bg}}; color: {{b.fg}}; font-size: 11px;"><sc-if value="{{b.gen}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg></sc-if><sc-if value="{{b.cam}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="13" height="10" rx="2"/><path d="M16 11l5-3v8l-5-3"/></svg></sc-if><sc-if value="{{b.snd}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></svg></sc-if><sc-if value="{{b.vpn}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/></svg></sc-if>{{b.label}}</button></sc-for>
+</div>
+</div>
+<div style="flex-grow: 1; display: flex; min-height: 0;">
+<div style="width: 190px; border-right: 1px solid {{t.border}}; background: {{t.side}}; padding: 10px 8px; display: flex; flex-direction: column; gap: 2px;">
+<sc-for list="{{camList}}" as="c" hint-placeholder-count="4"><div style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 7px; background: {{c.bg}}; color: {{c.fg}};"><span style="width: 34px; height: 22px; border-radius: 4px; background: repeating-linear-gradient(135deg, #2A2D36 0 6px, #30343E 6px 12px);"></span><span style="display: flex; flex-direction: column; font-size: 12px;"><span style="font-weight: 600;">{{c.name}}</span><span style="font-size: 10px; opacity: .85;">{{c.state}}</span></span></div></sc-for>
+</div>
+<div style="flex-grow: 1; padding: 16px 22px; display: flex; flex-direction: column; gap: 12px; font-size: 13px; min-width: 0;">
+<div style="display: flex; align-items: center; justify-content: space-between;"><span style="font-size: 16px; font-weight: 700;">Haustür</span><span style="font-size: 11px; color: {{t.muted}};">G4 Doorbell Pro · Lautsprecher</span></div>
+<div style="display: flex; flex-direction: column; gap: 7px;"><span style="font-size: 11px; font-weight: 600; color: {{t.muted}};">Auslöser</span>
+<div style="display: flex; flex-wrap: wrap; gap: 6px;"><sc-for list="{{triggers}}" as="tr" hint-placeholder-count="8"><sc-if value="{{tr.on}}" hint-placeholder-val="{{false}}"><span style="font-size: 12px; font-weight: 600; padding: 4px 11px; border-radius: 999px; background: {{t.accent}}; color: #FFFFFF;">{{tr.label}}</span></sc-if><sc-if value="{{tr.off}}" hint-placeholder-val="{{true}}"><span style="font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid {{t.chipBorder}}; background: {{t.chipOff}};">{{tr.label}}</span></sc-if><sc-if value="{{tr.na}}" hint-placeholder-val="{{false}}"><span style="font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px dashed {{t.chipBorder}}; color: {{t.naFg}}; text-decoration: line-through;">{{tr.label}}</span></sc-if></sc-for></div></div>
+<div style="display: flex; flex-direction: column; border-radius: 9px; background: {{t.group}}; border: 1px solid {{t.border}};">
+<div style="display: flex; align-items: center; padding: 8px 12px; border-bottom: 1px solid {{t.border}};"><span style="flex-grow: 1;">Tastenkürzel</span><span style="font-size: 12px; padding: 2px 8px; border-radius: 5px; border: 1px solid {{t.chipBorder}}; background: {{t.field}};">⌥⌘1</span></div>
+<div style="display: flex; align-items: center; padding: 8px 12px; border-bottom: 1px solid {{t.border}};"><span style="flex-grow: 1;">Hinweiston beim Öffnen</span><span style="width: 32px; height: 19px; border-radius: 10px; background: {{t.accent}}; position: relative;"><span style="position: absolute; right: 2px; top: 2px; width: 15px; height: 15px; border-radius: 8px; background: #FFFFFF;"></span></span></div>
+<div style="display: flex; align-items: center; padding: 8px 12px;"><span style="flex-grow: 1;">Zoom und Ausschnitt merken</span><span style="width: 32px; height: 19px; border-radius: 10px; background: {{t.toggleOff}}; position: relative;"><span style="position: absolute; left: 2px; top: 2px; width: 15px; height: 15px; border-radius: 8px; background: #FFFFFF;"></span></span></div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px;"><span style="font-size: 11px; font-weight: 600; color: {{t.muted}};">Buttons im Popup (max. 3)</span>
+<div style="display: flex; flex-direction: column; border-radius: 9px; background: {{t.group}}; border: 1px solid {{t.border}};">
+<sc-for list="{{buttons}}" as="a" hint-placeholder-count="2"><div style="display: grid; grid-template-columns: minmax(0, 1fr) 46px minmax(0, 1.6fr) 44px; align-items: center; gap: 8px; padding: 7px 12px; border-bottom: 1px solid {{t.border}}; font-size: 12px;"><span style="font-weight: 600;">{{a.label}}</span><span style="font-size: 10px; font-weight: 700; padding: 2px 5px; border-radius: 4px; background: {{t.accSoft}}; color: {{t.accText}}; text-align: center;">{{a.method}}</span><span style="color: {{t.muted}}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{a.url}}</span><a href="#" style="font-size: 12px; color: {{t.accText}};">Ändern</a></div></sc-for>
+<a href="#" style="padding: 7px 12px; font-size: 12px; color: {{t.accText}};">Button hinzufügen …</a>
+</div></div>
+<div style="flex-grow: 1;"></div>
+<button aria-expanded="false" style="font: inherit; align-self: flex-start; display: flex; align-items: center; gap: 5px; padding: 0; border: 0; background: transparent; font-size: 12px; color: {{t.muted}};"><svg aria-hidden="true" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>Erweitert</button>
+</div>
+</div>
+</div>
+</div>
+
+<!-- S3 Erweitert aufgeklappt -->
+<div style="display: flex; flex-direction: column; gap: 12px;">
+<div style="font-size: 13px; font-weight: 600; color: {{t.muted}};">Kameras · Haustür · Erweitert aufgeklappt</div>
+<div style="width: 760px; height: 540px; border-radius: 12px; background: {{t.win}}; box-shadow: {{t.shadow}}; overflow: hidden; display: flex; flex-direction: column;">
+<div style="display: flex; flex-direction: column; background: {{t.bar}}; border-bottom: 1px solid {{t.border}};">
+<div style="height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 12px;"><span style="width: 12px; height: 12px; border-radius: 6px; background: #FF5F57;"></span><span style="width: 12px; height: 12px; border-radius: 6px; background: #FEBC2E;"></span><span style="width: 12px; height: 12px; border-radius: 6px; background: #28C840;"></span><span style="flex-grow: 1; text-align: center; font-size: 13px; font-weight: 600; margin-right: 52px;">Kameras</span></div>
+<div role="tablist" style="display: flex; justify-content: center; gap: 4px; padding: 2px 0 8px;">
+<sc-for list="{{tb2}}" as="b" hint-placeholder-count="4"><button role="tab" aria-selected="{{b.sel}}" style="font: inherit; width: 78px; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 5px 0; border-radius: 7px; border: 0; background: {{b.bg}}; color: {{b.fg}}; font-size: 11px;"><sc-if value="{{b.gen}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg></sc-if><sc-if value="{{b.cam}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="13" height="10" rx="2"/><path d="M16 11l5-3v8l-5-3"/></svg></sc-if><sc-if value="{{b.snd}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></svg></sc-if><sc-if value="{{b.vpn}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/></svg></sc-if>{{b.label}}</button></sc-for>
+</div>
+</div>
+<div style="flex-grow: 1; display: flex; min-height: 0;">
+<div style="width: 190px; border-right: 1px solid {{t.border}}; background: {{t.side}}; padding: 10px 8px; display: flex; flex-direction: column; gap: 2px;">
+<sc-for list="{{camList}}" as="c" hint-placeholder-count="4"><div style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 7px; background: {{c.bg}}; color: {{c.fg}};"><span style="width: 34px; height: 22px; border-radius: 4px; background: repeating-linear-gradient(135deg, #2A2D36 0 6px, #30343E 6px 12px);"></span><span style="display: flex; flex-direction: column; font-size: 12px;"><span style="font-weight: 600;">{{c.name}}</span><span style="font-size: 10px; opacity: .85;">{{c.state}}</span></span></div></sc-for>
+</div>
+<div style="flex-grow: 1; padding: 16px 22px; display: flex; flex-direction: column; gap: 12px; font-size: 13px; min-width: 0;">
+<div style="font-size: 11px; color: {{t.muted}};">… Auslöser, Tastenkürzel und Buttons wie links, nach oben gescrollt</div>
+<button aria-expanded="true" style="font: inherit; align-self: flex-start; display: flex; align-items: center; gap: 5px; padding: 0; border: 0; background: transparent; font-size: 12px; font-weight: 600; color: {{t.fg}};"><svg aria-hidden="true" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>Erweitert</button>
+<div style="display: flex; flex-direction: column; border-radius: 9px; background: {{t.group}}; border: 1px solid {{t.border}};">
+<div style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid {{t.border}};"><span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px;"><span>Zusätzlich per Webhook auslösen</span><span style="font-size: 11px; color: {{t.muted}};">Für Alarm Manager, Home Assistant oder andere Systeme.</span></span><span style="width: 32px; height: 19px; border-radius: 10px; background: {{t.accent}}; position: relative;"><span style="position: absolute; right: 2px; top: 2px; width: 15px; height: 15px; border-radius: 8px; background: #FFFFFF;"></span></span></div>
+<label style="display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-bottom: 1px solid {{t.border}};"><span style="width: 110px;">Webhook-ID</span><input value="haustuer-klingel" style="font: inherit; flex-grow: 1; font-size: 12px; padding: 4px 7px; border-radius: 5px; border: 1px solid {{t.chipBorder}}; background: {{t.field}}; color: {{t.fg}};"></input></label>
+<div style="display: flex; align-items: center; gap: 10px; padding: 9px 12px;"><span style="width: 110px;">Aufruf-Adresse</span><span style="flex-grow: 1; font-size: 12px; color: {{t.muted}}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">https://[DEIN-SERVER]/hook/haustuer-klingel</span><button style="font: inherit; font-size: 12px; padding: 3px 10px; border-radius: 6px; border: 1px solid {{t.chipBorder}}; background: {{t.field}}; color: {{t.fg}};">Kopieren</button></div>
+</div>
+<div style="display: flex; flex-direction: column; border-radius: 9px; background: {{t.group}}; border: 1px solid {{t.border}};">
+<label style="display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-bottom: 1px solid {{t.border}};"><span style="width: 110px;">Stream-Adresse</span><input placeholder="automatisch aus Protect" style="font: inherit; flex-grow: 1; font-size: 12px; padding: 4px 7px; border-radius: 5px; border: 1px solid {{t.chipBorder}}; background: {{t.field}}; color: {{t.fg}};"></input></label>
+<div style="padding: 8px 12px; font-size: 11px; line-height: 1.45; color: {{t.muted}};">Nur ausfüllen, wenn der Stream nicht über die Protect-API kommen soll (rtsp://…:7447/…).</div>
+</div>
+<div style="flex-grow: 1;"></div>
+<div style="display: flex; justify-content: space-between; align-items: center;"><a href="#" style="font-size: 12px; color: {{t.accText}};">Webhook jetzt testen</a><span style="font-size: 11px; color: {{t.muted}};">Zuletzt ausgelöst: heute, 10:12</span></div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- S4 Button bearbeiten (Sheet) -->
+<div style="display: flex; flex-direction: column; gap: 12px;">
+<div style="font-size: 13px; font-weight: 600; color: {{t.muted}};">Button bearbeiten (Sheet)</div>
+<div style="width: 760px; height: 540px; border-radius: 12px; background: {{t.win}}; box-shadow: {{t.shadow}}; overflow: hidden; position: relative;">
+<div style="position: absolute; inset: 0; background: {{t.scrim}};"></div>
+<div style="height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 12px; position: relative;"><span style="width: 12px; height: 12px; border-radius: 6px; background: #FF5F57;"></span><span style="width: 12px; height: 12px; border-radius: 6px; background: #FEBC2E;"></span><span style="width: 12px; height: 12px; border-radius: 6px; background: #28C840;"></span></div>
+<div role="dialog" aria-label="Button bearbeiten" style="position: absolute; left: 50%; top: 28px; transform: translateX(-50%); width: 440px; border-radius: 0 0 12px 12px; background: {{t.win}}; box-shadow: 0 18px 40px rgba(0,0,0,.35), 0 0 0 1px {{t.border}}; padding: 18px 20px; display: flex; flex-direction: column; gap: 11px; font-size: 13px;">
+<span style="font-size: 15px; font-weight: 700;">Button „Tür öffnen“</span>
+<label style="display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: center; gap: 10px;">Beschriftung<input value="Tür öffnen" style="font: inherit; font-size: 13px; padding: 5px 8px; border-radius: 6px; border: 1px solid {{t.chipBorder}}; background: {{t.field}}; color: {{t.fg}};"></input></label>
+<div style="display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: center; gap: 10px;"><span>Symbol</span><div style="display: flex; gap: 6px;">
+<span style="width: 30px; height: 30px; border-radius: 7px; background: {{t.accent}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center;"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 21V4h12v17M4 21h16"/><path d="M14.5 12.5h.01"/></svg></span>
+<span style="width: 30px; height: 30px; border-radius: 7px; background: {{t.btn2}}; display: flex; align-items: center; justify-content: center;"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5V16h8v-2.5A6 6 0 0 0 12 3z"/></svg></span>
+<span style="width: 30px; height: 30px; border-radius: 7px; background: {{t.btn2}}; display: flex; align-items: center; justify-content: center;"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V9l9-6 9 6v12"/><path d="M7 21v-8h10v8M7 17h10"/></svg></span>
+<span style="width: 30px; height: 30px; border-radius: 7px; background: {{t.btn2}}; display: flex; align-items: center; justify-content: center;"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3L5 14h6l-1 7 8-11h-6z"/></svg></span>
+</div></div>
+<div style="display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: center; gap: 10px;"><span>Methode</span><div style="display: flex; align-self: flex-start; padding: 2px; border-radius: 7px; background: {{t.segBg}}; font-size: 12px; width: 120px;"><span style="flex-grow: 1; text-align: center; padding: 3px 0; color: {{t.muted}};">GET</span><span style="flex-grow: 1; text-align: center; padding: 3px 0; border-radius: 5px; background: {{t.segOn}}; box-shadow: {{t.segShadow}}; font-weight: 600;">POST</span></div></div>
+<label style="display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: center; gap: 10px;">Adresse<input value="https://homeassistant.local/api/webhook/tuer-auf" style="font: inherit; font-size: 12px; padding: 5px 8px; border-radius: 6px; border: 1px solid {{t.chipBorder}}; background: {{t.field}}; color: {{t.fg}};"></input></label>
+<label style="display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: center; gap: 10px;">Token<input type="password" value="geheimestoken123" style="font: inherit; font-size: 12px; padding: 5px 8px; border-radius: 6px; border: 1px solid {{t.chipBorder}}; background: {{t.field}}; color: {{t.fg}};"></input></label>
+<div style="display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 10px; font-size: 11px; color: {{t.muted}};"><span></span><span>Bearer-Token, liegt im Schlüsselbund. Optional.</span></div>
+<div style="display: flex; align-items: center; gap: 10px;"><span style="flex-grow: 1;">Vor dem Ausführen nachfragen</span><span style="width: 32px; height: 19px; border-radius: 10px; background: {{t.accent}}; position: relative;"><span style="position: absolute; right: 2px; top: 2px; width: 15px; height: 15px; border-radius: 8px; background: #FFFFFF;"></span></span></div>
+<div style="display: flex; align-items: center; gap: 6px; padding: 7px 10px; border-radius: 7px; background: {{t.okBg}}; color: {{t.ok}}; font-size: 12px;"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>Test erfolgreich · HTTP 200</div>
+<div style="display: flex; gap: 8px; align-items: center;"><button style="font: inherit; font-size: 13px; padding: 5px 12px; border-radius: 6px; border: 1px solid {{t.chipBorder}}; background: {{t.field}}; color: {{t.fg}};">Testen</button><span style="flex-grow: 1;"></span><button style="font: inherit; font-size: 13px; padding: 5px 12px; border-radius: 6px; border: 1px solid {{t.chipBorder}}; background: {{t.field}}; color: {{t.fg}};">Abbrechen</button><button style="font: inherit; font-size: 13px; font-weight: 600; padding: 5px 14px; border-radius: 6px; border: 0; background: {{t.accent}}; color: #FFFFFF;">Sichern</button></div>
+</div>
+</div>
+</div>
+
+<!-- S5 Töne & Sprechen -->
+<div style="display: flex; flex-direction: column; gap: 12px;">
+<div style="font-size: 13px; font-weight: 600; color: {{t.muted}};">Ton &amp; Sprechen</div>
+<div style="width: 760px; height: 540px; border-radius: 12px; background: {{t.win}}; box-shadow: {{t.shadow}}; overflow: hidden; display: flex; flex-direction: column;">
+<div style="display: flex; flex-direction: column; background: {{t.bar}}; border-bottom: 1px solid {{t.border}};">
+<div style="height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 12px;"><span style="width: 12px; height: 12px; border-radius: 6px; background: #FF5F57;"></span><span style="width: 12px; height: 12px; border-radius: 6px; background: #FEBC2E;"></span><span style="width: 12px; height: 12px; border-radius: 6px; background: #28C840;"></span><span style="flex-grow: 1; text-align: center; font-size: 13px; font-weight: 600; margin-right: 52px;">Ton &amp; Sprechen</span></div>
+<div role="tablist" style="display: flex; justify-content: center; gap: 4px; padding: 2px 0 8px;">
+<sc-for list="{{tb3}}" as="b" hint-placeholder-count="4"><button role="tab" aria-selected="{{b.sel}}" style="font: inherit; width: 78px; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 5px 0; border-radius: 7px; border: 0; background: {{b.bg}}; color: {{b.fg}}; font-size: 11px;"><sc-if value="{{b.gen}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg></sc-if><sc-if value="{{b.cam}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="13" height="10" rx="2"/><path d="M16 11l5-3v8l-5-3"/></svg></sc-if><sc-if value="{{b.snd}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></svg></sc-if><sc-if value="{{b.vpn}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/></svg></sc-if>{{b.label}}</button></sc-for>
+</div>
+</div>
+<div style="flex-grow: 1; padding: 14px 40px; display: flex; flex-direction: column; gap: 10px; font-size: 13px;">
+<div style="display: flex; flex-direction: column; gap: 5px;"><span style="font-size: 11px; font-weight: 600; color: {{t.muted}};">Ansagen für „Ton abspielen“</span>
+<div style="display: flex; flex-direction: column; border-radius: 10px; background: {{t.group}}; border: 1px solid {{t.border}}; overflow: hidden;">
+<sc-for list="{{soundRows}}" as="s" hint-placeholder-count="3"><div style="display: flex; align-items: center; gap: 10px; padding: 6px 12px; border-bottom: 1px solid {{t.border}}; background: {{s.bg}};"><button aria-label="Probehören" style="width: 22px; height: 22px; border-radius: 11px; border: 0; background: {{t.accSoft}}; color: {{t.accText}}; display: flex; align-items: center; justify-content: center;"><svg aria-hidden="true" width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4l13 8-13 8z"/></svg></button><span style="flex-grow: 1; font-weight: 500;">{{s.name}}</span><span style="font-size: 11px; color: {{t.muted}}; font-variant-numeric: tabular-nums;">{{s.len}}</span><span style="font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: {{s.tagBg}}; color: {{s.tagFg}};">{{s.tag}}</span></div></sc-for>
+<div style="display: flex; gap: 14px; padding: 6px 12px; font-size: 12px;"><a href="#" style="color: {{t.accText}};">MP3 hinzufügen …</a><a href="#" style="color: {{t.accText}};">Ansage aus Text …</a></div>
+</div></div>
+<div style="display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 10px; background: {{t.group}}; border: 1px solid {{t.accent}};">
+<div style="display: flex; align-items: center; gap: 10px;"><span style="font-weight: 600; flex-grow: 1;">„Bin gleich da“</span><div style="display: flex; padding: 2px; border-radius: 7px; background: {{t.segBg}}; font-size: 12px;"><span style="padding: 3px 12px; color: {{t.muted}};">MP3-Datei</span><span style="padding: 3px 12px; border-radius: 5px; background: {{t.segOn}}; box-shadow: {{t.segShadow}}; font-weight: 600;">KI-Stimme</span></div></div>
+<input aria-label="Text der Ansage" value="Bin gleich da! Einen kleinen Moment, bitte." style="font: inherit; font-size: 13px; padding: 5px 8px; border-radius: 6px; border: 1px solid {{t.chipBorder}}; background: {{t.field}}; color: {{t.fg}};"></input>
+<div style="display: flex; align-items: center; gap: 8px;"><span style="font-size: 12px; color: {{t.muted}};">Stimme</span><span style="display: flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 6px; border: 1px solid {{t.chipBorder}}; background: {{t.field}}; font-size: 12px;">Anna (Premium) · macOS<svg aria-hidden="true" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 9l5-5 5 5M7 15l5 5 5-5"/></svg></span><span style="flex-grow: 1;"></span><button style="font: inherit; font-size: 12px; padding: 3px 10px; border-radius: 6px; border: 1px solid {{t.chipBorder}}; background: {{t.field}}; color: {{t.fg}};">Anhören</button><button style="font: inherit; font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 6px; border: 0; background: {{t.accent}}; color: #FFFFFF;">Übernehmen</button></div>
+<span style="font-size: 11px; color: {{t.muted}};">Wird auf diesem Mac erzeugt – ohne Internet, ohne Konto.</span>
+</div>
+<div style="display: flex; flex-direction: column; border-radius: 10px; background: {{t.group}}; border: 1px solid {{t.border}};">
+<div style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid {{t.border}};"><span style="flex-grow: 1;">Mikrofon</span><span style="display: flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 6px; border: 1px solid {{t.chipBorder}}; background: {{t.field}}; font-size: 12px;">MacBook Pro-Mikrofon<svg aria-hidden="true" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 9l5-5 5 5M7 15l5 5 5-5"/></svg></span></div>
+<div style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid {{t.border}};"><span style="flex-grow: 1;">Sprechen</span><div style="display: flex; padding: 2px; border-radius: 7px; background: {{t.segBg}}; font-size: 12px;"><span style="padding: 3px 12px; border-radius: 5px; background: {{t.segOn}}; box-shadow: {{t.segShadow}}; font-weight: 600;">Leertaste halten</span><span style="padding: 3px 12px; color: {{t.muted}};">Umschalten</span></div></div>
+<div style="display: flex; align-items: center; gap: 10px; padding: 10px 14px;"><span style="flex-grow: 1;">Lautstärke an der Kamera</span><span style="width: 180px; height: 4px; border-radius: 2px; background: {{t.toggleOff}}; position: relative;"><span style="position: absolute; left: 0; top: 0; width: 120px; height: 4px; border-radius: 2px; background: {{t.accent}};"></span><span style="position: absolute; left: 112px; top: -6px; width: 16px; height: 16px; border-radius: 8px; background: #FFFFFF; box-shadow: 0 1px 3px rgba(0,0,0,.35);"></span></span></div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- S6 Unterwegs -->
+<div style="display: flex; flex-direction: column; gap: 12px;">
+<div style="font-size: 13px; font-weight: 600; color: {{t.muted}};">Unterwegs (WireGuard)</div>
+<div style="width: 760px; height: 540px; border-radius: 12px; background: {{t.win}}; box-shadow: {{t.shadow}}; overflow: hidden; display: flex; flex-direction: column;">
+<div style="display: flex; flex-direction: column; background: {{t.bar}}; border-bottom: 1px solid {{t.border}};">
+<div style="height: 28px; display: flex; align-items: center; gap: 8px; padding: 0 12px;"><span style="width: 12px; height: 12px; border-radius: 6px; background: #FF5F57;"></span><span style="width: 12px; height: 12px; border-radius: 6px; background: #FEBC2E;"></span><span style="width: 12px; height: 12px; border-radius: 6px; background: #28C840;"></span><span style="flex-grow: 1; text-align: center; font-size: 13px; font-weight: 600; margin-right: 52px;">Unterwegs</span></div>
+<div role="tablist" style="display: flex; justify-content: center; gap: 4px; padding: 2px 0 8px;">
+<sc-for list="{{tb4}}" as="b" hint-placeholder-count="4"><button role="tab" aria-selected="{{b.sel}}" style="font: inherit; width: 78px; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 5px 0; border-radius: 7px; border: 0; background: {{b.bg}}; color: {{b.fg}}; font-size: 11px;"><sc-if value="{{b.gen}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg></sc-if><sc-if value="{{b.cam}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="13" height="10" rx="2"/><path d="M16 11l5-3v8l-5-3"/></svg></sc-if><sc-if value="{{b.snd}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></svg></sc-if><sc-if value="{{b.vpn}}" hint-placeholder-val="{{false}}"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/></svg></sc-if>{{b.label}}</button></sc-for>
+</div>
+</div>
+<div style="flex-grow: 1; padding: 20px 40px; display: flex; flex-direction: column; gap: 14px; font-size: 13px;">
+<div style="display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 12px; background: {{t.accSoft}};">
+<span style="width: 40px; height: 40px; border-radius: 20px; background: {{t.accent}}; color: #FFFFFF; display: flex; align-items: center; justify-content: center;"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg></span>
+<span style="flex-grow: 1; display: flex; flex-direction: column; gap: 2px;"><span style="font-weight: 700; font-size: 14px;">Bereit · gerade zu Hause</span><span style="font-size: 12px; color: {{t.muted}};">Der Tunnel springt an, sobald die Konsole nicht direkt erreichbar ist.</span></span>
+<button style="font: inherit; font-size: 12px; padding: 4px 12px; border-radius: 6px; border: 1px solid {{t.chipBorder}}; background: {{t.field}}; color: {{t.fg}};">Jetzt testen</button>
+</div>
+<div style="display: flex; flex-direction: column; border-radius: 10px; background: {{t.group}}; border: 1px solid {{t.border}};">
+<div style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid {{t.border}};"><span style="width: 140px;">Konfiguration</span><span style="flex-grow: 1; color: {{t.muted}};">macbook-camera-popup.conf</span><button style="font: inherit; font-size: 12px; padding: 3px 10px; border-radius: 6px; border: 1px solid {{t.chipBorder}}; background: {{t.field}}; color: {{t.fg}};">Ersetzen …</button></div>
+<div style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid {{t.border}};"><span style="width: 140px;">Gegenstelle</span><span style="flex-grow: 1; color: {{t.muted}};">[DEINE-HEIM-ADRESSE]:51820</span></div>
+<div style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid {{t.border}};"><span style="width: 140px;">Letzte Verbindung</span><span style="flex-grow: 1; color: {{t.muted}};">gestern, 18:22 · über Mobilfunk</span></div>
+<div style="display: flex; align-items: center; gap: 10px; padding: 10px 14px;"><span style="flex-grow: 1;">Tunnel verwenden</span><span style="display: flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 6px; border: 1px solid {{t.chipBorder}}; background: {{t.field}}; font-size: 12px;">Automatisch<svg aria-hidden="true" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 9l5-5 5 5M7 15l5 5 5-5"/></svg></span></div>
+</div>
+<div style="display: flex; justify-content: space-between; align-items: center;"><a href="#" style="font-size: 12px; color: {{t.accText}};">Anleitung: WireGuard auf dem UniFi-Gateway einrichten</a><a href="#" style="font-size: 12px; color: {{t.muted}};">Tunnel entfernen</a></div>
+</div>
+</div>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"erscheinung":{"editor":"enum","options":["Hell","Dunkel","System"],"default":"Hell"},"$preview":{"width":2540,"height":1330}}'>
+class Component extends DCLogic {
+  componentDidMount() {
+    try {
+      this.mq = window.matchMedia('(prefers-color-scheme: dark)');
+      this.onMq = () => this.setState({ sysDark: this.mq.matches });
+      this.mq.addEventListener('change', this.onMq);
+      this.onMq();
+    } catch (e) {}
+  }
+  componentWillUnmount() {
+    try { this.mq.removeEventListener('change', this.onMq); } catch (e) {}
+  }
+  renderVals() {
+    const mode = this.props.erscheinung ?? 'Hell';
+    const dark = mode === 'Dunkel' || (mode === 'System' && !!(this.state && this.state.sysDark));
+    const light = {
+      page: '#DCDDE6', win: '#FBFBFD', bar: '#F3F3F7', side: '#F2F2F6', group: '#FFFFFF', fg: '#1D1D1F', muted: '#55555F',
+      accent: '#4B3FD1', accSoft: '#ECEAFB', accText: '#3528A8', border: '#DEDEE6', field: '#FFFFFF',
+      ok: '#1C6B30', okBg: '#E3F5E8', shadow: '0 20px 44px rgba(30,30,60,.18), 0 0 0 1px rgba(0,0,0,.07)',
+      segBg: '#E8E8EE', segOn: '#FFFFFF', segShadow: '0 1px 2px rgba(0,0,0,.14)', chipOff: '#FFFFFF', chipBorder: '#C9C9D6',
+      naFg: '#7A7A86', toggleOff: '#D1D1D8', btn2: '#EFEFF4', scrim: 'rgba(30,30,50,.18)', tabOn: '#E4E2F8'
+    };
+    const night = {
+      page: '#121318', win: '#26262C', bar: '#2C2C33', side: '#222227', group: '#2E2E35', fg: '#EDEDF2', muted: '#ABABB7',
+      accent: '#5B4FE0', accSoft: '#312C5C', accText: '#C3BDFF', border: '#3B3B45', field: '#1C1C21',
+      ok: '#86E3A6', okBg: '#1F3A2A', shadow: '0 24px 50px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.09)',
+      segBg: '#1C1C21', segOn: '#3E3E48', segShadow: '0 1px 2px rgba(0,0,0,.4)', chipOff: '#34343C', chipBorder: '#4A4A55',
+      naFg: '#8A8A97', toggleOff: '#4A4A55', btn2: '#34343C', scrim: 'rgba(0,0,0,.42)', tabOn: '#3A3566'
+    };
+    const t = dark ? night : light;
+    const tabDefs = [['Allgemein', 'gen'], ['Kameras', 'cam'], ['Ton', 'snd'], ['Unterwegs', 'vpn']];
+    const tb = (i) => tabDefs.map(([label, ic], j) => ({
+      label, sel: j === i ? 'true' : 'false', bg: j === i ? t.tabOn : 'transparent', fg: j === i ? t.accText : t.muted,
+      gen: ic === 'gen', cam: ic === 'cam', snd: ic === 'snd', vpn: ic === 'vpn'
+    }));
+    const camNames = [['Haustür', 'Klingel, Person, Paket'], ['Einfahrt', 'Fahrzeug'], ['Garage', 'Person'], ['Garten', 'aus']];
+    return {
+      t,
+      tb1: tb(0), tb2: tb(1), tb3: tb(2), tb4: tb(3),
+      camList: camNames.map(([name, state], j) => ({ name, state, bg: j === 0 ? t.accent : 'transparent', fg: j === 0 ? '#FFFFFF' : t.fg })),
+      triggers: [
+        { label: 'Klingel', on: true, off: false, na: false },
+        { label: 'Person', on: true, off: false, na: false },
+        { label: 'Paket', on: true, off: false, na: false },
+        { label: 'Tier', on: false, off: true, na: false },
+        { label: 'Sprache', on: false, off: true, na: false },
+        { label: 'Glasbruch', on: false, off: true, na: false },
+        { label: 'Bewegung', on: false, off: true, na: false },
+        { label: 'Fahrzeug', on: false, off: false, na: true }
+      ],
+      buttons: [
+        { label: 'Tür öffnen', method: 'POST', url: 'homeassistant.local/api/webhook/tuer-auf' },
+        { label: 'Licht an', method: 'GET', url: 'shelly-eingang.local/relay/0?turn=on' }
+      ],
+      soundRows: [
+        { name: 'Gong', len: '0:02', tag: 'MP3', sel: false },
+        { name: 'Bin gleich da', len: '0:03', tag: 'KI-STIMME', sel: true },
+        { name: 'Paket bitte abstellen', len: '0:05', tag: 'KI-STIMME', sel: false }
+      ].map((s) => ({ ...s, bg: s.sel ? t.accSoft : 'transparent', tagBg: s.tag === 'MP3' ? t.btn2 : t.accSoft, tagFg: s.tag === 'MP3' ? t.muted : t.accText }))
+    };
+  }
+}
+</script>
+</body>
+</html>

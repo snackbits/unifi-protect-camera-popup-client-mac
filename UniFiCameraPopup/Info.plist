@@ -29,6 +29,8 @@
 	</dict>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Aktions-Buttons rufen Webhooks von Geräten in deinem lokalen Netzwerk auf (z. B. zum Öffnen einer Tür).</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Zum Sprechen über den Lautsprecher deiner Kamera: Solange du im Popup den Button oder die Leertaste hältst, geht dein Ton an die Kamera.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 </dict>

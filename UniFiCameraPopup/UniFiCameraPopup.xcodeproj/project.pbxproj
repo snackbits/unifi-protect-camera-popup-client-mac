@@ -7,6 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A10000000000000000000090 /* SnapshotRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000090 /* SnapshotRenderer.swift */; };
+		A10000000000000000000081 /* StatusPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000081 /* StatusPanel.swift */; };
+		A10000000000000000000075 /* CamerasTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000075 /* CamerasTab.swift */; };
+		A10000000000000000000076 /* CameraAdvancedSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000076 /* CameraAdvancedSection.swift */; };
+		A10000000000000000000077 /* ActionEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000077 /* ActionEditorSheet.swift */; };
 		A10000000000000000000001 /* UniFiCameraPopupApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000001 /* UniFiCameraPopupApp.swift */; };
 		A10000000000000000000002 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000002 /* AppDelegate.swift */; };
 		A10000000000000000000016 /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000016 /* AppConfig.swift */; };
@@ -17,15 +22,19 @@
 		A10000000000000000000007 /* WebSocketClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000007 /* WebSocketClient.swift */; };
 		A10000000000000000000017 /* UpdateService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000017 /* UpdateService.swift */; };
 		A10000000000000000000043 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000043 /* KeychainStore.swift */; };
+		A10000000000000000000044 /* ProtectSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000044 /* ProtectSession.swift */; };
+		A10000000000000000000082 /* EventLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000082 /* EventLog.swift */; };
+		A10000000000000000000045 /* ProtectEventService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000045 /* ProtectEventService.swift */; };
 		A10000000000000000000041 /* WhatsNewService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000041 /* WhatsNewService.swift */; };
 		A10000000000000000000040 /* CameraActionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000040 /* CameraActionService.swift */; };
 		A10000000000000000000008 /* WindowPositioner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000008 /* WindowPositioner.swift */; };
 		A10000000000000000000009 /* PopupController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000009 /* PopupController.swift */; };
 		A10000000000000000000010 /* VLCPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* VLCPlayerView.swift */; };
 		A10000000000000000000011 /* PopupWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000011 /* PopupWindow.swift */; };
-		A10000000000000000000012 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000012 /* SettingsView.swift */; };
 		A10000000000000000000018 /* HelpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000018 /* HelpView.swift */; };
 		A10000000000000000000042 /* WhatsNewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000042 /* WhatsNewView.swift */; };
+		A10000000000000000000060 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000060 /* OnboardingView.swift */; };
+		A10000000000000000000061 /* OnboardingWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000061 /* OnboardingWindow.swift */; };
 		A10000000000000000000019 /* DoNotDisturbChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000019 /* DoNotDisturbChecker.swift */; };
 		A10000000000000000000020 /* FocusMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000020 /* FocusMonitor.swift */; };
 		A10000000000000000000021 /* CameraHotkey.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000021 /* CameraHotkey.swift */; };
@@ -35,9 +44,44 @@
 		A10000000000000000000025 /* CropSelectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000025 /* CropSelectionView.swift */; };
 		A10000000000000000000013 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000013 /* Assets.xcassets */; };
 		A10000000000000000000014 /* VLCKitSPM in Frameworks */ = {isa = PBXBuildFile; productRef = A50000000000000000000001 /* VLCKitSPM */; };
+		A10000000000000000000015 /* ProtectKit in Frameworks */ = {isa = PBXBuildFile; productRef = A50000000000000000000002 /* ProtectKit */; };
+		A10000000000000000000070 /* AppCore in Frameworks */ = {isa = PBXBuildFile; productRef = A50000000000000000000003 /* AppCore */; };
+		A10000000000000000000071 /* DesignComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000071 /* DesignComponents.swift */; };
+		A10000000000000000000072 /* PopUpField.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000072 /* PopUpField.swift */; };
+		A10000000000000000000073 /* SettingsWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000073 /* SettingsWindow.swift */; };
+		A10000000000000000000074 /* GeneralTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000074 /* GeneralTab.swift */; };
+		A10000000000000000000080 /* PopupOverlayViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000080 /* PopupOverlayViews.swift */; };
+		A10000000000000000000078 /* SoundAndRemoteTabs.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000078 /* SoundAndRemoteTabs.swift */; };
+		C31000000000000000000001 /* SoundStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C32000000000000000000001 /* SoundStore.swift */; };
+		C31000000000000000000002 /* PreviewPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C32000000000000000000002 /* PreviewPlayer.swift */; };
+		C31000000000000000000003 /* TalkbackLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = C32000000000000000000003 /* TalkbackLog.swift */; };
+		C31000000000000000000004 /* MicrophoneCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = C32000000000000000000004 /* MicrophoneCapture.swift */; };
+		C31000000000000000000006 /* TalkbackService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C32000000000000000000006 /* TalkbackService.swift */; };
+		C31000000000000000000007 /* SoundTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = C32000000000000000000007 /* SoundTab.swift */; };
+		C31000000000000000000009 /* bin-gleich-da.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = C32000000000000000000009 /* bin-gleich-da.mp3 */; };
+		C31000000000000000000010 /* paket-abstellen.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = C32000000000000000000010 /* paket-abstellen.mp3 */; };
+		C31000000000000000000008 /* PopupTalkViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = C32000000000000000000008 /* PopupTalkViews.swift */; };
+		D41000000000000000000001 /* TunnelBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = D42000000000000000000001 /* TunnelBridge.swift */; };
+		D41000000000000000000030 /* ThirdPartyNotices.txt in Resources */ = {isa = PBXBuildFile; fileRef = D42000000000000000000030 /* ThirdPartyNotices.txt */; };
+		D41000000000000000000010 /* TunnelStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D42000000000000000000010 /* TunnelStore.swift */; };
+		D41000000000000000000011 /* TunnelImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D42000000000000000000011 /* TunnelImporter.swift */; };
+		D41000000000000000000012 /* TunnelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D42000000000000000000012 /* TunnelController.swift */; };
+		D41000000000000000000013 /* ConnectionRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D42000000000000000000013 /* ConnectionRouter.swift */; };
+		D41000000000000000000020 /* WireGuardImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = D42000000000000000000020 /* WireGuardImport.swift */; };
+		D41000000000000000000021 /* WireGuardGuideView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D42000000000000000000021 /* WireGuardGuideView.swift */; };
+		D41000000000000000000022 /* OnboardingTunnelStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = D42000000000000000000022 /* OnboardingTunnelStep.swift */; };
+		D41000000000000000000023 /* TunnelSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D42000000000000000000023 /* TunnelSettingsView.swift */; };
+		E51000000000000000000001 /* EventRuleService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E52000000000000000000001 /* EventRuleService.swift */; };
+		E51000000000000000000002 /* EventRulesSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = E52000000000000000000002 /* EventRulesSection.swift */; };
+		E61000000000000000000001 /* PiperVoiceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E62000000000000000000001 /* PiperVoiceStore.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		A20000000000000000000090 /* SnapshotRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotRenderer.swift; sourceTree = "<group>"; };
+		A20000000000000000000081 /* StatusPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusPanel.swift; sourceTree = "<group>"; };
+		A20000000000000000000075 /* CamerasTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CamerasTab.swift; sourceTree = "<group>"; };
+		A20000000000000000000076 /* CameraAdvancedSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraAdvancedSection.swift; sourceTree = "<group>"; };
+		A20000000000000000000077 /* ActionEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionEditorSheet.swift; sourceTree = "<group>"; };
 		A20000000000000000000001 /* UniFiCameraPopupApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UniFiCameraPopupApp.swift; sourceTree = "<group>"; };
 		A20000000000000000000002 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		A20000000000000000000016 /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
@@ -48,15 +92,19 @@
 		A20000000000000000000007 /* WebSocketClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketClient.swift; sourceTree = "<group>"; };
 		A20000000000000000000017 /* UpdateService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateService.swift; sourceTree = "<group>"; };
 		A20000000000000000000043 /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
+		A20000000000000000000044 /* ProtectSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProtectSession.swift; sourceTree = "<group>"; };
+		A20000000000000000000082 /* EventLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventLog.swift; sourceTree = "<group>"; };
+		A20000000000000000000045 /* ProtectEventService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProtectEventService.swift; sourceTree = "<group>"; };
 		A20000000000000000000041 /* WhatsNewService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhatsNewService.swift; sourceTree = "<group>"; };
 		A20000000000000000000040 /* CameraActionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraActionService.swift; sourceTree = "<group>"; };
 		A20000000000000000000008 /* WindowPositioner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowPositioner.swift; sourceTree = "<group>"; };
 		A20000000000000000000009 /* PopupController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopupController.swift; sourceTree = "<group>"; };
 		A20000000000000000000010 /* VLCPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VLCPlayerView.swift; sourceTree = "<group>"; };
 		A20000000000000000000011 /* PopupWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopupWindow.swift; sourceTree = "<group>"; };
-		A20000000000000000000012 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		A20000000000000000000018 /* HelpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpView.swift; sourceTree = "<group>"; };
 		A20000000000000000000042 /* WhatsNewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhatsNewView.swift; sourceTree = "<group>"; };
+		A20000000000000000000060 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		A20000000000000000000061 /* OnboardingWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingWindow.swift; sourceTree = "<group>"; };
 		A20000000000000000000019 /* DoNotDisturbChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoNotDisturbChecker.swift; sourceTree = "<group>"; };
 		A20000000000000000000020 /* FocusMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusMonitor.swift; sourceTree = "<group>"; };
 		A20000000000000000000021 /* CameraHotkey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraHotkey.swift; sourceTree = "<group>"; };
@@ -67,6 +115,34 @@
 		A20000000000000000000013 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A20000000000000000000014 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A20000000000000000000015 /* UniFiCameraPopup.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "UniFi Camera Popup.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		A20000000000000000000071 /* DesignComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignComponents.swift; sourceTree = "<group>"; };
+		A20000000000000000000072 /* PopUpField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopUpField.swift; sourceTree = "<group>"; };
+		A20000000000000000000073 /* SettingsWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindow.swift; sourceTree = "<group>"; };
+		A20000000000000000000074 /* GeneralTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneralTab.swift; sourceTree = "<group>"; };
+		A20000000000000000000080 /* PopupOverlayViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopupOverlayViews.swift; sourceTree = "<group>"; };
+		A20000000000000000000078 /* SoundAndRemoteTabs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundAndRemoteTabs.swift; sourceTree = "<group>"; };
+		C32000000000000000000001 /* SoundStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundStore.swift; sourceTree = "<group>"; };
+		C32000000000000000000002 /* PreviewPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewPlayer.swift; sourceTree = "<group>"; };
+		C32000000000000000000003 /* TalkbackLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalkbackLog.swift; sourceTree = "<group>"; };
+		C32000000000000000000004 /* MicrophoneCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicrophoneCapture.swift; sourceTree = "<group>"; };
+		C32000000000000000000006 /* TalkbackService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalkbackService.swift; sourceTree = "<group>"; };
+		C32000000000000000000007 /* SoundTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundTab.swift; sourceTree = "<group>"; };
+		C32000000000000000000009 /* bin-gleich-da.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = "bin-gleich-da.mp3"; sourceTree = "<group>"; };
+		C32000000000000000000010 /* paket-abstellen.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = "paket-abstellen.mp3"; sourceTree = "<group>"; };
+		C32000000000000000000008 /* PopupTalkViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopupTalkViews.swift; sourceTree = "<group>"; };
+		D42000000000000000000001 /* TunnelBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TunnelBridge.swift; sourceTree = "<group>"; };
+		D42000000000000000000030 /* ThirdPartyNotices.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = ThirdPartyNotices.txt; sourceTree = "<group>"; };
+		D42000000000000000000010 /* TunnelStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TunnelStore.swift; sourceTree = "<group>"; };
+		D42000000000000000000011 /* TunnelImporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TunnelImporter.swift; sourceTree = "<group>"; };
+		D42000000000000000000012 /* TunnelController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TunnelController.swift; sourceTree = "<group>"; };
+		D42000000000000000000013 /* ConnectionRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionRouter.swift; sourceTree = "<group>"; };
+		D42000000000000000000020 /* WireGuardImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WireGuardImport.swift; sourceTree = "<group>"; };
+		D42000000000000000000021 /* WireGuardGuideView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WireGuardGuideView.swift; sourceTree = "<group>"; };
+		D42000000000000000000022 /* OnboardingTunnelStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingTunnelStep.swift; sourceTree = "<group>"; };
+		D42000000000000000000023 /* TunnelSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TunnelSettingsView.swift; sourceTree = "<group>"; };
+		E52000000000000000000001 /* EventRuleService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventRuleService.swift; sourceTree = "<group>"; };
+		E52000000000000000000002 /* EventRulesSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventRulesSection.swift; sourceTree = "<group>"; };
+		E62000000000000000000001 /* PiperVoiceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PiperVoiceStore.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -75,12 +151,22 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10000000000000000000014 /* VLCKitSPM in Frameworks */,
+				A10000000000000000000015 /* ProtectKit in Frameworks */,
+				A10000000000000000000070 /* AppCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		A40000000000000000000073 /* StatusPanel */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000081 /* StatusPanel.swift */,
+			);
+			path = StatusPanel;
+			sourceTree = "<group>";
+		};
 		A40000000000000000000001 = {
 			isa = PBXGroup;
 			children = (
@@ -92,12 +178,15 @@
 		A40000000000000000000002 /* Source */ = {
 			isa = PBXGroup;
 			children = (
+				D42000000000000000000030 /* ThirdPartyNotices.txt */,
 				A20000000000000000000001 /* UniFiCameraPopupApp.swift */,
 				A20000000000000000000002 /* AppDelegate.swift */,
 				A20000000000000000000016 /* AppConfig.swift */,
 				A40000000000000000000004 /* Models */,
 				A40000000000000000000005 /* Services */,
 				A40000000000000000000006 /* Views */,
+				C34000000000000000000001 /* Sounds */,
+				A40000000000000000000074 /* Debug */,
 				A20000000000000000000013 /* Assets.xcassets */,
 				A20000000000000000000014 /* Info.plist */,
 			);
@@ -125,6 +214,8 @@
 		A40000000000000000000005 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				E62000000000000000000001 /* PiperVoiceStore.swift */,
+				E52000000000000000000001 /* EventRuleService.swift */,
 				A20000000000000000000006 /* SettingsStore.swift */,
 				A20000000000000000000007 /* WebSocketClient.swift */,
 				A20000000000000000000017 /* UpdateService.swift */,
@@ -133,12 +224,71 @@
 				A20000000000000000000040 /* CameraActionService.swift */,
 				A20000000000000000000008 /* WindowPositioner.swift */,
 				A20000000000000000000009 /* PopupController.swift */,
+				A20000000000000000000044 /* ProtectSession.swift */,
+				A20000000000000000000082 /* EventLog.swift */,
+				A20000000000000000000045 /* ProtectEventService.swift */,
 				A20000000000000000000022 /* GlobalHotkeyManager.swift */,
 				A20000000000000000000024 /* AccessibilityHelper.swift */,
 				A20000000000000000000019 /* DoNotDisturbChecker.swift */,
 				A20000000000000000000020 /* FocusMonitor.swift */,
+				D44000000000000000000001 /* Tunnel */,
+				C32000000000000000000001 /* SoundStore.swift */,
+				C32000000000000000000002 /* PreviewPlayer.swift */,
+				C32000000000000000000003 /* TalkbackLog.swift */,
+				C32000000000000000000004 /* MicrophoneCapture.swift */,
+				C32000000000000000000006 /* TalkbackService.swift */,
 			);
 			path = Services;
+			sourceTree = "<group>";
+		};
+		A40000000000000000000060 /* Onboarding */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000060 /* OnboardingView.swift */,
+				A20000000000000000000061 /* OnboardingWindow.swift */,
+			);
+			path = Onboarding;
+			sourceTree = "<group>";
+		};
+		A40000000000000000000070 /* Design */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000071 /* DesignComponents.swift */,
+				A20000000000000000000072 /* PopUpField.swift */,
+			);
+			path = Design;
+			sourceTree = "<group>";
+		};
+		A40000000000000000000074 /* Debug */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000090 /* SnapshotRenderer.swift */,
+			);
+			path = Debug;
+			sourceTree = "<group>";
+		};
+		A40000000000000000000072 /* Popup */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000080 /* PopupOverlayViews.swift */,
+				C32000000000000000000008 /* PopupTalkViews.swift */,
+			);
+			path = Popup;
+			sourceTree = "<group>";
+		};
+		A40000000000000000000071 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				E52000000000000000000002 /* EventRulesSection.swift */,
+				A20000000000000000000073 /* SettingsWindow.swift */,
+				A20000000000000000000074 /* GeneralTab.swift */,
+				A20000000000000000000078 /* SoundAndRemoteTabs.swift */,
+				C32000000000000000000007 /* SoundTab.swift */,
+				A20000000000000000000075 /* CamerasTab.swift */,
+				A20000000000000000000076 /* CameraAdvancedSection.swift */,
+				A20000000000000000000077 /* ActionEditorSheet.swift */,
+			);
+			path = Settings;
 			sourceTree = "<group>";
 		};
 		A40000000000000000000006 /* Views */ = {
@@ -147,12 +297,49 @@
 				A20000000000000000000010 /* VLCPlayerView.swift */,
 				A20000000000000000000011 /* PopupWindow.swift */,
 				A20000000000000000000025 /* CropSelectionView.swift */,
-				A20000000000000000000012 /* SettingsView.swift */,
 				A20000000000000000000023 /* HotkeyRecorderView.swift */,
 				A20000000000000000000018 /* HelpView.swift */,
 				A20000000000000000000042 /* WhatsNewView.swift */,
+				A40000000000000000000060 /* Onboarding */,
+				D44000000000000000000002 /* Tunnel */,
+				A40000000000000000000070 /* Design */,
+				A40000000000000000000071 /* Settings */,
+				A40000000000000000000072 /* Popup */,
+				A40000000000000000000073 /* StatusPanel */,
 			);
 			path = Views;
+			sourceTree = "<group>";
+		};
+		C34000000000000000000001 /* Sounds */ = {
+			isa = PBXGroup;
+			children = (
+				C32000000000000000000009 /* bin-gleich-da.mp3 */,
+				C32000000000000000000010 /* paket-abstellen.mp3 */,
+			);
+			path = "Resources/Sounds";
+			sourceTree = "<group>";
+		};
+		D44000000000000000000001 /* Tunnel */ = {
+			isa = PBXGroup;
+			children = (
+				D42000000000000000000013 /* ConnectionRouter.swift */,
+				D42000000000000000000012 /* TunnelController.swift */,
+				D42000000000000000000011 /* TunnelImporter.swift */,
+				D42000000000000000000010 /* TunnelStore.swift */,
+				D42000000000000000000001 /* TunnelBridge.swift */,
+			);
+			path = Tunnel;
+			sourceTree = "<group>";
+		};
+		D44000000000000000000002 /* Tunnel */ = {
+			isa = PBXGroup;
+			children = (
+				D42000000000000000000023 /* TunnelSettingsView.swift */,
+				D42000000000000000000022 /* OnboardingTunnelStep.swift */,
+				D42000000000000000000021 /* WireGuardGuideView.swift */,
+				D42000000000000000000020 /* WireGuardImport.swift */,
+			);
+			path = Tunnel;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -162,9 +349,11 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = A80000000000000000000003 /* Build configuration list for PBXNativeTarget "UniFiCameraPopup" */;
 			buildPhases = (
+				D46000000000000000000001 /* Build WireGuard tunnel */,
 				A60000000000000000000002 /* Sources */,
 				A30000000000000000000001 /* Frameworks */,
 				A60000000000000000000003 /* Resources */,
+				E66000000000000000000001 /* Build and embed Piper */,
 			);
 			buildRules = (
 			);
@@ -173,6 +362,8 @@
 			name = UniFiCameraPopup;
 			packageProductDependencies = (
 				A50000000000000000000001 /* VLCKitSPM */,
+				A50000000000000000000002 /* ProtectKit */,
+				A50000000000000000000003 /* AppCore */,
 			);
 			productName = UniFiCameraPopup;
 			productReference = A20000000000000000000015 /* UniFiCameraPopup.app */;
@@ -204,6 +395,8 @@
 			mainGroup = A40000000000000000000001;
 			packageReferences = (
 				A90000000000000000000001 /* XCRemoteSwiftPackageReference "vlckit-spm" */,
+				AB0000000000000000000001 /* XCLocalSwiftPackageReference "../Packages/ProtectKit" */,
+				AB0000000000000000000002 /* XCLocalSwiftPackageReference "../Packages/AppCore" */,
 			);
 			productRefGroup = A40000000000000000000003 /* Products */;
 			projectDirPath = "";
@@ -219,17 +412,67 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D41000000000000000000030 /* ThirdPartyNotices.txt in Resources */,
 				A10000000000000000000013 /* Assets.xcassets in Resources */,
+				C31000000000000000000009 /* bin-gleich-da.mp3 in Resources */,
+				C31000000000000000000010 /* paket-abstellen.mp3 in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		D46000000000000000000001 /* Build WireGuard tunnel */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Build WireGuard tunnel";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/bash;
+			shellScript = "\"$PROJECT_DIR/../wgtunnel/scripts/build-archive.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		E66000000000000000000001 /* Build and embed Piper */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Build and embed Piper";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/bash;
+			shellScript = "\"$PROJECT_DIR/../piper/scripts/embed.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		A60000000000000000000002 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E61000000000000000000001 /* PiperVoiceStore.swift in Sources */,
+				E51000000000000000000002 /* EventRulesSection.swift in Sources */,
+				E51000000000000000000001 /* EventRuleService.swift in Sources */,
+				D41000000000000000000023 /* TunnelSettingsView.swift in Sources */,
+				D41000000000000000000022 /* OnboardingTunnelStep.swift in Sources */,
+				D41000000000000000000021 /* WireGuardGuideView.swift in Sources */,
+				D41000000000000000000020 /* WireGuardImport.swift in Sources */,
+				D41000000000000000000013 /* ConnectionRouter.swift in Sources */,
+				D41000000000000000000012 /* TunnelController.swift in Sources */,
+				D41000000000000000000011 /* TunnelImporter.swift in Sources */,
+				D41000000000000000000010 /* TunnelStore.swift in Sources */,
+				D41000000000000000000001 /* TunnelBridge.swift in Sources */,
 				A10000000000000000000001 /* UniFiCameraPopupApp.swift in Sources */,
 				A10000000000000000000002 /* AppDelegate.swift in Sources */,
 				A10000000000000000000016 /* AppConfig.swift in Sources */,
@@ -244,11 +487,16 @@
 				A10000000000000000000040 /* CameraActionService.swift in Sources */,
 				A10000000000000000000008 /* WindowPositioner.swift in Sources */,
 				A10000000000000000000009 /* PopupController.swift in Sources */,
+				A10000000000000000000044 /* ProtectSession.swift in Sources */,
+				A10000000000000000000082 /* EventLog.swift in Sources */,
+				A10000000000000000000045 /* ProtectEventService.swift in Sources */,
 				A10000000000000000000010 /* VLCPlayerView.swift in Sources */,
 				A10000000000000000000011 /* PopupWindow.swift in Sources */,
-				A10000000000000000000012 /* SettingsView.swift in Sources */,
+				A10000000000000000000081 /* StatusPanel.swift in Sources */,
 				A10000000000000000000018 /* HelpView.swift in Sources */,
 				A10000000000000000000042 /* WhatsNewView.swift in Sources */,
+				A10000000000000000000060 /* OnboardingView.swift in Sources */,
+				A10000000000000000000061 /* OnboardingWindow.swift in Sources */,
 				A10000000000000000000019 /* DoNotDisturbChecker.swift in Sources */,
 				A10000000000000000000020 /* FocusMonitor.swift in Sources */,
 				A10000000000000000000021 /* CameraHotkey.swift in Sources */,
@@ -256,6 +504,23 @@
 				A10000000000000000000023 /* HotkeyRecorderView.swift in Sources */,
 				A10000000000000000000024 /* AccessibilityHelper.swift in Sources */,
 				A10000000000000000000025 /* CropSelectionView.swift in Sources */,
+				A10000000000000000000071 /* DesignComponents.swift in Sources */,
+				A10000000000000000000072 /* PopUpField.swift in Sources */,
+				A10000000000000000000073 /* SettingsWindow.swift in Sources */,
+				A10000000000000000000074 /* GeneralTab.swift in Sources */,
+				A10000000000000000000075 /* CamerasTab.swift in Sources */,
+				A10000000000000000000076 /* CameraAdvancedSection.swift in Sources */,
+				A10000000000000000000077 /* ActionEditorSheet.swift in Sources */,
+				A10000000000000000000078 /* SoundAndRemoteTabs.swift in Sources */,
+				A10000000000000000000080 /* PopupOverlayViews.swift in Sources */,
+				A10000000000000000000090 /* SnapshotRenderer.swift in Sources */,
+				C31000000000000000000001 /* SoundStore.swift in Sources */,
+				C31000000000000000000002 /* PreviewPlayer.swift in Sources */,
+				C31000000000000000000003 /* TalkbackLog.swift in Sources */,
+				C31000000000000000000004 /* MicrophoneCapture.swift in Sources */,
+				C31000000000000000000006 /* TalkbackService.swift in Sources */,
+				C31000000000000000000007 /* SoundTab.swift in Sources */,
+				C31000000000000000000008 /* PopupTalkViews.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -279,6 +544,7 @@
 					"$(inherited)",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				SWIFT_INCLUDE_PATHS = "$(PROJECT_DIR)/../wgtunnel/include";
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
@@ -297,6 +563,7 @@
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				SWIFT_INCLUDE_PATHS = "$(PROJECT_DIR)/../wgtunnel/include";
 				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
@@ -307,19 +574,30 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "UniFi Camera Popup (Self-Signed)";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.1.1;
+				MARKETING_VERSION = 2.0.0;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/../wgtunnel/build/libwgtunnel.a",
+					"-lresolv",
+					"-framework",
+					Security,
+					"-framework",
+					CoreFoundation,
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.snackbits.UniFiCameraPopup;
 				PRODUCT_NAME = "UniFi Camera Popup";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -331,19 +609,30 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "UniFi Camera Popup (Self-Signed)";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.1.1;
+				MARKETING_VERSION = 2.0.0;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/../wgtunnel/build/libwgtunnel.a",
+					"-lresolv",
+					"-framework",
+					Security,
+					"-framework",
+					CoreFoundation,
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.snackbits.UniFiCameraPopup;
 				PRODUCT_NAME = "UniFi Camera Popup";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -374,6 +663,17 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		AB0000000000000000000001 /* XCLocalSwiftPackageReference "../Packages/ProtectKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../Packages/ProtectKit;
+		};
+		AB0000000000000000000002 /* XCLocalSwiftPackageReference "../Packages/AppCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../Packages/AppCore;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
 		A90000000000000000000001 /* XCRemoteSwiftPackageReference "vlckit-spm" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -390,6 +690,14 @@
 			isa = XCSwiftPackageProductDependency;
 			package = A90000000000000000000001 /* XCRemoteSwiftPackageReference "vlckit-spm" */;
 			productName = VLCKitSPM;
+		};
+		A50000000000000000000002 /* ProtectKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ProtectKit;
+		};
+		A50000000000000000000003 /* AppCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = AppCore;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

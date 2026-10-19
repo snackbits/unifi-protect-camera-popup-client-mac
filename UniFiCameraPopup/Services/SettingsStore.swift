@@ -1,5 +1,7 @@
+import AppCore
 import Combine
 import Foundation
+import ProtectKit
 import ServiceManagement
 
 @MainActor
@@ -14,6 +16,50 @@ final class SettingsStore: ObservableObject {
 
     @Published var mappings: [WebhookMapping] {
         didSet { persist() }
+    }
+
+    @Published var protectHost: String {
+        didSet {
+            // A certificate pin never carries over to another console.
+            if Self.normalizedHost(oldValue) != Self.normalizedHost(protectHost) {
+                protectCertificateFingerprint = nil
+                protectConsoleName = nil
+            }
+            persist()
+        }
+    }
+
+    @Published var protectCertificateFingerprint: String? {
+        didSet { persist() }
+    }
+
+    /// Console name from discovery ("UDM Pro"); nil for a typed address.
+    @Published var protectConsoleName: String? {
+        didSet { persist() }
+    }
+
+    /// Protect Integration API key. Lives only in the keychain (never in
+    /// UserDefaults or configuration exports).
+    var protectAPIKey: String {
+        get { KeychainStore.string(service: KeychainStore.protectAPIKeyService, account: "default") ?? "" }
+        set {
+            if newValue.isEmpty {
+                KeychainStore.delete(service: KeychainStore.protectAPIKeyService, account: "default")
+            } else {
+                _ = KeychainStore.set(newValue, service: KeychainStore.protectAPIKeyService, account: "default")
+            }
+            objectWillChange.send()
+        }
+    }
+
+    /// Comparison/storage form of a console address (see `ProtectClient.canonicalHost`).
+    /// Unparseable input falls back to its trimmed, lowercased spelling.
+    static func normalizedHost(_ host: String) -> String {
+        ProtectClient.canonicalHost(host) ?? host.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    var isProtectConfigured: Bool {
+        !protectHost.trimmingCharacters(in: .whitespaces).isEmpty && !protectAPIKey.isEmpty
     }
 
     @Published var defaultPosition: PopupPosition {
@@ -56,23 +102,65 @@ final class SettingsStore: ObservableObject {
         didSet { persist() }
     }
 
-    /// When set to a future date, all popups are suppressed until then.
-    @Published var muteUntil: Date? {
+    /// Global and per-camera mutes. Absolute dates: a mute survives a restart.
+    @Published private(set) var muteSchedule: MuteSchedule {
         didSet { persist() }
     }
 
-    /// Whether popups are currently muted via the temporary mute buttons.
+    /// The two offered mute lengths ("Kurz" / "Lang").
+    @Published var muteShort: MuteDuration {
+        didSet { persist() }
+    }
+
+    @Published var muteLong: MuteDuration {
+        didSet { persist() }
+    }
+
+    var muteOptions: [MuteDuration] { [muteShort, muteLong] }
+
+    /// "Erscheinungsbild": applied to `NSApp.appearance` by `AppDelegate`.
+    @Published var appearance: AppearanceMode {
+        didSet { persist() }
+    }
+
+    /// Whether all popups are muted right now (menu bar badge, global check).
     var isMuted: Bool {
-        guard let muteUntil else { return false }
-        return muteUntil > Date()
+        muteSchedule.isGloballyMuted(at: Date())
     }
 
-    func mute(for duration: TimeInterval) {
-        muteUntil = Date().addingTimeInterval(duration)
+    /// Whether this camera must not open a popup (own mute or global mute).
+    func isMuted(entryId: UUID) -> Bool {
+        muteSchedule.isMuted(entry: entryId.uuidString, at: Date())
     }
 
+    func muteAll(for duration: MuteDuration) {
+        muteSchedule.muteAll(for: duration.seconds, from: Date())
+    }
+
+    func mute(entryId: UUID, for duration: MuteDuration) {
+        muteSchedule.mute(entry: entryId.uuidString, for: duration.seconds, from: Date())
+    }
+
+    func clearGlobalMute() {
+        muteSchedule.clearGlobal()
+    }
+
+    func clearMute(entryId: UUID) {
+        muteSchedule.clear(entry: entryId.uuidString)
+    }
+
+    /// Lifts every mute (menu "Stummschaltung aufheben").
     func clearMute() {
-        muteUntil = nil
+        muteSchedule.clearAll()
+    }
+
+    /// Drops ended mutes and mutes of removed cameras; writes only on change.
+    func pruneMutes() {
+        var pruned = muteSchedule
+        pruned.prune(at: Date(), validEntries: Set(mappings.map(\.entryId.uuidString)))
+        if pruned != muteSchedule {
+            muteSchedule = pruned
+        }
     }
 
     /// Reconciles the persisted "launch at login" preference with the actual
@@ -85,8 +173,19 @@ final class SettingsStore: ObservableObject {
         }
     }
 
+    #if DEBUG
+    // `--render-snapshots` runs against a throwaway suite so nothing reaches the real settings.
+    private let defaults = SnapshotRenderer.isActive ? SnapshotRenderer.isolatedDefaults : UserDefaults.standard
+    #else
     private let defaults = UserDefaults.standard
+    #endif
     private let storageKey = "unifi.camera.popup.settings"
+    /// Phase-2 state under a key of its own: the installed older build rewrites `storageKey`
+    /// without the keys it does not know (see `SettingsExtensions`).
+    private let extensionsKey = "settingsExtensionsV2"
+    /// Phase-5 fields per camera/button. The installed 1.2.0 build knows `settingsExtensionsV2` and
+    /// rewrites it without them on every launch; this key it has never seen (`SettingsExtensionsV3`).
+    private let extensionsV3Key = "settingsExtensionsV3"
     /// Where raw, undecodable settings are preserved instead of being overwritten.
     private static let backupKey = "unifi.camera.popup.settings.corrupted-backup"
 
@@ -104,6 +203,13 @@ final class SettingsStore: ObservableObject {
         var autoUpdate: Bool?
         var disableDuringDND: Bool?
         var muteUntil: Date?
+        var protectHost: String?
+        var protectCertificateFingerprint: String?
+        var muteSchedule: MuteSchedule?
+        var muteShort: MuteDuration?
+        var muteLong: MuteDuration?
+        var appearance: AppearanceMode?
+        var protectConsoleName: String?
     }
 
     private init() {
@@ -130,7 +236,27 @@ final class SettingsStore: ObservableObject {
             launchAtLogin = saved.launchAtLogin
             autoUpdate = saved.autoUpdate ?? true
             disableDuringDND = saved.disableDuringDND ?? false
-            muteUntil = saved.muteUntil
+            // The extension holds what an older build rewriting the main blob would have dropped.
+            let ext = SettingsExtensions.decode(defaults.data(forKey: extensionsKey))
+            var schedule = MuteSchedule.migrated(
+                stored: ext?.muteSchedule ?? saved.muteSchedule,
+                legacyGlobalUntil: saved.muteUntil
+            )
+            schedule.prune(at: Date(), validEntries: Set(loaded.mappings.map(\.entryId.uuidString)))
+            muteSchedule = schedule
+            muteShort = ext?.muteShort ?? saved.muteShort ?? .defaultShort
+            muteLong = ext?.muteLong ?? saved.muteLong ?? .defaultLong
+            appearance = ext?.appearance ?? saved.appearance ?? .system
+            protectConsoleName = ext?.protectConsoleName ?? saved.protectConsoleName
+            protectHost = (ext?.protectHost ?? saved.protectHost).map { ProtectClient.canonicalHost($0) ?? $0 } ?? ""
+            protectCertificateFingerprint = ext?.protectCertificateFingerprint ?? saved.protectCertificateFingerprint
+            let extV3 = SettingsExtensionsV3.decode(defaults.data(forKey: extensionsV3Key))
+            mappings = Self.overlay(ext, extV3, onto: mappings)
+            // After the overlay: the extension may carry rules the main blob lost.
+            let rules = Self.loadRuleTokens(into: mappings)
+            mappings = rules.mappings
+            keychainRuleTokens = rules.fromKeychain
+            deleteOrphanedRuleTokens()
 
             // Decode succeeded: rewrite the (possibly migrated/normalized) payload.
             persist()
@@ -157,7 +283,13 @@ final class SettingsStore: ObservableObject {
             launchAtLogin = LaunchAtLoginHelper.isEnabled
             autoUpdate = true
             disableDuringDND = false
-            muteUntil = nil
+            muteSchedule = MuteSchedule()
+            muteShort = .defaultShort
+            muteLong = .defaultLong
+            appearance = .system
+            protectConsoleName = nil
+            protectHost = ""
+            protectCertificateFingerprint = nil
 
             // Only persist on a genuine first launch (no prior data). When prior
             // data existed but failed to decode, leave it untouched above.
@@ -168,11 +300,19 @@ final class SettingsStore: ObservableObject {
     }
 
     func mapping(for webhookId: String) -> WebhookMapping? {
-        mappings.first { $0.webhookId == webhookId }
+        mappings.first { $0.webhookTriggerEnabled && $0.webhookId == webhookId }
     }
 
-    func saveZoom(for webhookId: String, scale: CGFloat, panOffset: CGPoint) {
-        guard let index = mappings.firstIndex(where: { $0.webhookId == webhookId }) else { return }
+    func mappings(forProtectCamera cameraId: String) -> [WebhookMapping] {
+        mappings.filter { $0.protectCameraId == cameraId }
+    }
+
+    func mapping(forEntry id: UUID) -> WebhookMapping? {
+        mappings.first { $0.entryId == id }
+    }
+
+    func saveZoom(for entryId: UUID, scale: CGFloat, panOffset: CGPoint) {
+        guard let index = mappings.firstIndex(where: { $0.entryId == entryId }) else { return }
         guard mappings[index].rememberZoom else { return }
 
         mappings[index].savedZoom = SavedCameraZoom(
@@ -199,6 +339,10 @@ final class SettingsStore: ObservableObject {
         mappings[index].crop = savedCrop
         mappings[index].width = max(pixelWidth, 40)
         mappings[index].height = max(pixelHeight, 40)
+        // A typed size becomes the crop's size (as before); automatic stays automatic with the crop's aspect.
+        if mappings[index].sizeOverride.width != nil, mappings[index].sizeOverride.height != nil {
+            mappings[index].sizeOverride = PopupSizeOverride(width: mappings[index].width, height: mappings[index].height)
+        }
     }
 
     func removeCrop(for entryId: UUID) {
@@ -208,14 +352,18 @@ final class SettingsStore: ObservableObject {
         mappings[index].width = crop.originalWidth
         mappings[index].height = crop.originalHeight
         mappings[index].crop = nil
+        if mappings[index].sizeOverride.width != nil, mappings[index].sizeOverride.height != nil {
+            mappings[index].sizeOverride = PopupSizeOverride(width: crop.originalWidth, height: crop.originalHeight)
+        }
     }
 
     func addMapping() {
-        mappings.append(WebhookMapping())
+        mappings.append(WebhookMapping(webhookTriggerEnabled: true))
     }
 
     func removeMapping(id: UUID) {
         mappings.removeAll { $0.entryId == id }
+        muteSchedule.clear(entry: id.uuidString)
     }
 
     /// Generates a fresh installation ID. This changes all webhook URLs, so
@@ -260,7 +408,20 @@ final class SettingsStore: ObservableObject {
     private func currentPersistedSettings() -> PersistedSettings {
         PersistedSettings(
             installationId: installationId,
-            mappings: mappings,
+            // A typed size also goes into the legacy width/height: the older build (and the main
+            // blob's own migration) then keep it even without `sizeOverride`.
+            mappings: mappings.map { mapping in
+                var mapping = mapping
+                let legacy = SettingsMerge.legacyDimensions(
+                    size: mapping.sizeOverride,
+                    hasCrop: mapping.crop != nil,
+                    width: mapping.width,
+                    height: mapping.height
+                )
+                mapping.width = legacy.width
+                mapping.height = legacy.height
+                return mapping
+            },
             defaultPosition: defaultPosition,
             defaultWidth: nil,
             defaultHeight: nil,
@@ -271,16 +432,122 @@ final class SettingsStore: ObservableObject {
             launchAtLogin: launchAtLogin,
             autoUpdate: autoUpdate,
             disableDuringDND: disableDuringDND,
-            muteUntil: muteUntil
+            // Still written so an older installed build keeps honoring a global mute.
+            muteUntil: muteSchedule.globalUntil,
+            protectHost: protectHost,
+            protectCertificateFingerprint: protectCertificateFingerprint,
+            muteSchedule: muteSchedule,
+            muteShort: muteShort,
+            muteLong: muteLong,
+            appearance: appearance,
+            protectConsoleName: protectConsoleName
+        )
+    }
+
+    /// Applies extension values to the mappings decoded from the main blob. V2 wins for the Phase-4
+    /// fields, V3 for the Phase-5 fields (`SettingsMerge`); ids that no longer exist are ignored.
+    private static func overlay(
+        _ ext: SettingsExtensions?,
+        _ extV3: SettingsExtensionsV3?,
+        onto mappings: [WebhookMapping]
+    ) -> [WebhookMapping] {
+        mappings.map { mapping in
+            var mapping = mapping
+            if let m = ext?.mappings[mapping.entryId.uuidString] {
+                if let id = m.protectCameraId { mapping.protectCameraId = id }
+                if let raw = m.triggers { mapping.triggers = Set(raw.compactMap(TriggerKind.init(rawValue:))) }
+                if let enabled = m.webhookTriggerEnabled { mapping.webhookTriggerEnabled = enabled }
+                if let chime = m.chimeOnOpen { mapping.chimeOnOpen = chime }
+            }
+            let fields = SettingsMerge.mapping(
+                entryId: mapping.entryId.uuidString,
+                base: Phase5MappingFields(
+                    showNameAndTime: mapping.showNameAndTime,
+                    sizeOverride: mapping.sizeOverride,
+                    eventRules: mapping.eventRules
+                ),
+                v2: ext,
+                v3: extV3
+            )
+            mapping.showNameAndTime = fields.showNameAndTime
+            mapping.sizeOverride = fields.sizeOverride
+            mapping.eventRules = fields.eventRules
+            mapping.actions = mapping.actions.map { action in
+                var action = action
+                if let a = ext?.actions[action.id.uuidString] {
+                    if let icon = a.icon.flatMap(ActionIcon.init(rawValue:)) { action.icon = icon }
+                    if let confirm = a.confirmBeforeRun { action.confirmBeforeRun = confirm }
+                }
+                action.soundId = SettingsMerge.soundId(actionId: action.id.uuidString, base: action.soundId, v2: ext, v3: extV3)
+                return action
+            }
+            return mapping
+        }
+    }
+
+    private func currentExtensionsV3() -> SettingsExtensionsV3 {
+        var mappingValues: [String: SettingsExtensionsV3.Mapping] = [:]
+        var actionValues: [String: SettingsExtensionsV3.Action] = [:]
+        for mapping in mappings {
+            mappingValues[mapping.entryId.uuidString] = .init(
+                showNameAndTime: mapping.showNameAndTime,
+                size: mapping.sizeOverride,
+                eventRules: EventRuleList(mapping.eventRules)
+            )
+            for action in mapping.actions {
+                actionValues[action.id.uuidString] = .init(soundId: action.soundId?.uuidString)
+            }
+        }
+        return SettingsExtensionsV3(mappings: mappingValues, actions: actionValues)
+    }
+
+    private func currentExtensions() -> SettingsExtensions {
+        var mappingValues: [String: SettingsExtensions.Mapping] = [:]
+        var actionValues: [String: SettingsExtensions.Action] = [:]
+        for mapping in mappings {
+            mappingValues[mapping.entryId.uuidString] = .init(
+                protectCameraId: mapping.protectCameraId,
+                triggers: TriggerKind.ordered.filter(mapping.triggers.contains).map(\.rawValue),
+                webhookTriggerEnabled: mapping.webhookTriggerEnabled,
+                chimeOnOpen: mapping.chimeOnOpen,
+                showNameAndTime: mapping.showNameAndTime,
+                size: mapping.sizeOverride,
+                eventRules: EventRuleList(mapping.eventRules)
+            )
+            for action in mapping.actions {
+                actionValues[action.id.uuidString] = .init(
+                    icon: action.icon.rawValue,
+                    confirmBeforeRun: action.confirmBeforeRun,
+                    soundId: action.soundId?.uuidString
+                )
+            }
+        }
+        return SettingsExtensions(
+            protectHost: protectHost,
+            protectCertificateFingerprint: protectCertificateFingerprint,
+            protectConsoleName: protectConsoleName,
+            muteSchedule: muteSchedule,
+            muteShort: muteShort,
+            muteLong: muteLong,
+            appearance: appearance,
+            mappings: mappingValues,
+            actions: actionValues
         )
     }
 
     private func persist() {
+        syncRuleTokensToKeychain()
         let plaintextTokenIDs = syncActionTokensToKeychain()
         let encoder = JSONEncoder()
         encoder.userInfo[.plaintextActionTokenIDs] = plaintextTokenIDs
         if let data = try? encoder.encode(currentPersistedSettings()) {
             defaults.set(data, forKey: storageKey)
+        }
+        if let data = try? JSONEncoder().encode(currentExtensions()) {
+            defaults.set(data, forKey: extensionsKey)
+        }
+        if let data = try? JSONEncoder().encode(currentExtensionsV3()) {
+            defaults.set(data, forKey: extensionsV3Key)
         }
     }
 
@@ -343,6 +610,71 @@ final class SettingsStore: ObservableObject {
         return failed
     }
 
+    // MARK: - Event rule tokens (keychain only)
+
+    /// Rule tokens as last written to the keychain.
+    private var keychainRuleTokens: [UUID: String] = [:]
+    /// Tokens the keychain refused (not retried while unchanged).
+    private var refusedRuleTokens: [UUID: String] = [:]
+    private var loggedRuleTokenRefusal = false
+
+    /// Deletes rule tokens whose rule no longer exists (e.g. lost through an older build rewriting
+    /// the settings): `keychainRuleTokens` only knows the rules found at load.
+    private func deleteOrphanedRuleTokens() {
+        let ruleIds = Set(mappings.flatMap(\.eventRules).map(\.id.uuidString))
+        for account in KeychainStore.accounts(service: KeychainStore.ruleTokenService) where !ruleIds.contains(account) {
+            KeychainStore.delete(service: KeychainStore.ruleTokenService, account: account)
+        }
+    }
+
+    /// Fills in each rule's bearer token from the keychain.
+    private static func loadRuleTokens(
+        into mappings: [WebhookMapping]
+    ) -> (mappings: [WebhookMapping], fromKeychain: [UUID: String]) {
+        var found: [UUID: String] = [:]
+        let filled = mappings.map { mapping in
+            var updated = mapping
+            updated.eventRules = mapping.eventRules.map { rule in
+                var rule = rule
+                if rule.bearerToken.isEmpty,
+                   let token = KeychainStore.string(service: KeychainStore.ruleTokenService, account: rule.id.uuidString) {
+                    rule.bearerToken = token
+                    found[rule.id] = token
+                }
+                return rule
+            }
+            return updated
+        }
+        return (filled, found)
+    }
+
+    /// Writes changed rule tokens, removes those of deleted rules or cleared fields. A token the
+    /// keychain refuses is only kept in memory (rules never carry tokens in plain text).
+    private func syncRuleTokensToKeychain() {
+        var current: [UUID: String] = [:]
+        for rule in mappings.flatMap(\.eventRules) where !rule.bearerToken.isEmpty {
+            current[rule.id] = rule.bearerToken
+        }
+        // A token the keychain refused is not retried until it changes (`persist` runs per keystroke).
+        for (id, token) in current where keychainRuleTokens[id] != token && refusedRuleTokens[id] != token {
+            if KeychainStore.set(token, service: KeychainStore.ruleTokenService, account: id.uuidString) {
+                keychainRuleTokens[id] = token
+                refusedRuleTokens[id] = nil
+            } else {
+                refusedRuleTokens[id] = token
+                if !loggedRuleTokenRefusal {
+                    loggedRuleTokenRefusal = true
+                    NSLog("SettingsStore: event rule token could not be stored in the keychain (kept in memory only)")
+                }
+            }
+        }
+        refusedRuleTokens = refusedRuleTokens.filter { current[$0.key] == $0.value }
+        for id in keychainRuleTokens.keys where current[id] == nil {
+            KeychainStore.delete(service: KeychainStore.ruleTokenService, account: id.uuidString)
+            keychainRuleTokens[id] = nil
+        }
+    }
+
     // MARK: - Configuration export / import
 
     /// Bumped whenever the exported envelope format changes incompatibly.
@@ -371,7 +703,12 @@ final class SettingsStore: ObservableObject {
 
     /// Serializes the full configuration (including installation ID) for export.
     func exportedConfigurationData() throws -> Data {
-        let envelope = ConfigEnvelope(schemaVersion: Self.configSchemaVersion, settings: currentPersistedSettings())
+        var exported = currentPersistedSettings()
+        exported.protectCertificateFingerprint = nil
+        // Active mutes are runtime state, not configuration.
+        exported.muteSchedule = nil
+        exported.muteUntil = nil
+        let envelope = ConfigEnvelope(schemaVersion: Self.configSchemaVersion, settings: exported)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         // Exports carry the tokens so an import on another Mac works as-is.
@@ -397,7 +734,10 @@ final class SettingsStore: ObservableObject {
         if let id = saved.installationId, !id.isEmpty {
             installationId = id
         }
-        mappings = saved.mappings
+        // Exports carry no rule tokens: keep the ones this Mac already has for the same rules.
+        let rules = Self.loadRuleTokens(into: saved.mappings)
+        keychainRuleTokens.merge(rules.fromKeychain) { _, new in new }
+        mappings = rules.mappings
         defaultPosition = saved.defaultPosition
         edgeMargin = saved.edgeMargin
         autoCloseTimeout = saved.autoCloseTimeout
@@ -405,8 +745,23 @@ final class SettingsStore: ObservableObject {
         showAllActiveCameras = saved.showAllActiveCameras ?? showAllActiveCameras
         autoUpdate = saved.autoUpdate ?? autoUpdate
         disableDuringDND = saved.disableDuringDND ?? disableDuringDND
-        muteUntil = saved.muteUntil
+        // Mutes are never imported (nor exported); current ones only lose removed cameras.
+        pruneMutes()
+        muteShort = saved.muteShort ?? muteShort
+        muteLong = saved.muteLong ?? muteLong
+        appearance = saved.appearance ?? appearance
         launchAtLogin = saved.launchAtLogin
+        // Never trust a pin from a file. A different console means the stored
+        // API key must not be sent there: drop key and pin, setup must be re-run.
+        if let host = saved.protectHost,
+           Self.normalizedHost(host) != Self.normalizedHost(protectHost) {
+            protectAPIKey = ""
+            protectCertificateFingerprint = nil
+            protectHost = ProtectClient.canonicalHost(host) ?? host
+        }
+        if let name = saved.protectConsoleName {
+            protectConsoleName = name
+        }
     }
 }
 
