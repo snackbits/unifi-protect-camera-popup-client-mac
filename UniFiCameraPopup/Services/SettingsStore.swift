@@ -123,6 +123,11 @@ final class SettingsStore: ObservableObject {
         didSet { persist() }
     }
 
+    /// "Popup-Layout": miniatures at the screen edge (default, also for existing users) or full popups.
+    @Published var popupLayoutMode: PopupLayoutMode {
+        didSet { persist() }
+    }
+
     /// Whether all popups are muted right now (menu bar badge, global check).
     var isMuted: Bool {
         muteSchedule.isGloballyMuted(at: Date())
@@ -221,6 +226,7 @@ final class SettingsStore: ObservableObject {
         var muteLong: MuteDuration?
         var appearance: AppearanceMode?
         var protectConsoleName: String?
+        var popupLayoutMode: PopupLayoutMode?
     }
 
     private init() {
@@ -258,6 +264,7 @@ final class SettingsStore: ObservableObject {
             muteShort = ext?.muteShort ?? saved.muteShort ?? .defaultShort
             muteLong = ext?.muteLong ?? saved.muteLong ?? .defaultLong
             appearance = ext?.appearance ?? saved.appearance ?? .system
+            popupLayoutMode = ext?.popupLayoutMode ?? saved.popupLayoutMode ?? .miniature
             protectConsoleName = ext?.protectConsoleName ?? saved.protectConsoleName
             protectHost = (ext?.protectHost ?? saved.protectHost).map { ProtectClient.canonicalHost($0) ?? $0 } ?? ""
             protectCertificateFingerprint = ext?.protectCertificateFingerprint ?? saved.protectCertificateFingerprint
@@ -294,7 +301,7 @@ final class SettingsStore: ObservableObject {
 
             installationId = Self.makeInstallationId()
             mappings = []
-            defaultPosition = .topRight
+            defaultPosition = .right
             edgeMargin = 16
             autoCloseTimeout = 30
             screenTarget = .main
@@ -306,6 +313,7 @@ final class SettingsStore: ObservableObject {
             muteShort = .defaultShort
             muteLong = .defaultLong
             appearance = .system
+            popupLayoutMode = .miniature
             protectConsoleName = nil
             protectHost = ""
             protectCertificateFingerprint = nil
@@ -468,7 +476,8 @@ final class SettingsStore: ObservableObject {
             muteShort: muteShort,
             muteLong: muteLong,
             appearance: appearance,
-            protectConsoleName: protectConsoleName
+            protectConsoleName: protectConsoleName,
+            popupLayoutMode: popupLayoutMode
         )
     }
 
@@ -562,6 +571,7 @@ final class SettingsStore: ObservableObject {
             muteShort: muteShort,
             muteLong: muteLong,
             appearance: appearance,
+            popupLayoutMode: popupLayoutMode,
             mappings: mappingValues,
             actions: actionValues
         )
@@ -782,6 +792,7 @@ final class SettingsStore: ObservableObject {
         muteShort = saved.muteShort ?? muteShort
         muteLong = saved.muteLong ?? muteLong
         appearance = saved.appearance ?? appearance
+        popupLayoutMode = saved.popupLayoutMode ?? popupLayoutMode
         launchAtLogin = saved.launchAtLogin
         // Never trust a pin from a file. A different console means the stored
         // API key must not be sent there: drop key and pin, setup must be re-run.
