@@ -13,6 +13,8 @@ final class MiniatureStackPresenter {
         /// The real screen edge: the slide-in comes from there (never from a neighbouring screen).
         let screenFrame: CGRect
         let margin: CGFloat
+        /// Volume of a compact miniature 0…1 (setting); the expanded one plays at 1.
+        let volume: Double
         /// Current full size of a popup (settings or learned aspect ratio may have changed).
         let fullSize: (UUID) -> CGSize?
     }
@@ -51,6 +53,14 @@ final class MiniatureStackPresenter {
     private var reduceMotion: Bool { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
 
     func contains(_ id: UUID) -> Bool { entries[id] != nil }
+
+    /// The miniature volume setting changed: compact miniatures follow at once.
+    func applyVolume() {
+        let volume = environment().volume
+        for (id, entry) in entries where stack.expandedID != id {
+            entry.window.setPlaybackVolume(volume)
+        }
+    }
     func isLeaving(_ id: UUID) -> Bool { stack.phase(of: id) == .leaving }
 
     // MARK: Opening and closing
@@ -67,6 +77,7 @@ final class MiniatureStackPresenter {
         let indicator = PopupIndicatorPanel(side: env.side)
         entries[id] = Entry(window: window, indicator: indicator)
         window.zoomReferenceWidth = fullSize.width
+        window.setPlaybackVolume(env.volume)
         window.onHoverChange = { [weak self] inside in self?.hoverChanged(id, inside: inside) }
         window.compactClickCloses = { [weak self] in self?.stack.phase(of: id)?.closesOnClick ?? true }
         window.closeInterceptor = { [weak self, weak window] in
@@ -290,7 +301,10 @@ final class MiniatureStackPresenter {
         if let previous, previous != id, let other = entries[previous] {
             other.window.setCompact(true, animated: false)
             other.window.setAutoClosePaused(false)
+            other.window.setPlaybackVolume(environment().volume, duration: MiniatureTiming.move)
         }
+        // The sound rises to 100 % while it grows (300 ms).
+        entry.window.setPlaybackVolume(1, duration: reduceMotion ? 0 : MiniatureTiming.move)
         let grown = frames.removeValue(forKey: id)
         apply(frames)
         guard let grown else {
@@ -319,6 +333,8 @@ final class MiniatureStackPresenter {
         hoverGuard = MiniatureHoverGuard()
         entry.window.setCompact(true, animated: false)
         entry.window.setAutoClosePaused(false)
+        // Back down to the miniature volume while it shrinks (300 ms).
+        entry.window.setPlaybackVolume(environment().volume, duration: reduceMotion ? 0 : MiniatureTiming.move)
         apply(stack.collapse(id))
     }
 

@@ -128,6 +128,13 @@ final class SettingsStore: ObservableObject {
         didSet { persist() }
     }
 
+    /// Layout "Miniatur": volume of the compact miniature in percent (0…100, default 50); the
+    /// expanded popup plays at 100 %.
+    @Published var miniatureVolume: Double {
+        didSet { persist() }
+    }
+    static let defaultMiniatureVolume: Double = 50
+
     /// Whether all popups are muted right now (menu bar badge, global check).
     var isMuted: Bool {
         muteSchedule.isGloballyMuted(at: Date())
@@ -227,6 +234,7 @@ final class SettingsStore: ObservableObject {
         var appearance: AppearanceMode?
         var protectConsoleName: String?
         var popupLayoutMode: PopupLayoutMode?
+        var miniatureVolume: Double?
     }
 
     private init() {
@@ -265,6 +273,7 @@ final class SettingsStore: ObservableObject {
             muteLong = ext?.muteLong ?? saved.muteLong ?? .defaultLong
             appearance = ext?.appearance ?? saved.appearance ?? .system
             popupLayoutMode = ext?.popupLayoutMode ?? saved.popupLayoutMode ?? .miniature
+            miniatureVolume = Self.clampedVolume(ext?.miniatureVolume ?? saved.miniatureVolume)
             protectConsoleName = ext?.protectConsoleName ?? saved.protectConsoleName
             protectHost = (ext?.protectHost ?? saved.protectHost).map { ProtectClient.canonicalHost($0) ?? $0 } ?? ""
             protectCertificateFingerprint = ext?.protectCertificateFingerprint ?? saved.protectCertificateFingerprint
@@ -314,6 +323,7 @@ final class SettingsStore: ObservableObject {
             muteLong = .defaultLong
             appearance = .system
             popupLayoutMode = .miniature
+            miniatureVolume = Self.defaultMiniatureVolume
             protectConsoleName = nil
             protectHost = ""
             protectCertificateFingerprint = nil
@@ -441,6 +451,12 @@ final class SettingsStore: ObservableObject {
         }
     }
 
+    /// Stored or imported miniature volume, kept within 0…100 (missing → 50 %).
+    private static func clampedVolume(_ value: Double?) -> Double {
+        guard let value, value.isFinite else { return defaultMiniatureVolume }
+        return min(max(value, 0), 100)
+    }
+
     private func currentPersistedSettings() -> PersistedSettings {
         PersistedSettings(
             installationId: installationId,
@@ -477,7 +493,8 @@ final class SettingsStore: ObservableObject {
             muteLong: muteLong,
             appearance: appearance,
             protectConsoleName: protectConsoleName,
-            popupLayoutMode: popupLayoutMode
+            popupLayoutMode: popupLayoutMode,
+            miniatureVolume: miniatureVolume
         )
     }
 
@@ -572,6 +589,7 @@ final class SettingsStore: ObservableObject {
             muteLong: muteLong,
             appearance: appearance,
             popupLayoutMode: popupLayoutMode,
+            miniatureVolume: miniatureVolume,
             mappings: mappingValues,
             actions: actionValues
         )
@@ -793,6 +811,7 @@ final class SettingsStore: ObservableObject {
         muteLong = saved.muteLong ?? muteLong
         appearance = saved.appearance ?? appearance
         popupLayoutMode = saved.popupLayoutMode ?? popupLayoutMode
+        if let volume = saved.miniatureVolume { miniatureVolume = Self.clampedVolume(volume) }
         launchAtLogin = saved.launchAtLogin
         // Never trust a pin from a file. A different console means the stored
         // API key must not be sent there: drop key and pin, setup must be re-run.

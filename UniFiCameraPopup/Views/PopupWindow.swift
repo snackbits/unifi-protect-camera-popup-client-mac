@@ -626,6 +626,12 @@ final class PopupWindow: NSPanel {
         if !isMiniature { scheduleAutoClose(after: autoCloseSeconds) }
     }
 
+    /// Miniature: playback volume 0…1 (compact: the setting, expanded: 1), ramped over `duration`.
+    func setPlaybackVolume(_ level: Double, duration: TimeInterval = 0) {
+        guard isMiniature else { return }
+        playerView.setVolume(level, duration: duration)
+    }
+
     /// Miniature: the auto-close time runs from now on – called when the card starts sliding in,
     /// so time spent waiting for the first picture does not count.
     func startAutoClose() {

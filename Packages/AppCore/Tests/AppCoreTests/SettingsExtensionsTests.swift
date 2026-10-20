@@ -12,6 +12,7 @@ final class SettingsExtensionsTests: XCTestCase {
             muteLong: MuteDuration(value: 2, unit: .hours),
             appearance: .dark,
             popupLayoutMode: .full,
+            miniatureVolume: 35,
             mappings: ["A": .init(protectCameraId: "cam", triggers: ["ring"], webhookTriggerEnabled: false, chimeOnOpen: true)],
             actions: ["X": .init(icon: "door", confirmBeforeRun: true)]
         )
@@ -37,9 +38,17 @@ final class SettingsExtensionsTests: XCTestCase {
         XCTAssertNil(decoded.protectHost)
         XCTAssertEqual(decoded.appearance, .dark)
         XCTAssertNil(decoded.popupLayoutMode, "missing → nil, the store falls back to .miniature")
+        XCTAssertNil(decoded.miniatureVolume, "missing → nil, the store falls back to 50 %")
         XCTAssertEqual(decoded.mappings["A"]?.protectCameraId, "cam")
         XCTAssertNil(decoded.mappings["A"]?.chimeOnOpen)
         XCTAssertTrue(decoded.actions.isEmpty)
+    }
+
+    func testBrokenMiniatureVolumeIsDropped() throws {
+        let json = #"{"miniatureVolume":"loud","appearance":"dark"}"#
+        let decoded = try XCTUnwrap(SettingsExtensions.decode(Data(json.utf8)))
+        XCTAssertNil(decoded.miniatureVolume)
+        XCTAssertEqual(decoded.appearance, .dark)
     }
 
     func testPhase5FieldsRoundTripAndStayLenient() throws {

@@ -21,6 +21,7 @@ Reihenfolge der Abschnitte:
    - Ausgewählt: Ring 2,5 pt `accent`. Nicht ausgewählt: Ring 1 pt `border`.
    - Die Grafik folgt Vorschlag A (Farben, Geometrie und Keyframes aus dem Mock, Zyklus 7 s). Das Popup wird durch **Darüberfahren** groß, nicht durch Klick: Der Zeiger bleibt stehen, der Hover-Balken blendet ein und füllt sich, dann wächst das Popup.
    - Bei „Bewegung reduzieren“ steht die Grafik still und zeigt das vergrößerte Popup.
+   - **Lautstärke der Miniatur** (3.1.0, Nutzerwunsch 20.10.2026, 10:38): nur bei gewähltem „Miniatur“, in derselben Karte unter den beiden Optionen (Trennlinie, Schieberegler-Zeile wie „Randabstand“). 0–100 % in 5er-Schritten, Standard 50 %, Wert rechts („50 %“, bei 0 „Aus“). Gilt nur, wenn der Kameraton an ist.
 2. **Darstellung**: „Farbschema“ (bisher „Erscheinungsbild“: System/Hell/Dunkel).
 3. **Popup**: Popup-Position (Links/Rechts, Untertitel „Bildschirmseite für Miniaturen und volle Popups. Der Stapel beginnt oben.“), Bildschirm, Randabstand, Automatisch schließen, Alle aktiven Kameras zeigen.
    Diese Zeilen ziehen aus „Allgemein“ (auch aus „Erweitert“) hierher um. Export und Import bleiben in Allgemein.
@@ -53,6 +54,7 @@ Reihenfolge der Abschnitte:
   - *Keine Vorwarnung* (Nutzerwunsch 19.10.2026, 20:49): Die Miniatur steht still, bis die Linie abgelaufen ist; sie rückt nicht nach außen und ändert ihre Deckkraft nicht. Danach gleitet sie vollständig hinaus (Ausschub).
   - Die Zeit läuft erst ab Beginn des Einschubs; das Warten auf das erste Bild zählt nicht mit (Nutzerwunsch 20.10.2026, 10:33). Löst die Kamera während des Wartens erneut aus, gilt beim Einschub die volle Zeit.
   - Bei Hover oder im großen Zustand pausiert der Timer. Die Linie wird dann wieder weiß.
+- **Lautstärke** (3.1.0): Die kompakte Miniatur spielt mit der eingestellten „Lautstärke der Miniatur“. Wächst sie zum großen Popup, steigt der Ton während des Wachsens linear auf 100 % (300 ms); schrumpft sie, sinkt er ebenso wieder auf den eingestellten Wert. Wird eine andere Miniatur groß, sinkt die bisher große mit. Eine Änderung in den Einstellungen gilt sofort für offene Miniaturen. Bei „Bewegung reduzieren“ springt der Wert ohne Übergang. Das Layout „Voll“ bleibt unverändert.
 - **Bewegung reduzieren**: Kein Gleiten, Skalieren oder Verschieben, Rahmen werden direkt gesetzt. Hover-Balken und Linie bleiben (Fortschrittsanzeigen).
 - „Alle aktiven Kameras zeigen“ aus: Es gibt höchstens eine Miniatur, eine neue Kamera ersetzt sie.
 - Zuschnitt-Auswahl (Crop) öffnet weiter in voller Größe.

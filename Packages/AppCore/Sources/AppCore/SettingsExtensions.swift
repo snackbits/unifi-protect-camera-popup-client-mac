@@ -87,6 +87,8 @@ public struct SettingsExtensions: Codable, Equatable, Sendable {
     public var muteLong: MuteDuration?
     public var appearance: AppearanceMode?
     public var popupLayoutMode: PopupLayoutMode?
+    /// 3.1.0: volume of a compact miniature in percent (0…100); nil = not written yet → 50.
+    public var miniatureVolume: Double?
     /// Mapping entry id → values.
     public var mappings: [String: Mapping]
     /// Action id → values.
@@ -101,6 +103,7 @@ public struct SettingsExtensions: Codable, Equatable, Sendable {
         muteLong: MuteDuration? = nil,
         appearance: AppearanceMode? = nil,
         popupLayoutMode: PopupLayoutMode? = nil,
+        miniatureVolume: Double? = nil,
         mappings: [String: Mapping] = [:],
         actions: [String: Action] = [:]
     ) {
@@ -112,13 +115,14 @@ public struct SettingsExtensions: Codable, Equatable, Sendable {
         self.muteLong = muteLong
         self.appearance = appearance
         self.popupLayoutMode = popupLayoutMode
+        self.miniatureVolume = miniatureVolume
         self.mappings = mappings
         self.actions = actions
     }
 
     private enum CodingKeys: String, CodingKey {
         case protectHost, protectCertificateFingerprint, protectConsoleName
-        case muteSchedule, muteShort, muteLong, appearance, popupLayoutMode, mappings, actions
+        case muteSchedule, muteShort, muteLong, appearance, popupLayoutMode, miniatureVolume, mappings, actions
     }
 
     /// Every field is decoded on its own: one broken value never discards the others.
@@ -132,6 +136,7 @@ public struct SettingsExtensions: Codable, Equatable, Sendable {
         muteLong = (try? c.decodeIfPresent(MuteDuration.self, forKey: .muteLong)) ?? nil
         appearance = (try? c.decodeIfPresent(AppearanceMode.self, forKey: .appearance)) ?? nil
         popupLayoutMode = (try? c.decodeIfPresent(PopupLayoutMode.self, forKey: .popupLayoutMode)) ?? nil
+        miniatureVolume = (try? c.decodeIfPresent(Double.self, forKey: .miniatureVolume)) ?? nil
         mappings = (try? c.decodeIfPresent([String: Mapping].self, forKey: .mappings)) ?? [:]
         actions = (try? c.decodeIfPresent([String: Action].self, forKey: .actions)) ?? [:]
     }

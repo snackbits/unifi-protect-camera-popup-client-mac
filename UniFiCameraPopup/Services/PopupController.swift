@@ -34,6 +34,7 @@ final class PopupController {
     private var screenObserver: NSObjectProtocol?
     private var layoutModeObserver: AnyCancellable?
     private var positionObserver: AnyCancellable?
+    private var volumeObserver: AnyCancellable?
     private lazy var miniatures = MiniatureStackPresenter { [unowned self] in self.miniatureEnvironment() }
 
     private init() {
@@ -50,6 +51,14 @@ final class PopupController {
             .receive(on: RunLoop.main)
             .sink { _ in
                 MainActor.assumeIsolated { PopupController.shared.closePopupsOfOtherLayout() }
+            }
+        // Miniature volume changed: open compact miniatures follow at once.
+        volumeObserver = settings.$miniatureVolume
+            .removeDuplicates()
+            .dropFirst()
+            .receive(on: RunLoop.main)
+            .sink { _ in
+                MainActor.assumeIsolated { PopupController.shared.miniatures.applyVolume() }
             }
         // Default position left/right changed: open miniatures move to the new side at once.
         positionObserver = settings.$defaultPosition
@@ -324,6 +333,7 @@ final class PopupController {
             visible: screen.visibleFrame,
             screenFrame: screen.frame,
             margin: margin,
+            volume: settings.miniatureVolume / 100,
             fullSize: { id in
                 guard let popup = popups.first(where: { $0.id == id }) else { return nil }
                 return settings.mapping(forEntry: popup.entryId)?.popupSize(on: screen, margin: margin) ?? popup.size

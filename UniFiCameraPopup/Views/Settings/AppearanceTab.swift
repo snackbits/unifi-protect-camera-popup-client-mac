@@ -33,6 +33,12 @@ struct AppearanceTab: View {
                     }
                 }
                 .padding(14)
+                // Only for "Miniatur": the expanded popup always plays at 100 %.
+                if settings.popupLayoutMode == .miniature {
+                    CardDivider()
+                    sliderRow("Lautstärke der Miniatur", value: $settings.miniatureVolume, range: 0...100, step: 5,
+                              text: settings.miniatureVolume > 0 ? "\(Int(settings.miniatureVolume)) %" : "Aus")
+                }
             }
         }
     }

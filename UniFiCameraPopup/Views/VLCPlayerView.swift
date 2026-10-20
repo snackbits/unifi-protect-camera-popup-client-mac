@@ -246,6 +246,45 @@ final class VLCPlayerContainerView: NSView, VLCMediaPlayerDelegate {
         player.audio?.isMuted = !enabled
     }
 
+    /// Playback volume 0…1; nil = VLC's own (layout "Voll", never touched).
+    private var volume: Double?
+    private var volumeRamp: Timer?
+
+    /// Layout "Miniatur": sets the volume (0…1), ramping linearly over `duration` (grow/shrink).
+    /// Also before playback starts: it is applied when the stream starts and with the first frame.
+    func setVolume(_ level: Double, duration: TimeInterval = 0) {
+        volumeRamp?.invalidate()
+        volumeRamp = nil
+        let target = min(max(level, 0), 1)
+        let start = volume ?? 1
+        guard duration > 0, abs(target - start) > 0.001 else {
+            applyVolume(target)
+            return
+        }
+        let began = Date()
+        let timer = Timer(timeInterval: 1.0 / 30, repeats: true) { [weak self] timer in
+            MainActor.assumeIsolated {
+                guard let self else {
+                    timer.invalidate()
+                    return
+                }
+                let progress = min(1, Date().timeIntervalSince(began) / duration)
+                self.applyVolume(start + (target - start) * progress)
+                if progress >= 1 {
+                    timer.invalidate()
+                    self.volumeRamp = nil
+                }
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        volumeRamp = timer
+    }
+
+    private func applyVolume(_ level: Double) {
+        volume = level
+        player.audio?.volume = Int32((level * 100).rounded())
+    }
+
     /// Maps the URL onto the current route first. Away and not reachable through the tunnel:
     /// no fallback to the direct address – `onUnavailable` reports it instead.
     private func beginPlayback(urlString: String) {
@@ -280,6 +319,7 @@ final class VLCPlayerContainerView: NSView, VLCMediaPlayerDelegate {
         player.media = media
         player.audio?.isMuted = !soundEnabled
         player.play()
+        if let volume { applyVolume(volume) }
         watchForFirstPicture(of: media)
 
         NSLog("VLC: starting playback for \(url.host ?? "unknown")")
@@ -304,6 +344,9 @@ final class VLCPlayerContainerView: NSView, VLCMediaPlayerDelegate {
                     return
                 }
                 ticks += 1
+                // The audio output may only appear once sound arrives (often before the picture):
+                // keep the miniature's volume on it until then.
+                if let volume = self.volume, self.volumeRamp == nil { self.applyVolume(volume) }
                 let stats = media.statistics
                 let elapsed = Date().timeIntervalSince(started)
                 if stats.displayedPictures > 0 {
@@ -352,6 +395,8 @@ final class VLCPlayerContainerView: NSView, VLCMediaPlayerDelegate {
         pendingURL = nil
         originalURL = nil
         playbackGeneration += 1
+        volumeRamp?.invalidate()
+        volumeRamp = nil
         player.stop()
         player.media = nil
         onFirstFrame = nil
@@ -378,6 +423,7 @@ final class VLCPlayerContainerView: NSView, VLCMediaPlayerDelegate {
     private func notifyFirstFrameIfNeeded() {
         guard !hasNotifiedFirstFrame else { return }
         hasNotifiedFirstFrame = true
+        if let volume, volumeRamp == nil { applyVolume(volume) }
         DispatchQueue.main.async { [weak self] in
             self?.onFirstFrame?()
         }
