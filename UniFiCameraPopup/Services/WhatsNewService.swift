@@ -22,6 +22,10 @@ struct WhatsNewInfo: Equatable {
 enum WhatsNewService {
     /// Newest version first.
     static let changelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "3.0.1", items: [
+            "Per Tastenkombination geöffnete Miniaturen erscheinen sofort – ein kleiner Kreisel zeigt, dass der Stream noch lädt.",
+            "Die Anzeigedauer einer Miniatur beginnt erst, wenn sie hereinfährt – die Linie darunter ist am Anfang wieder voll.",
+        ]),
         ChangelogEntry(version: "3.0.0", items: [
             "Neues Popup-Layout „Miniatur“ (Standard): Kameras erscheinen als kleine Vorschau am Bildschirmrand. Bleibt die Maus kurz darauf, wird das Popup groß – ein kurzer Klick auf die Miniatur schließt sie.",
             "Eine Linie unter der Miniatur zeigt, wie lange sie noch offen bleibt.",

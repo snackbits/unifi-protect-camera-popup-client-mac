@@ -165,7 +165,9 @@ final class PopupController {
 
             if miniature {
                 // Slides in at the bottom of the column, ordered front without stealing focus.
-                miniatures.add(id: popup.id, window: window, fullSize: size)
+                // Hotkey and test come in at once (spinner until the stream runs); a trigger
+                // waits for its first picture.
+                miniatures.add(id: popup.id, window: window, fullSize: size, slidesInAtOnce: !isTrigger)
             } else {
                 relayout()
                 // Show without stealing focus so the user can keep typing in other apps.

@@ -15,6 +15,10 @@ final class PopupWindow: NSPanel {
     private let streamNotice = PopupNoticeView()
     /// Centered while the stream starts; gone with the first frame or when the stream is unreachable.
     private let loadingLabel = NSTextField(labelWithString: "Stream wird geladen …")
+    /// Compact miniature: stands in for the loading text (no room for it), same lifetime.
+    private let loadingSpinner = NSProgressIndicator()
+    /// The stream is starting: no first frame yet, not unreachable, no stills.
+    private var isStreamLoading = true
     /// Stills mode: the stream yields no picture (e.g. AV1), so camera snapshots stand in for it.
     private let stillsNotice = PopupNoticeView()
     private let snapshotSource: (() async -> NSImage?)?
@@ -73,6 +77,8 @@ final class PopupWindow: NSPanel {
     private var isRunningModal = false
     private var clock: AutoCloseClock?
     private var clockPaused = false
+    /// Miniature: the clock runs from the slide-in on (`startAutoClose()`), not from opening.
+    private var clockStarted = false
     /// Width the saved zoom/pan refers to (the popup's full size); nil = as before (Layout "Voll").
     var zoomReferenceWidth: CGFloat?
 
@@ -160,11 +166,13 @@ final class PopupWindow: NSPanel {
             guard let self else { return }
             self.pictureShown()
             self.stopStills()
+            self.streamLoadingEnded()
             NSAnimationContext.runAnimationGroup { context in
                 context.duration = 0.25
                 self.playerView.animator().alphaValue = 1
                 self.thumbnailView.animator().alphaValue = 0
                 self.loadingLabel.animator().alphaValue = 0
+                self.loadingSpinner.animator().alphaValue = 0
             }
         }
     }
@@ -298,6 +306,8 @@ final class PopupWindow: NSPanel {
 
         content.addSubview(thumbnailView)
         content.addSubview(playerView)
+        // Compact miniature: the spinner instead of the loading text, under the click catcher.
+        if isMiniature { content.addSubview(loadingSpinner) }
         // "Voll" and crop selection: the loading text under the click catcher and the crop
         // selection, the notices above them (they take clicks).
         if !isMiniature { content.addSubview(loadingLabel) }
@@ -318,6 +328,7 @@ final class PopupWindow: NSPanel {
         }
         playerView.onUnavailable = { [weak self] text in
             self?.loadingLabel.isHidden = true
+            self?.streamLoadingEnded()
             self?.streamNotice.show(text)
         }
         // Overlay chrome above everything (the compact miniature hides it).
@@ -330,6 +341,20 @@ final class PopupWindow: NSPanel {
         loadingLabel.font = .systemFont(ofSize: 13, weight: .medium)
         loadingLabel.textColor = NSColor.white.withAlphaComponent(0.75)
         loadingLabel.alignment = .center
+
+        if isMiniature {
+            loadingSpinner.translatesAutoresizingMaskIntoConstraints = false
+            loadingSpinner.style = .spinning
+            loadingSpinner.controlSize = .small
+            loadingSpinner.isDisplayedWhenStopped = false
+            // Light spinner on the black card.
+            loadingSpinner.appearance = NSAppearance(named: .darkAqua)
+            NSLayoutConstraint.activate([
+                loadingSpinner.centerXAnchor.constraint(equalTo: content.centerXAnchor),
+                loadingSpinner.centerYAnchor.constraint(equalTo: content.centerYAnchor),
+            ])
+            loadingSpinner.startAnimation(nil)
+        }
 
         NSLayoutConstraint.activate([
             loadingLabel.centerXAnchor.constraint(equalTo: hintParent.centerXAnchor),
@@ -483,6 +508,7 @@ final class PopupWindow: NSPanel {
     /// talk and buttons keep working). Ends with the first real picture or the popup.
     private func startStills(isAV1: Bool) {
         loadingLabel.isHidden = true
+        streamLoadingEnded()
         stillsNotice.show(isAV1
             ? "Standbilder – AV1 wird nicht unterstützt (Protect: Super Encoding auf „Auto“)"
             : "Standbilder – Livebild nicht abspielbar (Kamera-Einstellung, z. B. AV1?)",
@@ -505,6 +531,13 @@ final class PopupWindow: NSPanel {
         RunLoop.main.add(timer, forMode: .common)
         stillsTimer = timer
         refresh()
+    }
+
+    /// First frame, stream unreachable or stills: the miniature's spinner stops.
+    private func streamLoadingEnded() {
+        guard isStreamLoading else { return }
+        isStreamLoading = false
+        loadingSpinner.stopAnimation(nil)
     }
 
     private func stopStills() {
@@ -589,6 +622,15 @@ final class PopupWindow: NSPanel {
             return event
         }
 
+        // Miniature: the controller starts the clock with the slide-in (`startAutoClose()`).
+        if !isMiniature { scheduleAutoClose(after: autoCloseSeconds) }
+    }
+
+    /// Miniature: the auto-close time runs from now on – called when the card starts sliding in,
+    /// so time spent waiting for the first picture does not count.
+    func startAutoClose() {
+        guard isMiniature, !clockStarted, !isClosing else { return }
+        clockStarted = true
         scheduleAutoClose(after: autoCloseSeconds)
     }
 
@@ -684,6 +726,8 @@ final class PopupWindow: NSPanel {
     func setCompact(_ compact: Bool, animated: Bool) {
         guard isMiniature else { return }
         isCompact = compact
+        // Compact: the spinner while loading; full: the loading text in the hint layer.
+        loadingSpinner.isHidden = !compact
         if compact {
             muteMenu?.isHidden = true
             _ = talkControls?.closeMenu()
@@ -876,6 +920,8 @@ final class PopupWindow: NSPanel {
 
     func extendAutoClose(seconds: Double) {
         autoCloseSeconds = seconds
+        // Miniature not slid in yet: the full time starts with the slide-in anyway.
+        if isMiniature, !clockStarted { return }
         scheduleAutoClose(after: seconds)
     }
 

@@ -56,9 +56,11 @@ final class MiniatureStackPresenter {
     // MARK: Opening and closing
 
     /// A new miniature at the bottom of the column: the card slides in one piece from beyond the
-    /// screen edge (300 ms ease-out) – once a picture is shown, at the latest after 3 s. Until the
-    /// card is in place the window is empty or wider and ignores the pointer.
-    func add(id: UUID, window: PopupWindow, fullSize: CGSize) {
+    /// screen edge (300 ms ease-out) – once a picture is shown, at the latest after 3 s; with
+    /// `slidesInAtOnce` (hotkey, test) right away, the spinner shows until the stream runs. Until
+    /// the card is in place the window is empty or wider and ignores the pointer. The auto-close
+    /// time starts with the slide-in.
+    func add(id: UUID, window: PopupWindow, fullSize: CGSize, slidesInAtOnce: Bool = false) {
         let env = environment()
         syncEnvironment(env, instant: true)
 
@@ -86,9 +88,10 @@ final class MiniatureStackPresenter {
         // Show without stealing focus so the user can keep typing in other apps.
         window.orderFrontRegardless()
         indicator.orderFrontRegardless()
-        window.whenPictureShown(timeout: Self.pictureTimeout) { [weak self, weak window] in
+        let slideIn = { [weak self, weak window] in
             guard let self, let window, self.stack.phase(of: id) != nil, self.stack.phase(of: id) != .leaving else { return }
             self.entries[id]?.isWaitingForPicture = false
+            window.startAutoClose()
             window.slideCard(in: true, curve: Self.slideIn, animated: !self.reduceMotion) { [weak self, weak window] in
                 guard let self, let window, self.entries[id] != nil else { return }
                 self.entries[id]?.isSlidingIn = false
@@ -96,6 +99,11 @@ final class MiniatureStackPresenter {
                 // The column may have moved meanwhile.
                 if let target = self.stack.frame(of: id), window.frame != target { self.apply([id: target]) }
             }
+        }
+        if slidesInAtOnce {
+            slideIn()
+        } else {
+            window.whenPictureShown(timeout: Self.pictureTimeout, slideIn)
         }
         apply(frames)
         startTicking()
