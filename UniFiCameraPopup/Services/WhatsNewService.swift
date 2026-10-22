@@ -22,6 +22,9 @@ struct WhatsNewInfo: Equatable {
 enum WhatsNewService {
     /// Newest version first.
     static let changelog: [ChangelogEntry] = [
+        ChangelogEntry(version: "3.1.1", items: [
+            "Eine Miniatur fährt nach Ablauf ihrer Anzeigedauer wieder glatt zur Seite hinaus – sie rutscht vorher nicht mehr kurz nach unten.",
+        ]),
         ChangelogEntry(version: "3.1.0", items: [
             "Neu unter Erscheinungsbild: Lautstärke der Miniatur (Standard 50 %). Wird die Miniatur groß, steigt der Ton sanft auf 100 % – und sinkt beim Verkleinern wieder.",
         ]),

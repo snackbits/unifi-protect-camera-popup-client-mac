@@ -824,6 +824,8 @@ final class PopupWindow: NSPanel {
         let beyond = NSPoint(x: side == .leading ? -(base.width + room) : wide.width + room, y: home.y)
         slide = (base, home, beyond)
         slideToken += 1
+        // A slide still running (closed while sliding in) stops; its completion sees the old token.
+        card.layer?.removeAnimation(forKey: Self.slideAnimationKey)
 
         hasShadow = false
         card.autoresizingMask = []
@@ -862,23 +864,34 @@ final class PopupWindow: NSPanel {
             if slidingIn { self.endSlide() }
             completion()
         }
-        guard animated else {
+        guard animated, let layer = card.layer else {
             card.setFrameOrigin(target)
             finish()
             return
         }
-        // Next pass: the card layer has taken its new place, the animation starts from there.
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            NSAnimationContext.runAnimationGroup({ context in
-                context.duration = MiniatureTiming.move
-                context.timingFunction = curve
-                self.card.animator().setFrameOrigin(target)
-            }, completionHandler: {
-                MainActor.assumeIsolated { finish() }
-            })
+        // Explicit start and end: AppKit hands the card's new place from `prepareSlide` to its
+        // layer only with its next layout pass. An implicit animation started before that runs
+        // from the layer's old place – the corner of the narrow window, 16 pt lower – and the
+        // card visibly drops before it slides out.
+        let size = card.frame.size
+        let position = { (origin: NSPoint) in
+            CGPoint(x: origin.x + layer.anchorPoint.x * size.width, y: origin.y + layer.anchorPoint.y * size.height)
         }
+        let animation = CABasicAnimation(keyPath: "position")
+        animation.fromValue = NSValue(point: position(card.frame.origin))
+        animation.toValue = NSValue(point: position(target))
+        animation.duration = MiniatureTiming.move
+        animation.timingFunction = curve
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        CATransaction.setCompletionBlock { MainActor.assumeIsolated { finish() } }
+        card.setFrameOrigin(target)
+        layer.position = position(target)
+        layer.add(animation, forKey: Self.slideAnimationKey)
+        CATransaction.commit()
     }
+
+    private static let slideAnimationKey = "slide"
 
     /// Back to the miniature frame without a visible jump: the window shrinks to the card.
     private func endSlide() {
