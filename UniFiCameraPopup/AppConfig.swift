@@ -16,7 +16,7 @@ enum AppConfig {
 
     /// Internal release counter, incremented by `scripts/build-release.sh`. Not shown in the UI;
     /// the update check compares it with `version.json` (installed versions rely on it).
-    static let buildNumber = 44
+    static let buildNumber = 45
 
     /// Semantic app version (`MARKETING_VERSION`), raised manually per release.
     /// Used for the "Was ist neu" popup after an update.
@@ -27,7 +27,7 @@ enum AppConfig {
     /// Build identifier, rewritten by `scripts/build-release.sh` on every release.
     /// Must match the server's `versionId`; otherwise the server rejects the
     /// connection and the app shows an "outdated version" warning.
-    static let buildVersionId = "c2576c21-3d01-4a14-a85a-af888bc1bab3"
+    static let buildVersionId = "1f2892e3-7fda-4b29-91ef-b4e5312d5bc9"
 
     /// HTTPS address of the update manifest (`version.json`, a static file on snackbits.dev).
     /// The app polls this to detect whether a newer build is available.
