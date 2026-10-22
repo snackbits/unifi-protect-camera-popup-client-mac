@@ -7,8 +7,8 @@ cd "$SCRIPT_DIR/.."
 # ---------------------------------------------------------------------------
 # Configuration (override via environment)
 # ---------------------------------------------------------------------------
-# Fixed public URL for the app update archive (served by nginx from server/public/).
-DOWNLOAD_URL="${DOWNLOAD_URL:-https://unifi-protect-camera-popup-server.snackbits.dev/app.zip}"
+# Fixed public URL for the app update archive (snackbits.dev, uploaded by deploy-release.sh).
+DOWNLOAD_URL="${DOWNLOAD_URL:-https://snackbits.dev/apps/unifi-camera-popup/app.zip}"
 
 PRIVATE_KEY_FILE="${SCRIPT_DIR}/update_private_key.txt"
 SERVER_PUBLIC_DIR="../../server/public"

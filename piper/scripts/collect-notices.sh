@@ -51,7 +51,7 @@ section() {
   echo "  spdlog 1.12.0                https://github.com/gabime/spdlog/archive/refs/tags/v1.12.0.tar.gz"
   echo "Prüfsummen und Build-Befehle: Contents/Resources/piper/build-scripts/fetch.sh und build-piper.sh."
   echo "Spiegel dieser Quell-Archive und Build-Skripte (GPL-Quellcode-Angebot), abgelegt neben der App-Datei app.zip auf dem Update-Server:"
-  echo "  https://unifi-protect-camera-popup-server.snackbits.dev/piper-source/2023.11.14-2/"
+  echo "  https://snackbits.dev/apps/unifi-camera-popup/piper-source/2023.11.14-2/"
   echo
   echo "Stimmen (rhasspy/piper-voices, Stand c10ece1aade47bb51c153c893d14e5bf8e5b7117, Modelle MIT):"
   echo "  Thorsten (niedrig, mittel, hoch), Thorsten emotional – Datensatz Thorsten-Voice, CC0 1.0"

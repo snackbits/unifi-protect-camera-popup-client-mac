@@ -3,7 +3,7 @@ import Combine
 import CryptoKit
 import Foundation
 
-/// Manifest served by the relay server at `AppConfig.updateManifestURL`
+/// Manifest at `AppConfig.updateManifestURL` on snackbits.dev
 /// (the same file as `server/version.json`, written by `build-release.sh`).
 struct UpdateManifest: Decodable {
     let versionId: String

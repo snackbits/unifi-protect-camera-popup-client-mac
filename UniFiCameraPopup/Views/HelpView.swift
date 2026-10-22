@@ -229,7 +229,7 @@ struct HelpView: View {
                  + "Den Quellcode der GPL-Teile samt Build-Skripten gibt es neben der App-Datei auf dem Update-Server. "
                  + "Die genauen Upstream-Adressen, die Lizenzen jeder Stimme und alle Lizenztexte stehen unten.")
                 .fixedSize(horizontal: false, vertical: true)
-            if let mirror = URL(string: "https://unifi-protect-camera-popup-server.snackbits.dev/piper-source/2023.11.14-2/") {
+            if let mirror = URL(string: "https://snackbits.dev/apps/unifi-camera-popup/piper-source/2023.11.14-2/") {
                 Link("Quellcode-Spiegel öffnen …", destination: mirror)
             }
             Button("Hinweise zu onnxruntime öffnen …") {

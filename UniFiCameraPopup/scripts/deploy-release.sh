@@ -1,9 +1,15 @@
 #!/bin/bash
-# Puts a finished release (from build-release.sh) on the update server and checks it live:
-#   version.json, public/app.zip, public/UniFi-Camera-Popup.dmg, public/piper-source/
-# These files are not in the server's git (too big, they change every release) – they are
-# uploaded with rsync. Server code (src/, nginx/, scripts/) still goes through git: commit and
-# push it in server/ first, this script then runs the server's pull-and-chown.sh.
+# Puts a finished release (from build-release.sh) online and checks it live:
+#   snackbits.dev/apps/unifi-camera-popup/: version.json, app.zip, UniFi-Camera-Popup.dmg,
+#     piper-source/ (static files, nginx of snackbits.dev serves them from RELEASE_DIR)
+#   relay server (unifi-protect-camera-popup-server.snackbits.dev): version.json – its versionId
+#     decides which app builds the relay accepts.
+# Until the old download routes on the relay subdomain are switched off (LEGACY=0, from
+# 2026-11-05), app.zip, the DMG and piper-source/ go there too: installed apps up to 3.1.0 poll
+# its /version.
+# The files are not in the server's git (too big, they change every release) – they are uploaded
+# with rsync. Server code (src/, nginx/, scripts/) still goes through git: commit and push it in
+# server/ first, this script then runs the server's pull-and-chown.sh.
 #
 # Usage: scripts/deploy-release.sh [--dry-run] [--nginx [--yes]]
 #   --dry-run  checks everything locally and prints the steps, changes nothing
@@ -18,6 +24,10 @@ SSH_HOST="${SSH_HOST:-snackbits}"
 REMOTE_DIR="${REMOTE_DIR:-/var/www/snackbits.dev/subdomains/unifi-protect-camera-popup-server}"
 REMOTE_OWNER="${REMOTE_OWNER:-snackbitsdev:snackbitsdev}"
 BASE_URL="${BASE_URL:-https://unifi-protect-camera-popup-server.snackbits.dev}"
+RELEASE_DIR="${RELEASE_DIR:-/var/www/snackbits.dev/releases/apps/unifi-camera-popup}"
+RELEASE_URL="${RELEASE_URL:-https://snackbits.dev/apps/unifi-camera-popup}"
+# 1 = also serve app.zip, DMG and piper-source/ from the relay subdomain (transition, see above).
+LEGACY="${LEGACY:-1}"
 NGINX_SITE="/etc/nginx/sites-available/unifi-protect-camera-popup-server.snackbits.dev"
 
 SERVER_DIR="../../server"
@@ -76,7 +86,8 @@ if [[ -n "$(git -C "$SERVER_DIR" rev-list '@{u}..HEAD')" ]]; then
   fail "server/ has commits that are not pushed – push them first, the server pulls from the remote."
 fi
 
-echo "Release ${SHORT} (build ${BUILD}) → ${SSH_HOST}:${REMOTE_DIR}"
+echo "Release ${SHORT} (build ${BUILD}) → ${SSH_HOST}:${RELEASE_DIR} (+ version.json → ${REMOTE_DIR})"
+(( LEGACY )) && echo "  legacy: app.zip, DMG and piper-source/ also → ${REMOTE_DIR}/public"
 (( DRY_RUN )) && echo "(dry run – nothing is changed)"
 
 # ---------------------------------------------------------------------------
@@ -91,10 +102,16 @@ run ssh -n "$SSH_HOST" "cd '${REMOTE_DIR}' \
   ./scripts/pull-and-chown.sh; status=\$?; \
   for f in version.json public/app.zip; do [ -f \"\$f\" ] || { [ -f \"\$f.keep\" ] && mv \"\$f.keep\" \"\$f\"; }; rm -f \"\$f.keep\"; done; \
   exit \$status"
-run rsync -a --delete "${PIPER_SRC}/" "${SSH_HOST}:${REMOTE_DIR}/public/piper-source/"
-run rsync -a "$ZIP" "$DMG" "${SSH_HOST}:${REMOTE_DIR}/public/"
+run ssh -n "$SSH_HOST" "mkdir -p '${RELEASE_DIR}'"
+run rsync -a --delete "${PIPER_SRC}/" "${SSH_HOST}:${RELEASE_DIR}/piper-source/"
+run rsync -a "$ZIP" "$DMG" "${SSH_HOST}:${RELEASE_DIR}/"
+if (( LEGACY )); then
+  run rsync -a --delete "${PIPER_SRC}/" "${SSH_HOST}:${REMOTE_DIR}/public/piper-source/"
+  run rsync -a "$ZIP" "$DMG" "${SSH_HOST}:${REMOTE_DIR}/public/"
+fi
+run rsync -a "$VERSION_FILE" "${SSH_HOST}:${RELEASE_DIR}/version.json"
 run rsync -a "$VERSION_FILE" "${SSH_HOST}:${REMOTE_DIR}/version.json"
-run ssh -n "$SSH_HOST" "chown -R '${REMOTE_OWNER}' '${REMOTE_DIR}/public' '${REMOTE_DIR}/version.json'"
+run ssh -n "$SSH_HOST" "chown -R '${REMOTE_OWNER}' '${RELEASE_DIR}' '${REMOTE_DIR}/public' '${REMOTE_DIR}/version.json'"
 
 if (( NGINX )); then
   GENERATED="$(mktemp)"
@@ -125,21 +142,33 @@ fi
 # ---------------------------------------------------------------------------
 LIVE="$(mktemp -d)"
 trap 'rm -rf "$LIVE"' EXIT
-curl -fsS "${BASE_URL}/version" -o "${LIVE}/version.json" || fail "GET /version failed."
-[[ "$(json buildNumber "${LIVE}/version.json")" == "$BUILD" ]] \
-  || fail "/version still reports build $(json buildNumber "${LIVE}/version.json") instead of ${BUILD}."
-curl -fsS "${BASE_URL}/app.zip" -o "${LIVE}/app.zip" || fail "GET /app.zip failed."
-[[ "$(shasum -a 256 "${LIVE}/app.zip" | awk '{print $1}')" == "$SHA" ]] \
-  || fail "the live app.zip does not match version.json."
-DMG_SIZE="$(curl -fsSI "${BASE_URL}/UniFi-Camera-Popup.dmg" | awk 'tolower($1)=="content-length:" {print $2}' | tr -d '\r')"
-[[ "$DMG_SIZE" == "$(stat -f %z "$DMG")" ]] \
-  || fail "GET /UniFi-Camera-Popup.dmg does not serve the new DMG (size ${DMG_SIZE:-none}) – is the nginx location installed? (--nginx)"
-curl -fsSI "${BASE_URL}/piper-source/2023.11.14-2/" >/dev/null || fail "GET /piper-source/ failed – is the nginx location installed? (--nginx)"
+# check_files <manifest url> <base url>: manifest, app.zip, DMG and source mirror as users get them.
+check_files() {
+  curl -fsS "$1" -o "${LIVE}/version.json" || fail "GET $1 failed."
+  [[ "$(json buildNumber "${LIVE}/version.json")" == "$BUILD" ]] \
+    || fail "$1 still reports build $(json buildNumber "${LIVE}/version.json") instead of ${BUILD}."
+  curl -fsS "$2/app.zip" -o "${LIVE}/app.zip" || fail "GET $2/app.zip failed."
+  [[ "$(shasum -a 256 "${LIVE}/app.zip" | awk '{print $1}')" == "$SHA" ]] \
+    || fail "$2/app.zip does not match version.json."
+  local size
+  size="$(curl -fsSI "$2/UniFi-Camera-Popup.dmg" | awk 'tolower($1)=="content-length:" {print $2}' | tr -d '\r')"
+  [[ "$size" == "$(stat -f %z "$DMG")" ]] \
+    || fail "$2/UniFi-Camera-Popup.dmg does not serve the new DMG (size ${size:-none})."
+  curl -fsSI "$2/piper-source/2023.11.14-2/" >/dev/null || fail "GET $2/piper-source/ failed – is the nginx location installed?"
+}
+check_files "${RELEASE_URL}/version.json" "$RELEASE_URL"
+if (( LEGACY )); then
+  check_files "${BASE_URL}/version" "$BASE_URL"
+else
+  curl -fsS "${BASE_URL}/version" -o "${LIVE}/relay.json" || fail "GET ${BASE_URL}/version failed."
+  [[ "$(json buildNumber "${LIVE}/relay.json")" == "$BUILD" ]] || fail "the relay still has build $(json buildNumber "${LIVE}/relay.json")."
+fi
 
 echo ""
 echo "Live: ${SHORT} (build ${BUILD})"
-echo "  ${BASE_URL}/version"
-echo "  ${BASE_URL}/app.zip"
-echo "  ${BASE_URL}/UniFi-Camera-Popup.dmg"
+echo "  ${RELEASE_URL}/version.json"
+echo "  ${RELEASE_URL}/app.zip"
+echo "  ${RELEASE_URL}/UniFi-Camera-Popup.dmg"
+echo "  relay: ${BASE_URL}/version$( (( LEGACY )) && echo " (+ legacy app.zip, DMG, piper-source/)")"
 echo ""
 echo "Now record the release in app/: git add UniFiCameraPopup/AppConfig.swift && git commit -m \"Release ${SHORT} (build ${BUILD})\""
